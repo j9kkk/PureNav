@@ -31,6 +31,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test
+        run: npm test -w @purenav/server
+
       - name: Build web
         run: npm run build -w @purenav/web
 

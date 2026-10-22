@@ -107,10 +107,15 @@ npm run dev:web      # http://127.0.0.1:5173，已代理 API 到 8080
 首次启动无账号时，打开 `/admin` 会进入初始化流程。
 
 ```bash
-npm run typecheck    # 前后端类型检查
+npm run typecheck    # 前后端类型检查（含测试文件）
+npm test             # 服务端集成测试
 npm run build        # 构建 web + server
 docker build -t purenav:local .
 ```
+
+测试用 Node 内置 `node:test`，不引入额外依赖。覆盖认证边界、内网地址隔离、排序幂等性与集合校验、上传魔数/超限/格式限制、路径穿越。
+
+> 由于数据库连接是模块级单例，每个测试文件运行在独立进程中、文件内共享一个 app 实例，测试数据通过独立分组隔离而非重置数据库。
 
 ## 发布
 
@@ -147,7 +152,7 @@ docs/
 - 密码使用 Node 内置 scrypt 加盐哈希；会话只存 token 的 SHA-256，Cookie 为 `HttpOnly` + `SameSite=Lax`
 - 所有非 GET 请求校验 `Origin` 同源；登录失败 10 次锁定 15 分钟
 - 全站 CSP、`X-Frame-Options: DENY`、`nosniff`
-- 站外地址仅接受 `http/https`；上传图标校验 magic bytes
+- 站外地址仅接受 `http/https`；上传图标校验 magic bytes，且**不接受 SVG**（用户上传的 SVG 会带脚本在我们的 origin 下执行，净化难以做全，位图足够覆盖图标场景）
 - **内网地址不会出现在匿名接口**：`/public/config` 永远不含 `lan_url`，仅 `/public/config/admin` 在会话校验后下发，且响应带 `no-store`
 
 ## License

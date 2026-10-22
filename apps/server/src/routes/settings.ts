@@ -276,11 +276,15 @@ function toNetscapeBookmarks(groups: ExportGroup[], items: ExportItem[]): string
   return lines.join('\n');
 }
 
+/**
+ * SVG is deliberately excluded. Serving user-supplied SVG from our own origin means
+ * any embedded script or external reference runs in our context, and sanitising SVG
+ * correctly is a moving target. Bitmap formats cover every icon use case here.
+ */
 const ALLOWED_MIME = new Map<string, string>([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
   ['image/webp', 'webp'],
-  ['image/svg+xml', 'svg'],
 ]);
 
 const MAX_UPLOAD_BYTES = 512 * 1024;
@@ -299,7 +303,7 @@ export async function assetUploadRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const ext = ALLOWED_MIME.get(file.mimetype);
-    if (!ext) throw new ApiError(422, 'VALIDATION_FAILED', '仅支持 png/jpeg/webp/svg');
+    if (!ext) throw new ApiError(422, 'VALIDATION_FAILED', '仅支持 png/jpeg/webp');
 
     // Magic-byte check: never trust the declared Content-Type alone.
     if (!looksLike(file.mimetype, buffer)) {
@@ -339,19 +343,23 @@ export async function assetReadRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-function looksLike(mime: string, buffer: Buffer): boolean {
+/**
+ * Magic-byte check. The declared MIME is only a hint; the bytes decide. Kept in sync
+ * with ALLOWED_MIME — any format absent here is rejected regardless of its label.
+ */
+export function looksLike(mime: string, buffer: Buffer): boolean {
   if (mime === 'image/png') {
-    return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   }
   if (mime === 'image/jpeg') {
-    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
   }
   if (mime === 'image/webp') {
-    return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
-  }
-  if (mime === 'image/svg+xml') {
-    const head = buffer.subarray(0, 512).toString('utf8').toLowerCase();
-    return head.includes('<svg');
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
   }
   return false;
 }

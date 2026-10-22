@@ -479,14 +479,14 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   <input
                     id="f-icon-file"
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (file) void uploadIcon(file);
                     }}
                   />
                 </div>
-                <span className="hint">PNG / JPEG / WebP / SVG，不超过 512KB。</span>
+                <span className="hint">PNG / JPEG / WebP，不超过 512KB。</span>
               </div>
             )}
 
