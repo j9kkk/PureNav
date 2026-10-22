@@ -285,7 +285,7 @@ const ALLOWED_MIME = new Map<string, string>([
 
 const MAX_UPLOAD_BYTES = 512 * 1024;
 
-export async function assetRoutes(app: FastifyInstance): Promise<void> {
+export async function assetUploadRoutes(app: FastifyInstance): Promise<void> {
   app.post('/admin/icons/upload', async (req, reply) => {
     assertSameOrigin(req);
     const user = requireAdmin(req);
@@ -319,7 +319,10 @@ export async function assetRoutes(app: FastifyInstance): Promise<void> {
     audit(user.id, 'asset.upload', 'asset', assetId, { size: buffer.byteLength, mime: file.mimetype }, req.ip);
     return reply.status(201).send({ assetId, url: `/uploads/${storageKey}` });
   });
+}
 
+/** Served from the site root so icon URLs stay short and CDN-cacheable. */
+export async function assetReadRoutes(app: FastifyInstance): Promise<void> {
   app.get('/uploads/:key', async (req, reply) => {
     const { key } = req.params as { key: string };
     const storageKey = path.basename(key);

@@ -67,6 +67,23 @@ export const api = {
   settings: () => request<Record<string, unknown>>('/admin/settings'),
   updateSettings: (body: Record<string, unknown>) =>
     request<Record<string, unknown>>('/admin/settings', { method: 'PATCH', body: JSON.stringify(body) }),
+
+  uploadIcon: async (file: File): Promise<{ assetId: string; url: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    // No Content-Type header: the browser must set the multipart boundary itself.
+    const response = await fetch(`${BASE}/admin/icons/upload`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: form,
+    });
+    const text = await response.text();
+    const payload = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      throw new ApiError(response.status, payload?.error?.code ?? 'UNKNOWN', payload?.error?.message ?? '上传失败');
+    }
+    return payload as { assetId: string; url: string };
+  },
 };
 
 export interface AdminGroupDto {

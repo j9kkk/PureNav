@@ -491,6 +491,40 @@ button {
   color: var(--text-muted);
 }
 
+.icon-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-preview {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-solid);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.icon-preview img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.icon-upload input[type='file'] {
+  font-size: 13px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+}
+
 .error-text {
   color: #dc2626;
   font-size: 13px;

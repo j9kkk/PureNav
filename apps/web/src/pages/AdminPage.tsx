@@ -15,8 +15,10 @@ interface ItemForm {
   url: string;
   lanUrl: string;
   description: string;
-  iconType: 'auto' | 'url' | 'iconify' | 'text';
+  iconType: 'auto' | 'url' | 'iconify' | 'text' | 'asset';
   iconRef: string;
+  iconAssetId: string;
+  iconPreview: string;
   tags: string;
 }
 
@@ -28,6 +30,8 @@ const EMPTY_FORM = (groupId: string): ItemForm => ({
   description: '',
   iconType: 'auto',
   iconRef: '',
+  iconAssetId: '',
+  iconPreview: '',
   tags: '',
 });
 
@@ -129,9 +133,11 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         .map((tag) => tag.trim())
         .filter(Boolean),
       icon:
-        form.iconType === 'url' || form.iconType === 'iconify'
-          ? { type: form.iconType, ref: form.iconRef.trim() }
-          : { type: form.iconType },
+        form.iconType === 'asset'
+          ? { type: 'asset', assetId: form.iconAssetId }
+          : form.iconType === 'url' || form.iconType === 'iconify'
+            ? { type: form.iconType, ref: form.iconRef.trim() }
+            : { type: form.iconType },
     };
 
     try {
@@ -194,6 +200,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   };
 
   const openEdit = (item: AdminItemDto) => {
+    const isAsset = item.icon.type === 'asset';
     setForm({
       id: item.id,
       groupId: item.groupId,
@@ -201,10 +208,23 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       url: item.url,
       lanUrl: item.lanUrl ?? '',
       description: item.description ?? '',
-      iconType: item.icon.type === 'asset' ? 'auto' : (item.icon.type as ItemForm['iconType']),
+      iconType: item.icon.type as ItemForm['iconType'],
       iconRef: item.icon.ref ?? '',
+      iconAssetId: item.icon.assetId ?? '',
+      iconPreview: isAsset ? (item.icon.ref ?? '') : '',
       tags: item.tags.join(', '),
     });
+  };
+
+  const uploadIcon = async (file: File) => {
+    if (!form) return;
+    try {
+      const asset = await api.uploadIcon(file);
+      setForm({ ...form, iconType: 'asset', iconAssetId: asset.assetId, iconPreview: asset.url });
+      flash('图标已上传');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '上传失败');
+    }
   };
 
   const visibleGroups = activeGroup ? groups.filter((group) => group.id === activeGroup) : groups;
@@ -379,6 +399,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   <option value="auto">自动抓取</option>
                   <option value="url">图片地址</option>
                   <option value="iconify">Iconify</option>
+                  <option value="asset">上传图片</option>
                   <option value="text">文字首字母</option>
                 </select>
               </div>
@@ -393,6 +414,27 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   placeholder={form.iconType === 'iconify' ? 'mdi:github' : 'https://.../logo.png'}
                   onChange={(event) => setForm({ ...form, iconRef: event.target.value })}
                 />
+              </div>
+            )}
+
+            {form.iconType === 'asset' && (
+              <div className="field">
+                <label htmlFor="f-icon-file">图标文件</label>
+                <div className="icon-upload">
+                  <span className="icon-preview">
+                    {form.iconPreview ? <img src={form.iconPreview} alt="" /> : '—'}
+                  </span>
+                  <input
+                    id="f-icon-file"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void uploadIcon(file);
+                    }}
+                  />
+                </div>
+                <span className="hint">PNG / JPEG / WebP / SVG，不超过 512KB。</span>
               </div>
             )}
 

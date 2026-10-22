@@ -13,7 +13,7 @@ import { publicRoutes } from './routes/public.js';
 import { authRoutes } from './routes/auth.js';
 import { groupRoutes } from './routes/groups.js';
 import { itemRoutes } from './routes/items.js';
-import { settingsRoutes, assetRoutes } from './routes/settings.js';
+import { settingsRoutes, assetUploadRoutes, assetReadRoutes } from './routes/settings.js';
 
 const app = Fastify({
   logger: { level: config.logLevel },
@@ -105,11 +105,12 @@ await app.register(
     await api.register(groupRoutes);
     await api.register(itemRoutes);
     await api.register(settingsRoutes);
+    await api.register(assetUploadRoutes);
   },
   { prefix: '/api/v1' },
 );
 
-await app.register(assetRoutes);
+await app.register(assetReadRoutes);
 
 // Serve the built SPA when present; API routes above take precedence.
 const hasWebDist = fs.existsSync(path.join(config.webDistDir, 'index.html'));
