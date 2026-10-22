@@ -26,6 +26,119 @@ interface ItemForm {
   openInNewTab: boolean;
 }
 
+function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
+  let src: string | null = null;
+  if (item.icon.type === 'asset' && item.icon.ref) src = item.icon.ref;
+  else if (item.icon.type === 'url' && item.icon.ref) src = item.icon.ref;
+  else if (item.icon.type === 'iconify' && item.icon.ref) {
+    src = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg`;
+  } else if (item.icon.type === 'auto') {
+    try {
+      const host = new URL(item.url).hostname;
+      src = `https://icons.duckduckgo.com/ip3/${host}.ico`;
+    } catch {
+      src = null;
+    }
+  }
+
+  const initial = item.title.trim().slice(0, 1).toUpperCase() || '·';
+
+  return (
+    <span className="admin-item-icon">
+      {initial}
+      {src && <img src={src} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+    </span>
+  );
+}
+
+function ItemActions({
+  item,
+  canMove,
+  onMove,
+  onEdit,
+  onToggle,
+  onRemove,
+}: {
+  item: AdminItemDto;
+  canMove: boolean;
+  onMove: (delta: -1 | 1) => void;
+  onEdit: () => void;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = () => setOpen(false);
+    window.addEventListener('click', onDocClick);
+    return () => window.removeEventListener('click', onDocClick);
+  }, [open]);
+
+  return (
+    <div className="action-cell">
+      <button className="btn btn-sm" onClick={onEdit}>
+        编辑
+      </button>
+      <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={() => setOpen((cur) => !cur)}
+          aria-expanded={open}
+          title="更多操作"
+        >
+          ···
+        </button>
+        {open && (
+          <div className="dropdown-menu pn-fade">
+            {canMove && (
+              <>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setOpen(false);
+                    onMove(-1);
+                  }}
+                >
+                  ↑ 上移一位
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setOpen(false);
+                    onMove(1);
+                  }}
+                >
+                  ↓ 下移一位
+                </button>
+                <div className="dropdown-divider" />
+              </>
+            )}
+            <button
+              className="dropdown-item"
+              onClick={() => {
+                setOpen(false);
+                onToggle();
+              }}
+            >
+              {item.enabled ? '停用此项' : '启用此项'}
+            </button>
+            <button
+              className="dropdown-item dropdown-item-danger"
+              onClick={() => {
+                setOpen(false);
+                onRemove();
+              }}
+            >
+              删除站点
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const EMPTY_FORM = (groupId: string): ItemForm => ({
   groupId,
   title: '',
@@ -517,7 +630,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           </div>
         )}
 
-        <table className="table">
+        <table className="table admin-table">
           <thead>
             <tr>
               <th style={{ width: 34 }} aria-label="排序" />
@@ -531,11 +644,11 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   }}
                 />
               </th>
-              <th>标题</th>
-              <th>地址</th>
+              <th style={{ width: 44 }}>图标</th>
+              <th>站点</th>
               <th>分组</th>
               <th>标签</th>
-              <th style={{ width: 190 }}>操作</th>
+              <th style={{ width: 110, textAlign: 'right' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -572,24 +685,43 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                     }}
                   />
                 </td>
-                <td>{item.title}</td>
-                <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.url}
-                  {item.lanUrl && (
-                    <>
-                      {' '}
-                      <span className="badge badge-lan">内网</span>
-                    </>
-                  )}
-                </td>
-                <td>{groups.find((group) => group.id === item.groupId)?.name ?? '—'}</td>
-                <td>{item.tags.join(', ') || '—'}</td>
                 <td>
-                  <button className="btn btn-sm" onClick={() => moveItem(item.id, -1)} aria-label="上移">↑</button>{' '}
-                  <button className="btn btn-sm" onClick={() => moveItem(item.id, 1)} aria-label="下移">↓</button>{' '}
-                  <button className="btn btn-sm" onClick={() => openEdit(item)}>编辑</button>{' '}
-                  <button className="btn btn-sm" onClick={() => toggleItem(item)}>{item.enabled ? '停用' : '启用'}</button>{' '}
-                  <button className="btn btn-sm btn-danger" onClick={() => removeItem(item)}>删除</button>
+                  <ItemPreviewIcon item={item} />
+                </td>
+                <td>
+                  <div className="table-item-primary">
+                    <span className="table-item-title">{item.title}</span>
+                    <span className="table-item-url">
+                      {item.url}
+                      {item.lanUrl && <span className="badge badge-lan">内网</span>}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <span className="badge">{groups.find((group) => group.id === item.groupId)?.name ?? '—'}</span>
+                </td>
+                <td>
+                  <div className="table-tag-list">
+                    {item.tags.length > 0 ? (
+                      item.tags.map((t) => (
+                        <span key={t} className="badge">
+                          {t}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="hint">—</span>
+                    )}
+                  </div>
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  <ItemActions
+                    item={item}
+                    canMove={!!activeGroup}
+                    onMove={(d) => void moveItem(item.id, d)}
+                    onEdit={() => openEdit(item)}
+                    onToggle={() => void toggleItem(item)}
+                    onRemove={() => void removeItem(item)}
+                  />
                 </td>
               </tr>
             ))}

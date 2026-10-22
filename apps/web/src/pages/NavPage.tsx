@@ -32,7 +32,10 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/\s+/g, '');
 }
 
-function itemMatches(item: PublicItem, query: string): boolean {
+function itemMatches(item: PublicItem, query: string, activeTag: string | null): boolean {
+  if (activeTag && !item.tags.some((tag) => normalize(tag) === normalize(activeTag))) {
+    return false;
+  }
   if (!query) return true;
   const needle = normalize(query);
   return (
@@ -169,11 +172,13 @@ function GroupSection({
     <section className="group">
       <div className="group-head">
         <button
-          className="btn-ghost btn btn-sm"
+          className="group-toggle-btn"
           onClick={() => onToggleCollapse(group.id)}
           aria-expanded={!collapsed}
+          data-collapsed={collapsed}
+          title={collapsed ? '展开分组' : '折叠分组'}
         >
-          {collapsed ? '▸' : '▾'}
+          <span className="group-arrow">▼</span>
         </button>
         <h2 className="group-title">
           {group.icon && <span className="group-icon">{group.icon}</span>}
@@ -181,27 +186,29 @@ function GroupSection({
         </h2>
         <span className="group-count">{visible.length}</span>
       </div>
-      {!collapsed && (
-        <div
-          className="grid pn-fade"
-          data-view={layout.view}
-          data-density={layout.density}
-          data-size={layout.size}
-          data-show-desc={layout.showDescription}
-        >
-          {visible.map((item, index) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              index={index}
-              lan={lanMap.get(item.id)}
-              onToggleLan={onToggleLan}
-              showDescription={layout.showDescription}
-              selected={selectedId === item.id}
-            />
-          ))}
+      <div className="group-body" data-collapsed={collapsed}>
+        <div className="group-body-inner">
+          <div
+            className="grid pn-fade"
+            data-view={layout.view}
+            data-density={layout.density}
+            data-size={layout.size}
+            data-show-desc={layout.showDescription}
+          >
+            {visible.map((item, index) => (
+              <ItemCard
+                key={item.id}
+                item={item}
+                index={index}
+                lan={lanMap.get(item.id)}
+                onToggleLan={onToggleLan}
+                showDescription={layout.showDescription}
+                selected={selectedId === item.id}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -211,6 +218,11 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [loading, setLoading] = useState(() => readSnapshot() === null);
   const [offline, setOffline] = useState(false);
   const [query, setQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => {
+    const d = new Date();
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  });
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
   const [viewOverride, setViewOverride] = useState<'grid' | 'list' | null>(null);
@@ -218,6 +230,16 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Update clock every minute
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setCurrentTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+    };
+    const timer = setInterval(tick, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const layout = useMemo(() => {
     const base = layoutAttributes(config?.site.layout);
@@ -328,9 +350,9 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     if (!config) return [];
     return config.groups.map((group) => ({
       group,
-      visible: group.items.filter((item) => itemMatches(item, query)),
+      visible: group.items.filter((item) => itemMatches(item, query, activeTag)),
     }));
-  }, [config, query]);
+  }, [config, query, activeTag]);
 
   // A group starts collapsed if the site says so; the user's clicks override that.
   const isCollapsed = (groupId: string, defaultCollapsed: boolean): boolean =>
@@ -434,12 +456,24 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const totalVisible = groups.reduce((sum, entry) => sum + entry.visible.length, 0);
   const isEmpty = config !== null && config.groups.length === 0;
 
+  const openExternalSearch = (engine: 'google' | 'baidu' | 'github' | 'bing') => {
+    const q = encodeURIComponent(query);
+    const urls = {
+      google: `https://www.google.com/search?q=${q}`,
+      baidu: `https://www.baidu.com/s?wd=${q}`,
+      github: `https://github.com/search?q=${q}`,
+      bing: `https://www.bing.com/search?q=${q}`,
+    };
+    window.open(urls[engine], '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="shell">
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">P</span>
-          {config?.site.identity.title ?? 'PureNav'}
+          <span>{config?.site.identity.title ?? 'PureNav'}</span>
+          <span className="brand-clock" title="当前时间">{currentTime}</span>
         </div>
         <div className="spacer" />
         <div className="search">
@@ -448,9 +482,10 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索站点  /"
+            placeholder="搜索站点或敲 /"
             aria-label="搜索站点"
           />
+          {!query && <kbd className="search-kbd">/</kbd>}
         </div>
         <button
           className="icon-btn"
@@ -467,6 +502,27 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
           ⚙
         </button>
       </header>
+
+      {/* Tag pills filter bar */}
+      {config && config.tags.length > 0 && (
+        <div className="tag-filter-bar">
+          <button
+            className={activeTag === null ? 'tag-pill tag-pill-active' : 'tag-pill'}
+            onClick={() => setActiveTag(null)}
+          >
+            全部
+          </button>
+          {config.tags.map((tag) => (
+            <button
+              key={tag.id}
+              className={activeTag === tag.name ? 'tag-pill tag-pill-active' : 'tag-pill'}
+              onClick={() => setActiveTag((cur) => (cur === tag.name ? null : tag.name))}
+            >
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {offline && <p className="hint" style={{ marginTop: -12, marginBottom: 18 }}>当前展示的是离线缓存</p>}
 
@@ -490,10 +546,24 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
       {!loading && !isEmpty && totalVisible === 0 && (
         <div className="empty pn-fade">
-          <h2>没有匹配「{query}」的结果</h2>
-          <p>换个关键词，或清空搜索。</p>
-          <button className="btn" onClick={() => setQuery('')}>
-            清空搜索
+          <h2>没有匹配「{query}」的站内结果</h2>
+          <p>继续通过外部搜索引擎查找：</p>
+          <div className="external-search-actions">
+            <button className="btn btn-sm" onClick={() => openExternalSearch('google')}>
+              Google 搜索
+            </button>
+            <button className="btn btn-sm" onClick={() => openExternalSearch('github')}>
+              GitHub 搜索
+            </button>
+            <button className="btn btn-sm" onClick={() => openExternalSearch('bing')}>
+              Bing 搜索
+            </button>
+            <button className="btn btn-sm" onClick={() => openExternalSearch('baidu')}>
+              百度 搜索
+            </button>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => { setQuery(''); setActiveTag(null); }}>
+            清空筛选
           </button>
         </div>
       )}
