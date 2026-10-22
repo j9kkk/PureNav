@@ -1,0 +1,23 @@
+{
+  "name": "purenav",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lightweight self-hosted navigation page with card-based layout and high-fidelity motion.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w @purenav/server",
+    "dev:web": "npm run dev -w @purenav/web",
+    "build": "npm run build -w @purenav/web && npm run build -w @purenav/server",
+    "start": "npm run start -w @purenav/server",
+    "typecheck": "npm run typecheck -w @purenav/web && npm run typecheck -w @purenav/server",
+    "docker:build": "docker build -t purenav:local ."
+  }
+}
