@@ -363,6 +363,45 @@ button {
   opacity: 0.85;
 }
 
+.lan-toggle {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--bg-solid);
+  border: 1px solid var(--border);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+
+/* Reveal on hover, but keep it visible while the item is actually routed internally. */
+.card:hover .lan-toggle,
+.lan-toggle:focus-visible,
+.lan-toggle.lan-on {
+  opacity: 1;
+}
+
+.lan-toggle.lan-on {
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  background: color-mix(in oklab, var(--accent) 12%, var(--bg-solid));
+}
+
+/* Touch devices have no hover, so the toggle would otherwise stay invisible. */
+@media (hover: none) {
+  .lan-toggle {
+    opacity: 1;
+  }
+}
+
 .empty {
   text-align: center;
   padding: 72px 20px;

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/index.js';
+import { requireUser } from '../lib/http.js';
 import { configVersion, getSetting } from '../lib/settings.js';
 
 interface GroupRow {
@@ -145,6 +146,24 @@ export function resolveIcon(row: {
   return { type: row.icon_type, ref: row.icon_ref, assetId: row.icon_asset_id };
 }
 
+/**
+ * Admin-only payload: identical to the public config plus `lanUrl`.
+ * This is the ONLY place lan_url leaves the server, and it requires a session.
+ */
+export function buildAdminConfig(): ReturnType<typeof buildPublicConfig> & {
+  items: Record<string, { lanUrl: string | null }>;
+} {
+  const base = buildPublicConfig();
+  const rows = db
+    .prepare('SELECT id, lan_url FROM items WHERE enabled = 1 AND visibility = ?')
+    .all('public') as { id: string; lan_url: string | null }[];
+
+  const items: Record<string, { lanUrl: string | null }> = {};
+  for (const row of rows) items[row.id] = { lanUrl: row.lan_url };
+
+  return { ...base, items };
+}
+
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
   app.get('/public/config', async (req, reply) => {
     const etag = `W/"cfg-${configVersion()}"`;
@@ -154,5 +173,12 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     reply.header('ETag', etag);
     reply.header('Cache-Control', 'no-cache');
     return buildPublicConfig();
+  });
+
+  // Never cached: the response depends on the session, so a shared cache must not store it.
+  app.get('/public/config/admin', async (req, reply) => {
+    requireUser(req);
+    reply.header('Cache-Control', 'no-store');
+    return buildAdminConfig();
   });
 }

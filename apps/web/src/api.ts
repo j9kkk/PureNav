@@ -38,6 +38,9 @@ export const api = {
   publicConfig: () =>
     request<PublicConfig>('/public/config'),
 
+  /** Includes `lanUrl` per item; requires a session and is never cached. */
+  adminConfig: () => request<AdminConfigResponse>('/public/config/admin'),
+
   groups: () => request<{ items: AdminGroupDto[] }>('/admin/groups'),
   createGroup: (body: Record<string, unknown>) =>
     request<AdminGroupDto>('/admin/groups', { method: 'POST', body: JSON.stringify(body) }),
@@ -85,6 +88,14 @@ export const api = {
     return payload as { assetId: string; url: string };
   },
 };
+
+export interface AdminConfigResponse {
+  version: number;
+  site: PublicConfig['site'];
+  groups: PublicConfig['groups'];
+  tags: PublicConfig['tags'];
+  items: Record<string, { lanUrl: string | null }>;
+}
 
 export interface AdminGroupDto {
   id: string;

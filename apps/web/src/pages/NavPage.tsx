@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
+import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
 
 const SNAPSHOT_KEY = 'pn.config.snapshot';
 
@@ -57,20 +58,39 @@ function initial(title: string): string {
   return title.trim().slice(0, 1).toUpperCase() || '·';
 }
 
-function ItemCard({ item, index }: { item: PublicItem; index: number }) {
+interface LanInfo {
+  lanUrl: string;
+  reachable: boolean;
+  choice: 'lan' | 'public' | null;
+}
+
+function ItemCard({
+  item,
+  index,
+  lan,
+  onToggleLan,
+}: {
+  item: PublicItem;
+  index: number;
+  lan?: LanInfo;
+  onToggleLan: (id: string, choice: 'lan' | 'public') => void;
+}) {
   const icon = iconUrl(item);
   // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
 
+  const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
+  const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
+
   return (
     <a
       className="card pn-enter"
       style={{ '--stagger': Math.min(index, 8) } as React.CSSProperties}
-      href={item.url}
+      href={href}
       target={item.openInNewTab ? '_blank' : undefined}
       rel={item.openInNewTab ? 'noreferrer noopener' : undefined}
-      title={item.description ?? item.url}
+      title={lan && usingLan ? `${lan.lanUrl}（内网）` : (item.description ?? item.url)}
     >
       {item.pinned && <span className="pin">●</span>}
       <span className="card-icon">
@@ -90,11 +110,38 @@ function ItemCard({ item, index }: { item: PublicItem; index: number }) {
         <span className="card-title">{item.title}</span>
         {item.description && <span className="card-desc">{item.description}</span>}
       </span>
+      {lan && (
+        <button
+          className={usingLan ? 'lan-toggle lan-on' : 'lan-toggle'}
+          onClick={(event) => {
+            // The button lives inside the link; without this the click navigates.
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleLan(item.id, usingLan ? 'public' : 'lan');
+          }}
+          title={usingLan ? '当前走内网，点击切换为外网' : '当前走外网，点击切换为内网'}
+          aria-label={usingLan ? '切换为外网地址' : '切换为内网地址'}
+        >
+          {usingLan ? '内' : '外'}
+        </button>
+      )}
     </a>
   );
 }
 
-function GroupSection({ group, query, visible }: { group: PublicGroup; query: string; visible: PublicItem[] }) {
+function GroupSection({
+  group,
+  query,
+  visible,
+  lanMap,
+  onToggleLan,
+}: {
+  group: PublicGroup;
+  query: string;
+  visible: PublicItem[];
+  lanMap: Map<string, LanInfo>;
+  onToggleLan: (id: string, choice: 'lan' | 'public') => void;
+}) {
   const [collapsed, setCollapsed] = useState(group.collapsed);
 
   if (query && visible.length === 0) return null;
@@ -115,7 +162,13 @@ function GroupSection({ group, query, visible }: { group: PublicGroup; query: st
       {!collapsed && (
         <div className="grid pn-fade">
           {visible.map((item, index) => (
-            <ItemCard key={item.id} item={item} index={index} />
+            <ItemCard
+              key={item.id}
+              item={item}
+              index={index}
+              lan={lanMap.get(item.id)}
+              onToggleLan={onToggleLan}
+            />
           ))}
         </div>
       )}
@@ -128,6 +181,7 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
   const [loading, setLoading] = useState(() => readSnapshot() === null);
   const [offline, setOffline] = useState(false);
   const [query, setQuery] = useState('');
+  const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -170,6 +224,47 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
     const identity = config?.site.identity;
     document.title = identity?.title ?? 'PureNav';
   }, [config?.site.identity]);
+
+  // LAN URLs only exist for a signed-in admin, so this request is a no-op for visitors.
+  useEffect(() => {
+    if (!authenticated) {
+      setLanMap(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    void api
+      .adminConfig()
+      .then(async (adminConfig) => {
+        const entries = Object.entries(adminConfig.items).filter(([, value]) => value.lanUrl);
+        const settled = await Promise.all(
+          entries.map(async ([id, value]) => {
+            const lanUrl = value.lanUrl!;
+            const reachable = await probeLanReachable(lanUrl);
+            return [id, { lanUrl, reachable, choice: readLanChoice(id) }] as const;
+          }),
+        );
+        if (cancelled) return;
+        setLanMap(new Map(settled));
+      })
+      .catch(() => {
+        // A failed admin config just means no LAN switching; never block the page.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, config?.version]);
+
+  const onToggleLan = (id: string, choice: 'lan' | 'public') => {
+    writeLanChoice(id, choice);
+    setLanMap((current) => {
+      const next = new Map(current);
+      const entry = next.get(id);
+      if (entry) next.set(id, { ...entry, choice });
+      return next;
+    });
+  };
 
   const groups = useMemo(() => {
     if (!config) return [];
@@ -240,7 +335,14 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
 
       {!loading &&
         groups.map(({ group, visible }) => (
-          <GroupSection key={group.id} group={group} query={query} visible={visible} />
+          <GroupSection
+            key={group.id}
+            group={group}
+            query={query}
+            visible={visible}
+            lanMap={lanMap}
+            onToggleLan={onToggleLan}
+          />
         ))}
     </div>
   );

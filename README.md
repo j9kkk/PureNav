@@ -47,7 +47,26 @@ PURENAV_PORT=9000 docker compose up -d
 | `PURE_SESSION_TTL_DAYS` | `7` | 登录会话有效期 |
 | `PURE_TRUST_PROXY` | `0` | 置于反向代理后设为 `1`，以读取真实客户端 IP |
 | `PURE_SECURE_COOKIE` | `0` | 公网 https 部署建议设为 `1` |
+| `PURE_LAN_PROBE_ORIGINS` | 空 | 允许浏览器探测的内网源，见下 |
 | `LOG_LEVEL` | `info` | 日志级别 |
+
+### 内网地址切换
+
+站点可以同时配置公网地址与内网地址。内网地址只对**已登录**的会话下发，匿名访问者的接口响应里永远不含它。
+
+登录后前台会在卡片右下角显示切换按钮：
+
+- 默认自动探测内网可达性，可达走内网，否则回退公网
+- 手动点击可强制切换，选择记在本地，刷新后仍然生效
+- 登出后按钮消失，卡片回退到公网地址
+
+浏览器探测会被 CSP 拦截并表现为"不可达"，因此需要在 `PURE_LAN_PROBE_ORIGINS` 里声明允许探测的源：
+
+```bash
+PURE_LAN_PROBE_ORIGINS="http://192.168.0.0 http://10.0.0.0"
+```
+
+不配置也能用，只是自动探测恒为不可达、只能靠手动切换。这是刻意的取舍：默认不放开任意 http 连接，避免扩大页面能力。
 
 完整示例见 [`.env.example`](.env.example)。
 
@@ -129,7 +148,7 @@ docs/
 - 所有非 GET 请求校验 `Origin` 同源；登录失败 10 次锁定 15 分钟
 - 全站 CSP、`X-Frame-Options: DENY`、`nosniff`
 - 站外地址仅接受 `http/https`；上传图标校验 magic bytes
-- **内网地址不会出现在匿名接口**：`/public/config` 永远不含 `lan_url`，仅后台登录后可见
+- **内网地址不会出现在匿名接口**：`/public/config` 永远不含 `lan_url`，仅 `/public/config/admin` 在会话校验后下发，且响应带 `no-store`
 
 ## License
 

@@ -30,14 +30,17 @@ app.addHook('onSend', async (_req, reply, payload) => {
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('X-Frame-Options', 'DENY');
   reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // http: is only allowed for connect-src, and only for explicitly configured LAN origins.
+  const connectSrc = ["'self'", 'https:', ...config.lanProbeOrigins].join(' ');
   reply.header(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "img-src 'self' data: https:",
+      "img-src 'self' data: https: http:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self'",
-      "connect-src 'self' https:",
+      `connect-src ${connectSrc}`,
       "font-src 'self' data:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
