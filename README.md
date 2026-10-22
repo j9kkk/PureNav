@@ -2,6 +2,14 @@
 
 轻量、自托管的导航页。分组 + 卡片 + 高保真动效，前台浏览、后台管理，Docker 一键部署。
 
+<p align="center">
+  <img src="docs/screenshots/preview-home-dark.png" alt="PureNav 前台主页 (暗色模式)" width="850" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/preview-admin.png" alt="PureNav 后台管理工作台" width="850" />
+</p>
+
 - **前台**：分组卡片网格、即时搜索（`/` 聚焦）、多搜索引擎回退（Google/GitHub/Bing/百度）、轻量时钟胶囊、标签药丸横向筛选栏、平滑手风琴折叠展开（CSS Grid 动画）、卡片径向微光与双行自适应描述、键盘导航（`↑` `↓` 选择、`Enter` 打开）、深浅色与列表/网格视图切换、离线快照、`prefers-reduced-motion` 降级
 - **后台**：管理员登录、现代可视化工作台（站点图标实时预览、标题与 URL 复合排版、收敛操作下拉菜单）、分组与站点 CRUD、拖拽排序、批量操作、标签、内网地址、图标（上传 / URL / Iconify / 自动抓取）、站点设置、导入导出、改密与登录设备管理、操作日志
 - **部署**：单容器、SQLite、数据目录挂载；GitHub Actions 自动产出 `linux/amd64` + `linux/arm64` 镜像
