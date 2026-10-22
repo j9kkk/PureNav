@@ -272,6 +272,31 @@ button {
   --card-min: 220px;
 }
 
+/* List view: one column, denser rows, description allowed to fill the line. */
+.grid[data-view='list'] {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.grid[data-view='list'] .card {
+  padding: 9px 12px;
+}
+
+.grid[data-view='list'] .card-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.grid[data-view='list'] .card-icon img {
+  width: 16px;
+  height: 16px;
+}
+
+/* Descriptions are hidden when the site setting turns them off. */
+.grid[data-show-desc='false'] .card-desc {
+  display: none;
+}
+
 .card {
   position: relative;
   display: flex;
@@ -749,6 +774,50 @@ button {
   font-size: 13px;
   z-index: 60;
   animation: pn-rise var(--dur-base) var(--ease-entrance) both;
+}
+
+/* ---------- Theme picker ---------- */
+
+.swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: transform var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+
+.swatch:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.swatch-on {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--bg-solid);
+}
+
+.swatch-picker {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-solid);
+  cursor: pointer;
+}
+
+.field input[type='range'] {
+  padding: 0;
+  border: none;
+  background: none;
+  accent-color: var(--accent);
 }
 
 /* ---------- Sorting ---------- */

@@ -2,13 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
+import {
+  applyTheme,
+  layoutAttributes,
+  readThemeOverride,
+  resolveTheme,
+  writeThemeOverride,
+  type ThemeMode,
+} from '../lib/theme';
 
 const SNAPSHOT_KEY = 'pn.config.snapshot';
 
 interface Props {
-  theme: 'light' | 'dark';
   authenticated: boolean;
-  onToggleTheme: () => void;
   onAdmin: () => void;
   onLogin: () => void;
 }
@@ -69,11 +75,13 @@ function ItemCard({
   index,
   lan,
   onToggleLan,
+  showDescription,
 }: {
   item: PublicItem;
   index: number;
   lan?: LanInfo;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
+  showDescription: boolean;
 }) {
   const icon = iconUrl(item);
   // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
@@ -108,7 +116,7 @@ function ItemCard({
       </span>
       <span className="card-body">
         <span className="card-title">{item.title}</span>
-        {item.description && <span className="card-desc">{item.description}</span>}
+        {showDescription && item.description && <span className="card-desc">{item.description}</span>}
       </span>
       {lan && (
         <button
@@ -135,12 +143,14 @@ function GroupSection({
   visible,
   lanMap,
   onToggleLan,
+  layout,
 }: {
   group: PublicGroup;
   query: string;
   visible: PublicItem[];
   lanMap: Map<string, LanInfo>;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
+  layout: ReturnType<typeof layoutAttributes>;
 }) {
   const [collapsed, setCollapsed] = useState(group.collapsed);
 
@@ -160,7 +170,13 @@ function GroupSection({
         <span className="group-count">{visible.length}</span>
       </div>
       {!collapsed && (
-        <div className="grid pn-fade">
+        <div
+          className="grid pn-fade"
+          data-view={layout.view}
+          data-density={layout.density}
+          data-size={layout.size}
+          data-show-desc={layout.showDescription}
+        >
           {visible.map((item, index) => (
             <ItemCard
               key={item.id}
@@ -168,6 +184,7 @@ function GroupSection({
               index={index}
               lan={lanMap.get(item.id)}
               onToggleLan={onToggleLan}
+              showDescription={layout.showDescription}
             />
           ))}
         </div>
@@ -176,13 +193,20 @@ function GroupSection({
   );
 }
 
-export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin }: Props) {
+export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [config, setConfig] = useState<PublicConfig | null>(() => readSnapshot());
   const [loading, setLoading] = useState(() => readSnapshot() === null);
   const [offline, setOffline] = useState(false);
   const [query, setQuery] = useState('');
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
+  const [viewOverride, setViewOverride] = useState<'grid' | 'list' | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const layout = useMemo(() => {
+    const base = layoutAttributes(config?.site.layout);
+    return viewOverride ? { ...base, view: viewOverride } : base;
+  }, [config?.site.layout, viewOverride]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +248,24 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
     const identity = config?.site.identity;
     document.title = identity?.title ?? 'PureNav';
   }, [config?.site.identity]);
+
+  // Repaint whenever the site's theme arrives, and once at mount from any stored override.
+  useEffect(() => {
+    applyTheme(config?.site);
+    setThemeMode(resolveTheme(config?.site.theme.mode));
+  }, [config?.site]);
+
+  const toggleTheme = () => {
+    const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    const next: ThemeMode = current === 'dark' ? 'light' : 'dark';
+    writeThemeOverride(next);
+    setThemeMode(next);
+    applyTheme(config?.site);
+  };
+
+  const toggleView = () => {
+    setViewOverride(layout.view === 'grid' ? 'list' : 'grid');
+  };
 
   // LAN URLs only exist for a signed-in admin, so this request is a no-op for visitors.
   useEffect(() => {
@@ -295,8 +337,16 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
             aria-label="搜索站点"
           />
         </div>
-        <button className="icon-btn" onClick={onToggleTheme} aria-label="切换主题" title="切换主题">
-          {theme === 'dark' ? '☀' : '☾'}
+        <button
+          className="icon-btn"
+          onClick={toggleView}
+          aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+          title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+        >
+          {layout.view === 'grid' ? '☰' : '▦'}
+        </button>
+        <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
+          {themeMode === 'dark' ? '☀' : '☾'}
         </button>
         <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
           ⚙
@@ -342,6 +392,7 @@ export function NavPage({ theme, authenticated, onToggleTheme, onAdmin, onLogin 
             visible={visible}
             lanMap={lanMap}
             onToggleLan={onToggleLan}
+            layout={layout}
           />
         ))}
     </div>

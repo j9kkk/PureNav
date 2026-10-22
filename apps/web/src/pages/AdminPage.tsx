@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
+import { SettingsPage } from './SettingsPage';
 
 interface Props {
   user: SessionUser;
@@ -40,6 +41,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [groups, setGroups] = useState<AdminGroupDto[]>([]);
   const [items, setItems] = useState<AdminItemDto[]>([]);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'items' | 'settings'>('items');
   const [form, setForm] = useState<ItemForm | null>(null);
   const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string } | null>(null);
   const [toast, setToast] = useState('');
@@ -261,15 +263,29 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           PureNav 后台
         </div>
 
-        <div className="side-item" aria-current={activeGroup === null}>
-          <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setActiveGroup(null)}>
+        <div className="side-item" aria-current={panel === 'items' && activeGroup === null}>
+          <button
+            className="btn-ghost btn btn-sm"
+            style={{ padding: 0 }}
+            onClick={() => {
+              setPanel('items');
+              setActiveGroup(null);
+            }}
+          >
             全部站点
           </button>
         </div>
 
         {groups.map((group) => (
-          <div className="side-item" key={group.id} aria-current={activeGroup === group.id}>
-            <button className="btn-ghost btn btn-sm" style={{ padding: 0, flex: 1, textAlign: 'left' }} onClick={() => setActiveGroup(group.id)}>
+          <div className="side-item" key={group.id} aria-current={panel === 'items' && activeGroup === group.id}>
+            <button
+              className="btn-ghost btn btn-sm"
+              style={{ padding: 0, flex: 1, textAlign: 'left' }}
+              onClick={() => {
+                setPanel('items');
+                setActiveGroup(group.id);
+              }}
+            >
               {group.name}
             </button>
             <span className="badge">{group.itemCount}</span>
@@ -279,6 +295,12 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => setGroupDialog({ name: '' })}>
           + 新建分组
         </button>
+
+        <div className="side-item" aria-current={panel === 'settings'} style={{ marginTop: 10 }}>
+          <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setPanel('settings')}>
+            站点设置
+          </button>
+        </div>
 
         <div className="spacer" />
         <div className="hint" style={{ marginBottom: 8 }}>
@@ -293,6 +315,24 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       </aside>
 
       <main className="admin-main">
+        {panel === 'settings' ? (
+          <>
+            <div className="admin-header">
+              <h2>站点设置</h2>
+            </div>
+            <SettingsPage
+              onChanged={() => {
+                // Forget the cached snapshot so the front page refetches the new theme.
+                try {
+                  localStorage.removeItem('pn.config.snapshot');
+                } catch {
+                  // ignore
+                }
+              }}
+            />
+          </>
+        ) : (
+          <>
         <div className="admin-header">
           <h2>{activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? '分组' : '全部站点'}</h2>
           <span className="badge">{items.length} 个</span>
@@ -403,6 +443,8 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
 
         {visibleGroups.length === 0 && groups.length === 0 && (
           <p className="hint" style={{ marginTop: 16 }}>先创建一个分组，然后就能添加站点了。</p>
+        )}
+          </>
         )}
       </main>
 

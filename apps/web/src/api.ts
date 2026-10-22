@@ -67,9 +67,28 @@ export const api = {
       body: JSON.stringify({ groupId, ordered_ids: orderedIds }),
     }),
 
-  settings: () => request<Record<string, unknown>>('/admin/settings'),
-  updateSettings: (body: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/admin/settings', { method: 'PATCH', body: JSON.stringify(body) }),
+  settings: () => request<AdminSettings>('/admin/settings'),
+  updateSettings: (body: SettingsPatch) =>
+    request<AdminSettings>('/admin/settings', { method: 'PATCH', body: JSON.stringify(body) }),
+
+  exportJson: async (): Promise<Blob> => {
+    const response = await fetch(`${BASE}/admin/export?format=json`, { credentials: 'same-origin' });
+    if (!response.ok) throw new ApiError(response.status, 'EXPORT_FAILED', '导出失败');
+    return response.blob();
+  },
+  exportBookmarks: async (): Promise<Blob> => {
+    const response = await fetch(`${BASE}/admin/export?format=bookmarks.html`, { credentials: 'same-origin' });
+    if (!response.ok) throw new ApiError(response.status, 'EXPORT_FAILED', '导出失败');
+    return response.blob();
+  },
+  importConfig: (payload: unknown, mode: 'merge' | 'replace') =>
+    request<{ created: number; mode: string }>(`/admin/import?mode=${mode}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  auditLogs: (cursor?: string) =>
+    request<AuditLogPage>(`/admin/audit-logs${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
 
   uploadIcon: async (file: File): Promise<{ assetId: string; url: string }> => {
     const form = new FormData();
@@ -95,6 +114,42 @@ export interface AdminConfigResponse {
   groups: PublicConfig['groups'];
   tags: PublicConfig['tags'];
   items: Record<string, { lanUrl: string | null }>;
+}
+
+export interface AdminSettings {
+  identity: { title: string; logo: string | null; favicon: string | null; description: string | null };
+  theme: { mode: 'light' | 'dark' | 'auto'; accent: string; radius: number; shadow: 'none' | 'soft' | 'strong' };
+  layout: {
+    density: 'compact' | 'comfortable';
+    cardSize: 'sm' | 'md' | 'lg';
+    showDescription: boolean;
+    defaultView: 'grid' | 'list';
+  };
+  security: { allowFaviconFetch: boolean; lanUnlockEnabled: boolean };
+  meta: { version: number; setupCompletedAt: string | null };
+}
+
+/** Deep-partial: any section may be sent on its own. */
+export interface SettingsPatch {
+  identity?: Partial<AdminSettings['identity']>;
+  theme?: Partial<AdminSettings['theme']>;
+  layout?: Partial<AdminSettings['layout']>;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  payload: string | null;
+  ip: string | null;
+  created_at: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLogEntry[];
+  nextCursor: string | null;
 }
 
 export interface AdminGroupDto {

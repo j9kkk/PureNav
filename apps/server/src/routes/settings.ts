@@ -121,6 +121,12 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
       throw new ApiError(422, 'VALIDATION_FAILED', 'groups/items 必须是数组');
     }
 
+    // The export carries tag definitions and their item links; ignoring them silently
+    // loses every tag on import, so rebuild the mapping through the old item ids.
+    const importedTags = Array.isArray(body.tags) ? (body.tags as RawTag[]) : [];
+    const importedItemTags = Array.isArray(body.itemTags) ? (body.itemTags as RawItemTag[]) : [];
+    const tagNameByOldId = new Map(importedTags.map((tag) => [String(tag.id), String(tag.name ?? '')]));
+
     const now = nowIso();
     let created = 0;
 
@@ -153,18 +159,21 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
         created += 1;
       }
 
+      const itemIdMap = new Map<string, string>();
       for (const item of importedItems) {
         const groupId = groupIdMap.get(String(item.group_id)) ?? groupIdMap.values().next().value;
         if (!groupId) continue;
         const iconType = ['auto', 'url', 'iconify', 'asset', 'text'].includes(String(item.icon_type))
           ? String(item.icon_type)
           : 'auto';
+        const newItemId = ulid();
+        if (item.id) itemIdMap.set(String(item.id), newItemId);
         db.prepare(
           `INSERT INTO items (id, group_id, title, url, lan_url, description, icon_type, icon_ref, icon_asset_id,
                               open_in_new_tab, pinned, sort_order, visibility, enabled, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
-          ulid(),
+          newItemId,
           groupId,
           String(item.title ?? '未命名').slice(0, 80),
           String(item.url ?? ''),
@@ -182,6 +191,29 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
           now,
         );
         created += 1;
+      }
+
+      // Rebuild tag links: old item id -> new item id, old tag id -> tag name -> tag row.
+      if (importedItemTags.length > 0) {
+        const findOrCreateTag = (name: string): string | null => {
+          const trimmed = name.trim();
+          if (!trimmed) return null;
+          const key = trimmed.toLowerCase();
+          const existing = db.prepare('SELECT id FROM tags WHERE name_key = ?').get(key) as { id: string } | undefined;
+          if (existing) return existing.id;
+          const id = ulid();
+          db.prepare('INSERT INTO tags (id, name, name_key, created_at) VALUES (?, ?, ?, ?)').run(id, trimmed, key, now);
+          return id;
+        };
+
+        for (const link of importedItemTags) {
+          const newItemId = itemIdMap.get(String(link.item_id));
+          const tagName = tagNameByOldId.get(String(link.tag_id));
+          if (!newItemId || !tagName) continue;
+          const tagId = findOrCreateTag(tagName);
+          if (!tagId) continue;
+          db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?, ?)').run(newItemId, tagId);
+        }
       }
     })();
 
@@ -235,6 +267,19 @@ interface ExportItem {
 interface RawGroup {
   id: string;
   name?: string;
+  [key: string]: unknown;
+}
+
+interface RawTag {
+  id: string;
+  name?: string;
+  color?: string | null;
+  [key: string]: unknown;
+}
+
+interface RawItemTag {
+  item_id: string;
+  tag_id: string;
   [key: string]: unknown;
 }
 

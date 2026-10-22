@@ -3,6 +3,7 @@ import { api, type AuthState } from './api';
 import { NavPage } from './pages/NavPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminPage } from './pages/AdminPage';
+import { applyTheme } from './lib/theme';
 
 type Route = { name: 'home' } | { name: 'login' } | { name: 'admin' };
 
@@ -15,9 +16,6 @@ function parseRoute(pathname: string): Route {
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname));
   const [auth, setAuth] = useState<AuthState | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-  );
 
   useEffect(() => {
     const onPop = () => setRoute(parseRoute(window.location.pathname));
@@ -29,17 +27,17 @@ export function App() {
     void api.authState().then(setAuth).catch(() => setAuth({ needsSetup: false, authenticated: false, user: null }));
   }, []);
 
+  // Apply the stored theme immediately, before any config request returns, so the
+  // admin pages do not flash the wrong palette.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    applyTheme(undefined);
+  }, []);
 
   const navigate = (next: Route) => {
     const path = next.name === 'home' ? '/' : `/${next.name}`;
     window.history.pushState({}, '', path);
     setRoute(next);
   };
-
-  const toggleTheme = () => setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
 
   if (route.name === 'login') {
     return (
@@ -81,8 +79,6 @@ export function App() {
 
   return (
     <NavPage
-      theme={theme}
-      onToggleTheme={toggleTheme}
       authenticated={auth?.authenticated ?? false}
       onAdmin={() => navigate({ name: 'admin' })}
       onLogin={() => navigate({ name: 'login' })}
