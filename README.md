@@ -104,7 +104,7 @@ git push origin v0.1.0
 
 产出 `ghcr.io/<owner>/purenav`：`0.1.0`、`0.1`、`0`、`latest`、`sha-xxxxxxx`。PR 与 `main` 推送只跑 CI（类型检查、构建、镜像冒烟测试），不推送镜像。
 
-首次发布后，需在 GitHub 仓库的 **Packages** 设置里把该镜像的可见性改为 `public`，否则匿名 `docker pull` 会失败。
+镜像匿名拉取已验证可用（`docker pull ghcr.io/j9kkk/purenav:0.1.0`）。若你的账号策略默认把新包设为私有，需在仓库 **Packages** 设置里改为 `public`。
 
 ## 项目结构
 
