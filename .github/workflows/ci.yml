@@ -70,6 +70,29 @@ jobs:
           curl -fsS http://127.0.0.1:8080/health
           curl -fsS http://127.0.0.1:8080/api/v1/auth/state
           curl -fsS http://127.0.0.1:8080/ | grep -qi '<div id="root">'
+
+          # The SPA shell is useless if its hashed bundle is not actually served.
+          # A static-route regression here returns index.html for the script, which
+          # only shows up on a real reload.
+          SCRIPT=$(curl -fsS http://127.0.0.1:8080/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          echo "bundle: $SCRIPT"
+          test -n "$SCRIPT" || { echo "no bundle referenced"; exit 1; }
+          CONTENT_TYPE=$(curl -fsS -o /dev/null -w '%{content_type}' "http://127.0.0.1:8080$SCRIPT")
+          echo "bundle content-type: $CONTENT_TYPE"
+          case "$CONTENT_TYPE" in
+            *javascript*|*ecmascript*) ;;
+            *) echo "bundle served as $CONTENT_TYPE, expected JavaScript"; exit 1 ;;
+          esac
+          curl -fsS "http://127.0.0.1:8080$SCRIPT" | head -c 200 | grep -q . || { echo "bundle empty"; exit 1; }
+
+          # Deep link must return HTML so client routing works.
+          DEEP_TYPE=$(curl -fsS -o /dev/null -w '%{content_type}' http://127.0.0.1:8080/admin)
+          echo "deep link content-type: $DEEP_TYPE"
+          case "$DEEP_TYPE" in
+            *html*) ;;
+            *) echo "deep link served as $DEEP_TYPE, expected HTML"; exit 1 ;;
+          esac
+
           echo "--- container log ---"
           docker logs purenav-ci
           docker rm -f purenav-ci

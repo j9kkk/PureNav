@@ -120,14 +120,11 @@ const hasWebDist = fs.existsSync(path.join(config.webDistDir, 'index.html'));
 if (hasWebDist) {
   await app.register(fastifyStatic, {
     root: config.webDistDir,
-    wildcard: false,
-    setHeaders(res, filePath) {
-      if (/\/assets\/.+-[A-Za-z0-9_]{8,}\.(js|css|woff2?)$/.test(filePath)) {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      } else {
-        res.setHeader('Cache-Control', 'no-cache');
-      }
-    },
+    // wildcard must stay on: with `false`, no file route is registered at all and
+    // every asset request falls through to the SPA handler, which would serve HTML
+    // with a JS content type. Hashed assets then break on any reload.
+    maxAge: '1y',
+    immutable: true,
   });
 
   app.setNotFoundHandler((req, reply) => {
@@ -135,7 +132,16 @@ if (hasWebDist) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: '接口不存在' } });
     }
     // SPA fallback: any non-API GET returns the shell so client routing works.
+    reply.header('Cache-Control', 'no-cache');
     return reply.type('text/html').send(fs.createReadStream(path.join(config.webDistDir, 'index.html')));
+  });
+
+  // The shell is not content-hashed, so it must always revalidate; a pinned index.html
+  // would keep serving a stale bundle reference after every deploy.
+  app.addHook('onSend', async (req, reply, payload) => {
+    const isShell = reply.getHeader('content-type')?.toString().startsWith('text/html');
+    if (isShell) reply.header('Cache-Control', 'no-cache');
+    return payload;
   });
 } else {
   app.log.warn('web dist not found, serving API only');

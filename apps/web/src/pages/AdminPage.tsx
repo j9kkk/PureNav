@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
+import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
 
 interface Props {
   user: SessionUser;
@@ -106,9 +107,30 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     const ordered = groups.map((group) => group.id);
     const moved = ordered.splice(index, 1)[0]!;
     ordered.splice(target, 0, moved);
-    setGroups(ordered.map((gid) => groups.find((group) => group.id === gid)!));
+    await applyGroupOrder(ordered);
+  };
+
+  /** Optimistic: repaint immediately, roll back to server state if the write fails. */
+  const applyGroupOrder = async (ordered: string[]) => {
+    const byId = new Map(groups.map((group) => [group.id, group]));
+    setGroups(ordered.map((id) => byId.get(id)!).filter(Boolean));
     try {
       await api.reorderGroups(ordered);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '排序失败');
+      await load(activeGroup ?? undefined);
+    }
+  };
+
+  const applyItemOrder = async (groupId: string, ordered: string[]) => {
+    const inGroup = items.filter((item) => item.groupId === groupId);
+    const byId = new Map(inGroup.map((item) => [item.id, item]));
+    const reordered = ordered.map((id) => byId.get(id)!).filter(Boolean);
+    // Replace just this group's slice, keeping items from other groups in place.
+    const others = items.filter((item) => item.groupId !== groupId);
+    setItems([...reordered, ...others]);
+    try {
+      await api.reorderItems(groupId, ordered);
     } catch (err) {
       setError(err instanceof Error ? err.message : '排序失败');
       await load(activeGroup ?? undefined);
@@ -177,12 +199,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     const ordered = inGroup.map((item) => item.id);
     const moved = ordered.splice(index, 1)[0]!;
     ordered.splice(target, 0, moved);
-    try {
-      await api.reorderItems(groupId, ordered);
-      await load(activeGroup ?? undefined);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '排序失败');
-    }
+    await applyItemOrder(groupId, ordered);
   };
 
   const toggleItem = async (item: AdminItemDto) => {
@@ -228,6 +245,13 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   };
 
   const visibleGroups = activeGroup ? groups.filter((group) => group.id === activeGroup) : groups;
+
+  // Dragging is only meaningful within one group's slice. In the all-groups view the
+  // rows are mixed, so drag stays off and the up/down buttons keep that edit path alive.
+  const itemDragIds = activeGroup ? items.filter((item) => item.groupId === activeGroup).map((item) => item.id) : [];
+  const itemDrag = useRowDrag(itemDragIds, (ordered) => {
+    if (activeGroup) void applyItemOrder(activeGroup, ordered);
+  });
 
   return (
     <div className="admin-layout">
@@ -291,33 +315,61 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         {error && <p className="error-text">{error}</p>}
 
         {!activeGroup && groups.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
+          <div className="sort-block">
             <h3 className="group-title" style={{ marginBottom: 8 }}>分组顺序</h3>
-            {groups.map((group) => (
-              <div key={group.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0' }}>
-                <span style={{ flex: 1 }}>{group.name}</span>
-                <button className="btn btn-sm" onClick={() => moveGroup(group.id, -1)} aria-label="上移">↑</button>
-                <button className="btn btn-sm" onClick={() => moveGroup(group.id, 1)} aria-label="下移">↓</button>
-                <button className="btn btn-sm" onClick={() => setGroupDialog({ id: group.id, name: group.name })}>改名</button>
-                <button className="btn btn-sm btn-danger" onClick={() => removeGroup(group)}>删除</button>
-              </div>
-            ))}
+            <p className="hint" style={{ marginTop: -4 }}>拖动左侧把手调整顺序，也可用上移 / 下移按钮。</p>
+            <SortableList
+              items={groups}
+              getId={(group) => group.id}
+              onReorder={(ordered) => void applyGroupOrder(ordered)}
+              className="sort-list"
+              renderRow={(group, state) => (
+                <>
+                  <DragHandle handleProps={state.handleProps} />
+                  <span className="sort-row-label">{group.name}</span>
+                  <span className="badge">{group.itemCount}</span>
+                  <span className="sort-row-actions">
+                    <button className="btn btn-sm" onClick={() => moveGroup(group.id, -1)} aria-label="上移">↑</button>
+                    <button className="btn btn-sm" onClick={() => moveGroup(group.id, 1)} aria-label="下移">↓</button>
+                    <button className="btn btn-sm" onClick={() => setGroupDialog({ id: group.id, name: group.name })}>改名</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => removeGroup(group)}>删除</button>
+                  </span>
+                </>
+              )}
+            />
           </div>
         )}
 
         <table className="table">
           <thead>
             <tr>
+              <th style={{ width: 34 }} aria-label="排序" />
               <th>标题</th>
               <th>地址</th>
               <th>分组</th>
               <th>标签</th>
-              <th style={{ width: 200 }}>操作</th>
+              <th style={{ width: 190 }}>操作</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className={item.enabled ? undefined : 'row-muted'}>
+              <tr
+                key={item.id}
+                {...(activeGroup
+                  ? itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')
+                  : { className: item.enabled ? undefined : 'row-muted' })}
+              >
+                <td>
+                  <DragHandle
+                    disabled={!activeGroup}
+                    handleProps={{
+                      draggable: !!activeGroup,
+                      onDragStart: itemDrag.start(item.id),
+                      onDragEnd: itemDrag.end,
+                      onClick: (event) => event.preventDefault(),
+                    }}
+                  />
+                </td>
                 <td>{item.title}</td>
                 <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.url}
