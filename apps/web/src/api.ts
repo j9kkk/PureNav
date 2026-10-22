@@ -90,6 +90,24 @@ export const api = {
   auditLogs: (cursor?: string) =>
     request<AuditLogPage>(`/admin/audit-logs${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
 
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>('/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  sessions: () => request<{ items: SessionInfo[] }>('/auth/sessions'),
+  revokeSession: (id: string) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
+
+  batchItems: (op: 'enable' | 'disable' | 'delete' | 'move', ids: string[], groupId?: string) =>
+    request<{ affected: number }>('/admin/items/batch', {
+      method: 'POST',
+      body: JSON.stringify({ op, ids, groupId }),
+    }),
+
+  searchIcons: (q: string) =>
+    request<{ items: { id: string; url: string }[] }>(`/admin/icons/search?q=${encodeURIComponent(q)}`),
+
   uploadIcon: async (file: File): Promise<{ assetId: string; url: string }> => {
     const form = new FormData();
     form.append('file', file);
@@ -150,6 +168,14 @@ export interface AuditLogEntry {
 export interface AuditLogPage {
   items: AuditLogEntry[];
   nextCursor: string | null;
+}
+
+export interface SessionInfo {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
 }
 
 export interface AdminGroupDto {

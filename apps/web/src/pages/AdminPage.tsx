@@ -3,6 +3,7 @@ import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
 import { SettingsPage } from './SettingsPage';
+import { AccountPage } from './AccountPage';
 
 interface Props {
   user: SessionUser;
@@ -22,6 +23,7 @@ interface ItemForm {
   iconAssetId: string;
   iconPreview: string;
   tags: string;
+  openInNewTab: boolean;
 }
 
 const EMPTY_FORM = (groupId: string): ItemForm => ({
@@ -35,15 +37,83 @@ const EMPTY_FORM = (groupId: string): ItemForm => ({
   iconAssetId: '',
   iconPreview: '',
   tags: '',
+  openInNewTab: true,
 });
+
+/** Debounced Iconify search. Queries shorter than two characters are ignored by the server. */
+function IconSearch({ onPick }: { onPick: (id: string) => void }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<{ id: string; url: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setBusy(true);
+    const timer = window.setTimeout(() => {
+      api
+        .searchIcons(term)
+        .then((response) => {
+          if (!cancelled) setResults(response.items);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setBusy(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
+  return (
+    <div className="field">
+      <label htmlFor="f-icon-search">搜索 Iconify 图标</label>
+      <input
+        id="f-icon-search"
+        value={query}
+        placeholder="例如 github、docker"
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      {busy && <span className="hint">搜索中…</span>}
+      {!busy && query.trim().length >= 2 && results.length === 0 && (
+        <span className="hint">没有匹配结果</span>
+      )}
+      {results.length > 0 && (
+        <div className="icon-results">
+          {results.map((icon) => (
+            <button
+              key={icon.id}
+              type="button"
+              className="icon-result"
+              title={icon.id}
+              onClick={() => onPick(icon.id)}
+            >
+              <img src={icon.url} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [groups, setGroups] = useState<AdminGroupDto[]>([]);
   const [items, setItems] = useState<AdminItemDto[]>([]);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [panel, setPanel] = useState<'items' | 'settings'>('items');
+  const [panel, setPanel] = useState<'items' | 'settings' | 'account'>('items');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<ItemForm | null>(null);
-  const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string } | null>(null);
+  const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string } | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
 
@@ -73,10 +143,10 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     if (!name) return;
     try {
       if (groupDialog.id) {
-        await api.updateGroup(groupDialog.id, { name });
+        await api.updateGroup(groupDialog.id, { name, icon: groupDialog.icon.trim() || null });
         flash('分组已更新');
       } else {
-        const created = await api.createGroup({ name });
+        const created = await api.createGroup({ name, icon: groupDialog.icon.trim() || null });
         flash('分组已创建');
         setActiveGroup(created.id);
       }
@@ -152,6 +222,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       url: form.url.trim(),
       lanUrl: form.lanUrl.trim() || null,
       description: form.description.trim() || null,
+      openInNewTab: form.openInNewTab,
       tags: form.tags
         .split(',')
         .map((tag) => tag.trim())
@@ -213,6 +284,21 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     }
   };
 
+  const runBatch = async (op: 'enable' | 'disable' | 'delete' | 'move', moveTo?: string) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (op === 'delete' && !window.confirm(`删除选中的 ${ids.length} 个站点？`)) return;
+
+    try {
+      const result = await api.batchItems(op, ids, moveTo);
+      flash(`已处理 ${result.affected} 项`);
+      setSelectedIds(new Set());
+      await load(activeGroup ?? undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '批量操作失败');
+    }
+  };
+
   const logout = async () => {
     await api.logout().catch(() => undefined);
     onLoggedOut();
@@ -232,6 +318,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       iconAssetId: item.icon.assetId ?? '',
       iconPreview: isAsset ? (item.icon.ref ?? '') : '',
       tags: item.tags.join(', '),
+      openInNewTab: item.openInNewTab,
     });
   };
 
@@ -292,13 +379,19 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           </div>
         ))}
 
-        <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => setGroupDialog({ name: '' })}>
+        <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => setGroupDialog({ name: '', icon: '' })}>
           + 新建分组
         </button>
 
         <div className="side-item" aria-current={panel === 'settings'} style={{ marginTop: 10 }}>
           <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setPanel('settings')}>
             站点设置
+          </button>
+        </div>
+
+        <div className="side-item" aria-current={panel === 'account'}>
+          <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setPanel('account')}>
+            账户与日志
           </button>
         </div>
 
@@ -330,6 +423,13 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 }
               }}
             />
+          </>
+        ) : panel === 'account' ? (
+          <>
+            <div className="admin-header">
+              <h2>账户与日志</h2>
+            </div>
+            <AccountPage />
           </>
         ) : (
           <>
@@ -371,7 +471,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   <span className="sort-row-actions">
                     <button className="btn btn-sm" onClick={() => moveGroup(group.id, -1)} aria-label="上移">↑</button>
                     <button className="btn btn-sm" onClick={() => moveGroup(group.id, 1)} aria-label="下移">↓</button>
-                    <button className="btn btn-sm" onClick={() => setGroupDialog({ id: group.id, name: group.name })}>改名</button>
+                    <button className="btn btn-sm" onClick={() => setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '' })}>编辑</button>
                     <button className="btn btn-sm btn-danger" onClick={() => removeGroup(group)}>删除</button>
                   </span>
                 </>
@@ -380,10 +480,57 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           </div>
         )}
 
+        {selectedIds.size > 0 && (
+          <div className="bulk-bar pn-fade">
+            <span>已选 {selectedIds.size} 项</span>
+            <div className="spacer" />
+            <button
+              className="btn btn-sm"
+              onClick={() => void runBatch('enable')}
+            >
+              启用
+            </button>
+            <button className="btn btn-sm" onClick={() => void runBatch('disable')}>
+              停用
+            </button>
+            <select
+              className="bulk-move"
+              value=""
+              onChange={(event) => {
+                const target = event.target.value;
+                if (target) void runBatch('move', target);
+              }}
+            >
+              <option value="">移动到…</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <button className="btn btn-sm btn-danger" onClick={() => void runBatch('delete')}>
+              删除
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())}>
+              取消
+            </button>
+          </div>
+        )}
+
         <table className="table">
           <thead>
             <tr>
               <th style={{ width: 34 }} aria-label="排序" />
+              <th style={{ width: 34 }}>
+                <input
+                  type="checkbox"
+                  aria-label="全选"
+                  checked={items.length > 0 && selectedIds.size === items.length}
+                  onChange={(event) => {
+                    setSelectedIds(event.target.checked ? new Set(items.map((item) => item.id)) : new Set());
+                  }}
+                />
+              </th>
               <th>标题</th>
               <th>地址</th>
               <th>分组</th>
@@ -410,6 +557,21 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                     }}
                   />
                 </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`选择 ${item.title}`}
+                    checked={selectedIds.has(item.id)}
+                    onChange={(event) => {
+                      setSelectedIds((current) => {
+                        const next = new Set(current);
+                        if (event.target.checked) next.add(item.id);
+                        else next.delete(item.id);
+                        return next;
+                      });
+                    }}
+                  />
+                </td>
                 <td>{item.title}</td>
                 <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.url}
@@ -433,7 +595,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
                   这里还没有站点
                 </td>
               </tr>
@@ -511,6 +673,8 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
               </div>
             )}
 
+            {form.iconType === 'iconify' && <IconSearch onPick={(id) => setForm({ ...form, iconRef: id })} />}
+
             {form.iconType === 'asset' && (
               <div className="field">
                 <label htmlFor="f-icon-file">图标文件</label>
@@ -537,6 +701,17 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
               <input id="f-tags" value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} />
             </div>
 
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={form.openInNewTab}
+                  onChange={(event) => setForm({ ...form, openInNewTab: event.target.checked })}
+                />
+                在新标签页打开
+              </label>
+            </div>
+
             <div className="modal-actions">
               <button className="btn" onClick={() => setForm(null)}>取消</button>
               <button className="btn btn-primary" onClick={saveItem}>保存</button>
@@ -548,7 +723,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       {groupDialog && (
         <div className="modal-backdrop" onClick={() => setGroupDialog(null)}>
           <div className="modal pn-enter" onClick={(event) => event.stopPropagation()}>
-            <h3>{groupDialog.id ? '重命名分组' : '新建分组'}</h3>
+            <h3>{groupDialog.id ? '编辑分组' : '新建分组'}</h3>
             <div className="field">
               <label htmlFor="g-name">分组名</label>
               <input
@@ -561,6 +736,17 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                   if (event.key === 'Enter') void createGroup();
                 }}
               />
+            </div>
+            <div className="field">
+              <label htmlFor="g-icon">图标（可选，填一个 emoji）</label>
+              <input
+                id="g-icon"
+                value={groupDialog.icon}
+                maxLength={8}
+                placeholder="🧰"
+                onChange={(event) => setGroupDialog({ ...groupDialog, icon: event.target.value })}
+              />
+              <span className="hint">会显示在前台分组标题左侧。</span>
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setGroupDialog(null)}>取消</button>

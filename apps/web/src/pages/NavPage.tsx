@@ -76,12 +76,14 @@ function ItemCard({
   lan,
   onToggleLan,
   showDescription,
+  selected,
 }: {
   item: PublicItem;
   index: number;
   lan?: LanInfo;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
   showDescription: boolean;
+  selected: boolean;
 }) {
   const icon = iconUrl(item);
   // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
@@ -99,6 +101,9 @@ function ItemCard({
       target={item.openInNewTab ? '_blank' : undefined}
       rel={item.openInNewTab ? 'noreferrer noopener' : undefined}
       title={lan && usingLan ? `${lan.lanUrl}（内网）` : (item.description ?? item.url)}
+      data-item-id={item.id}
+      data-selected={selected || undefined}
+      aria-current={selected || undefined}
     >
       {item.pinned && <span className="pin">●</span>}
       <span className="card-icon">
@@ -144,6 +149,9 @@ function GroupSection({
   lanMap,
   onToggleLan,
   layout,
+  collapsed,
+  onToggleCollapse,
+  selectedId,
 }: {
   group: PublicGroup;
   query: string;
@@ -151,9 +159,10 @@ function GroupSection({
   lanMap: Map<string, LanInfo>;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
   layout: ReturnType<typeof layoutAttributes>;
+  collapsed: boolean;
+  onToggleCollapse: (id: string) => void;
+  selectedId: string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(group.collapsed);
-
   if (query && visible.length === 0) return null;
 
   return (
@@ -161,12 +170,15 @@ function GroupSection({
       <div className="group-head">
         <button
           className="btn-ghost btn btn-sm"
-          onClick={() => setCollapsed((value) => !value)}
+          onClick={() => onToggleCollapse(group.id)}
           aria-expanded={!collapsed}
         >
           {collapsed ? '▸' : '▾'}
         </button>
-        <h2 className="group-title">{group.name}</h2>
+        <h2 className="group-title">
+          {group.icon && <span className="group-icon">{group.icon}</span>}
+          {group.name}
+        </h2>
         <span className="group-count">{visible.length}</span>
       </div>
       {!collapsed && (
@@ -185,6 +197,7 @@ function GroupSection({
               lan={lanMap.get(item.id)}
               onToggleLan={onToggleLan}
               showDescription={layout.showDescription}
+              selected={selectedId === item.id}
             />
           ))}
         </div>
@@ -201,6 +214,9 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
   const [viewOverride, setViewOverride] = useState<'grid' | 'list' | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const layout = useMemo(() => {
@@ -316,6 +332,105 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     }));
   }, [config, query]);
 
+  // A group starts collapsed if the site says so; the user's clicks override that.
+  const isCollapsed = (groupId: string, defaultCollapsed: boolean): boolean =>
+    collapsedIds.has(groupId) ? true : defaultCollapsed && !expandedIds.has(groupId);
+
+  const toggleCollapse = (groupId: string) => {
+    const group = groups.find((entry) => entry.group.id === groupId)?.group;
+    if (!group) return;
+    const currentlyCollapsed = isCollapsed(groupId, group.collapsed);
+    if (currentlyCollapsed) {
+      setCollapsedIds((current) => {
+        const next = new Set(current);
+        next.delete(groupId);
+        return next;
+      });
+      setExpandedIds((current) => new Set(current).add(groupId));
+    } else {
+      setCollapsedIds((current) => new Set(current).add(groupId));
+      setExpandedIds((current) => {
+        const next = new Set(current);
+        next.delete(groupId);
+        return next;
+      });
+    }
+  };
+
+  // Keyboard navigation walks the flattened list of cards that are actually rendered,
+  // so collapsed groups and filtered-out items are skipped automatically.
+  const navigable = useMemo(
+    () =>
+      groups
+        .filter((entry) => !(query && entry.visible.length === 0))
+        .filter((entry) => !isCollapsed(entry.group.id, entry.group.collapsed))
+        .flatMap((entry) => entry.visible),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groups, collapsedIds, expandedIds, query],
+  );
+
+  const moveSelection = (delta: 1 | -1) => {
+    if (navigable.length === 0) return;
+    const currentIndex = selectedId ? navigable.findIndex((item) => item.id === selectedId) : -1;
+    const start = currentIndex < 0 ? (delta === 1 ? 0 : navigable.length - 1) : currentIndex + delta;
+    const clamped = Math.max(0, Math.min(start, navigable.length - 1));
+    setSelectedId(navigable[clamped]!.id);
+  };
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const element = document.querySelector(`[data-item-id="${CSS.escape(selectedId)}"]`);
+    element?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const tag = document.activeElement?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+      if (event.key === '/' && !typing) {
+        event.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (event.key === 'Escape' && document.activeElement === searchRef.current) {
+        setQuery('');
+        searchRef.current?.blur();
+        return;
+      }
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        // In the search box, arrows drive the result list; elsewhere they drive cards.
+        event.preventDefault();
+        moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+
+      if (event.key === 'Enter' && selectedId && !typing) {
+        const item = navigable.find((entry) => entry.id === selectedId);
+        if (!item) return;
+        event.preventDefault();
+        const lan = lanMap.get(item.id);
+        const target = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
+        if (item.openInNewTab) {
+          window.open(target, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = target;
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, navigable, lanMap]);
+
+  // Keep the selection valid when filtering changes what is on screen.
+  useEffect(() => {
+    if (selectedId && !navigable.some((item) => item.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [navigable, selectedId]);
+
   const totalVisible = groups.reduce((sum, entry) => sum + entry.visible.length, 0);
   const isEmpty = config !== null && config.groups.length === 0;
 
@@ -393,6 +508,9 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             lanMap={lanMap}
             onToggleLan={onToggleLan}
             layout={layout}
+            collapsed={isCollapsed(group.id, group.collapsed)}
+            onToggleCollapse={toggleCollapse}
+            selectedId={selectedId}
           />
         ))}
     </div>

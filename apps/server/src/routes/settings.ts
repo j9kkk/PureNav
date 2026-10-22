@@ -334,6 +334,49 @@ const ALLOWED_MIME = new Map<string, string>([
 
 const MAX_UPLOAD_BYTES = 512 * 1024;
 
+const ICONIFY_SEARCH_URL = 'https://api.iconify.design/search';
+const ICONIFY_PREFIX_URL = 'https://api.iconify.design';
+const ICONIFY_TIMEOUT_MS = 5000;
+/** Iconify's own limits: 32 results per request, 999 max. */
+const ICONIFY_MAX_RESULTS = 32;
+
+interface IconifySearchResponse {
+  icons?: string[];
+  total?: number;
+}
+
+/**
+ * Proxies Iconify search so the browser never has to know a third-party origin, and
+ * so we control the outbound request (fixed host, timeout, size cap).
+ */
+async function searchIconify(query: string, limit: number): Promise<{ id: string; url: string }[]> {
+  const url = new URL(ICONIFY_SEARCH_URL);
+  url.searchParams.set('query', query);
+  url.searchParams.set('limit', String(Math.min(limit, ICONIFY_MAX_RESULTS)));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ICONIFY_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { accept: 'application/json' },
+    });
+    if (!response.ok) return [];
+
+    const text = await response.text();
+    // Guard against an unexpectedly large body; the real payload is a few KB.
+    if (text.length > 256 * 1024) return [];
+
+    const payload = JSON.parse(text) as IconifySearchResponse;
+    return (payload.icons ?? []).map((id) => ({ id, url: `${ICONIFY_PREFIX_URL}/${id.replace(':', '/')}.svg` }));
+  } catch {
+    // Search is a convenience; a network failure returns an empty list, not an error.
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function assetUploadRoutes(app: FastifyInstance): Promise<void> {
   app.post('/admin/icons/upload', async (req, reply) => {
     assertSameOrigin(req);
@@ -367,6 +410,20 @@ export async function assetUploadRoutes(app: FastifyInstance): Promise<void> {
 
     audit(user.id, 'asset.upload', 'asset', assetId, { size: buffer.byteLength, mime: file.mimetype }, req.ip);
     return reply.status(201).send({ assetId, url: `/uploads/${storageKey}` });
+  });
+
+  app.get('/admin/icons/search', {
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    handler: async (req) => {
+      requireAdmin(req);
+      const { q, limit } = req.query as { q?: string; limit?: string };
+      const query = (q ?? '').trim();
+      if (query.length < 2) return { items: [] };
+
+      const parsed = Number.parseInt(limit ?? String(ICONIFY_MAX_RESULTS), 10);
+      const items = await searchIconify(query, Number.isFinite(parsed) ? parsed : ICONIFY_MAX_RESULTS);
+      return { items };
+    },
   });
 }
 
