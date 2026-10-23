@@ -25,8 +25,14 @@
   --text-muted: #64748b;
   --text-dim: #94a3b8;
 
-  --shadow-soft: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 20px -4px rgba(15, 23, 42, 0.04);
-  --shadow-strong: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 16px 32px -4px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.03);
+  --shadow-strong: 
+    0 2px 4px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.08),
+    0 20px 48px rgba(15, 23, 42, 0.06);
   --shadow: var(--shadow-soft);
   --glass-blur: blur(16px);
 }
@@ -43,8 +49,14 @@
   --text-muted: #94a3b8;
   --text-dim: #64748b;
 
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  --shadow-strong: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 20px 40px -6px rgba(0, 0, 0, 0.65);
+  --shadow-soft: 
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    0 14px 32px rgba(0, 0, 0, 0.4);
+  --shadow-strong: 
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.48),
+    0 22px 50px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -428,7 +440,9 @@ button {
 
 .group-body-inner {
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  padding: 8px 6px 16px;
+  margin: -8px -6px -16px;
 }
 
 .grid {
@@ -500,7 +514,7 @@ button {
     border-color var(--dur-base) var(--ease-standard),
     background-color var(--dur-base) var(--ease-standard);
   will-change: transform, box-shadow;
-  overflow: hidden;
+  background-clip: padding-box;
   text-decoration: none;
 }
 
@@ -509,6 +523,7 @@ button {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 75%);
   opacity: 0;
   pointer-events: none;
@@ -1324,6 +1339,114 @@ button {
 .table tr.drop-after,
 .sort-list > .drop-after {
   box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/* ---------- Modern iOS/macOS Style Switch Toggle ---------- */
+.switch-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  transition: background-color var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.switch-wrapper:hover {
+  background: color-mix(in oklab, var(--bg-subtle) 90%, var(--accent));
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+}
+
+.switch-wrapper.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.switch-label {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.switch-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  transition: background-color var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.switch-track[data-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.switch-thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--dur-base) var(--ease-spring),
+    box-shadow var(--dur-base) var(--ease-standard);
+  will-change: transform;
+}
+
+.switch-track[data-checked='true'] .switch-thumb {
+  transform: translate3d(20px, 0, 0);
+}
+
+.switch-wrapper:focus-within .switch-track {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+.switch-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 @media (max-width: 760px) {

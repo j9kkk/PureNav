@@ -337,6 +337,21 @@ await new Promise((r) => setTimeout(r, 800));
 
 await capture('docs/screenshots/admin.png');
 
+// 4. Open Edit Modal to capture modern Switch slider UI
+console.log('Opening edit modal to capture Switch controls...');
+await client.send('Emulation.setDeviceMetricsOverride', {
+  width: 1280,
+  height: 1020,
+  deviceScaleFactor: 2,
+  mobile: false,
+});
+await client.eval(`
+  const editBtn = Array.from(document.querySelectorAll('tbody tr button')).find(b => b.textContent.includes('编辑'));
+  if (editBtn) editBtn.click();
+`);
+await new Promise((r) => setTimeout(r, 700));
+await capture('docs/screenshots/admin-modal.png');
+
 console.log('All screenshots captured successfully!');
 
 // Clean up

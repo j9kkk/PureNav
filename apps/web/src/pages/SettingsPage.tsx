@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type AdminSettings, type SettingsPatch } from '../api';
+import { Switch } from '../components/Switch';
 
 const PRESET_COLORS = ['#5b8def', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 
@@ -238,19 +239,17 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
         </select>
       </div>
 
-      <div className="field">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={settings.layout.showDescription}
-            onChange={(event) => {
-              const showDescription = event.target.checked;
-              setSettings({ ...settings, layout: { ...settings.layout, showDescription } });
-              void save({ layout: { showDescription } });
-            }}
-          />
-          在卡片上显示描述
-        </label>
+      <div className="field" style={{ marginTop: 12 }}>
+        <Switch
+          id="s-show-description"
+          checked={settings.layout.showDescription}
+          onChange={(showDescription) => {
+            setSettings({ ...settings, layout: { ...settings.layout, showDescription } });
+            void save({ layout: { showDescription } });
+          }}
+          label="在卡片上显示站点描述"
+          description="关闭后卡片将仅显示图标与标题，界面布局更紧凑"
+        />
       </div>
 
       <h3 className="group-title" style={{ marginTop: 26 }}>数据</h3>

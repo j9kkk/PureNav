@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
+import { Switch } from '../components/Switch';
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 
@@ -24,6 +25,7 @@ interface ItemForm {
   iconPreview: string;
   tags: string;
   openInNewTab: boolean;
+  pinned: boolean;
 }
 
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
@@ -151,6 +153,7 @@ const EMPTY_FORM = (groupId: string): ItemForm => ({
   iconPreview: '',
   tags: '',
   openInNewTab: true,
+  pinned: false,
 });
 
 /** Debounced Iconify search. Queries shorter than two characters are ignored by the server. */
@@ -336,6 +339,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       lanUrl: form.lanUrl.trim() || null,
       description: form.description.trim() || null,
       openInNewTab: form.openInNewTab,
+      pinned: form.pinned,
       tags: form.tags
         .split(',')
         .map((tag) => tag.trim())
@@ -432,6 +436,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       iconPreview: isAsset ? (item.icon.ref ?? '') : '',
       tags: item.tags.join(', '),
       openInNewTab: item.openInNewTab,
+      pinned: item.pinned ?? false,
     });
   };
 
@@ -833,15 +838,21 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
               <input id="f-tags" value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} />
             </div>
 
-            <div className="field">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={form.openInNewTab}
-                  onChange={(event) => setForm({ ...form, openInNewTab: event.target.checked })}
-                />
-                在新标签页打开
-              </label>
+            <div className="field switch-group">
+              <Switch
+                id="f-open-in-new-tab"
+                checked={form.openInNewTab}
+                onChange={(checked) => setForm({ ...form, openInNewTab: checked })}
+                label="在新标签页中打开"
+                description="点击卡片时在新窗口/标签页中打开链接"
+              />
+              <Switch
+                id="f-pinned"
+                checked={form.pinned}
+                onChange={(checked) => setForm({ ...form, pinned: checked })}
+                label="分组内优先置顶"
+                description="高亮显示并在所属分组前排展示"
+              />
             </div>
 
             <div className="modal-actions">
