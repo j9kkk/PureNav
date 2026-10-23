@@ -29,6 +29,9 @@ interface ItemForm {
 }
 
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
+  const [loaded, setLoaded] = useState(false);
+  const [broken, setBroken] = useState(false);
+
   let src: string | null = null;
   if (item.icon.type === 'asset' && item.icon.ref) src = item.icon.ref;
   else if (item.icon.type === 'url' && item.icon.ref) src = item.icon.ref;
@@ -46,9 +49,17 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const initial = item.title.trim().slice(0, 1).toUpperCase() || '·';
 
   return (
-    <span className="admin-item-icon">
-      {initial}
-      {src && <img src={src} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+    <span className="admin-item-icon" data-has-image={src && loaded && !broken ? 'true' : 'false'}>
+      {(!src || broken || !loaded) && <span>{initial}</span>}
+      {src && !broken && (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          onError={() => setBroken(true)}
+        />
+      )}
     </span>
   );
 }

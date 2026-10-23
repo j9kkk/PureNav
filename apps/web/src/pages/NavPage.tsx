@@ -109,8 +109,10 @@ function ItemCard({
       aria-current={selected || undefined}
     >
       {item.pinned && <span className="pin">●</span>}
-      <span className="card-icon">
-        {initial(item.title)}
+      <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
+        {(!icon || broken || !loaded) && (
+          <span className="card-icon-initial">{initial(item.title)}</span>
+        )}
         {icon && !broken && (
           <img
             src={icon}

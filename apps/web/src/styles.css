@@ -588,6 +588,10 @@ button {
   opacity: 1;
 }
 
+.card-icon[data-has-image='true'] .card-icon-initial {
+  display: none !important;
+}
+
 .card-body {
   min-width: 0;
   flex: 1;
@@ -996,6 +1000,10 @@ button {
   width: 18px;
   height: 18px;
   object-fit: contain;
+}
+
+.admin-item-icon[data-has-image='true'] > span {
+  display: none !important;
 }
 
 .table-item-primary {
