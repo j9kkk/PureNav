@@ -3,11 +3,11 @@
 轻量、自托管的导航页。分组 + 卡片 + 高保真动效，前台浏览、后台管理，Docker 一键部署。
 
 <p align="center">
-  <img src="docs/screenshots/preview-home-dark.png" alt="PureNav 前台主页 (暗色模式)" width="850" />
+  <img src="docs/screenshots/home-dark.png" alt="PureNav 前台主页 (暗色模式)" width="850" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/preview-admin.png" alt="PureNav 后台管理工作台" width="850" />
+  <img src="docs/screenshots/admin.png" alt="PureNav 后台管理工作台" width="850" />
 </p>
 
 - **前台**：分组卡片网格、即时搜索（`/` 聚焦）、多搜索引擎回退（Google/GitHub/Bing/百度）、轻量时钟胶囊、标签药丸横向筛选栏、平滑手风琴折叠展开（CSS Grid 动画）、卡片径向微光与双行自适应描述、键盘导航（`↑` `↓` 选择、`Enter` 打开）、深浅色与列表/网格视图切换、离线快照、`prefers-reduced-motion` 降级

@@ -293,7 +293,7 @@ await client.eval(`
 `);
 await new Promise((r) => setTimeout(r, 800));
 
-await capture('docs/screenshots/preview-home-dark.png');
+await capture('docs/screenshots/home-dark.png');
 
 // 2. Switch to light mode
 console.log('Switching to light mode...');
@@ -303,7 +303,7 @@ await client.eval(`
 `);
 await new Promise((r) => setTimeout(r, 800));
 
-await capture('docs/screenshots/preview-home-light.png');
+await capture('docs/screenshots/home-light.png');
 
 // 3. Admin Page
 console.log('Navigating to admin page...');
@@ -335,7 +335,7 @@ await client.eval(`
 `);
 await new Promise((r) => setTimeout(r, 800));
 
-await capture('docs/screenshots/preview-admin.png');
+await capture('docs/screenshots/admin.png');
 
 console.log('All screenshots captured successfully!');
 
