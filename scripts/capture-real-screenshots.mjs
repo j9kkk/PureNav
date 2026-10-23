@@ -79,6 +79,13 @@ const items = [
   // G1
   {
     groupId: g1.id,
+    title: '咖啡云',
+    url: 'https://xn--9kqp0mora.net',
+    icon: { type: 'iconify', ref: 'ph:coffee' },
+    tags: ['VPN', '网络'],
+  },
+  {
+    groupId: g1.id,
     title: 'GitHub',
     url: 'https://github.com',
     description: '全球领先的开源代码托管平台与开发者协作社区，提供 CI/CD 工作流。',

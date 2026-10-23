@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
+import { formatDisplayHost } from '../lib/punycode';
 import {
   applyTheme,
   layoutAttributes,
@@ -67,15 +68,6 @@ function initial(title: string): string {
   return title.trim().slice(0, 1).toUpperCase() || '·';
 }
 
-function formatHost(rawUrl: string): string {
-  try {
-    const parsed = new URL(rawUrl);
-    return parsed.host.replace(/^www\./, '');
-  } catch {
-    return rawUrl.replace(/^https?:\/\//, '').split('/')[0] || '';
-  }
-}
-
 interface LanInfo {
   lanUrl: string;
   reachable: boolean;
@@ -104,7 +96,7 @@ function ItemCard({
 
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
-  const hostname = formatHost(usingLan && lan ? lan.lanUrl : item.url);
+  const hostname = formatDisplayHost(usingLan && lan ? lan.lanUrl : item.url);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -128,6 +120,8 @@ function ItemCard({
       onMouseMove={handleMouseMove}
     >
       {item.pinned && <span className="pin" title="置顶推荐">●</span>}
+      <span className="card-arrow" aria-hidden="true">↗</span>
+
       <div className="card-main">
         <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
           {(!icon || broken || !loaded) && (
@@ -145,17 +139,11 @@ function ItemCard({
           )}
         </span>
         <span className="card-body">
-          <div className="card-title-row">
-            <span className="card-title">{item.title}</span>
-            <span className="card-arrow" aria-hidden="true">↗</span>
-          </div>
+          <span className="card-title">{item.title}</span>
           {showDescription && item.description ? (
             <span className="card-desc">{item.description}</span>
           ) : (
-            <span className="card-host" title={href}>
-              <span className="card-host-dot" />
-              {hostname}
-            </span>
+            <span className="card-host" title={href}>{hostname}</span>
           )}
         </span>
       </div>
