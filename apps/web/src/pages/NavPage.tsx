@@ -67,6 +67,15 @@ function initial(title: string): string {
   return title.trim().slice(0, 1).toUpperCase() || '·';
 }
 
+function formatHost(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.host.replace(/^www\./, '');
+  } catch {
+    return rawUrl.replace(/^https?:\/\//, '').split('/')[0] || '';
+  }
+}
+
 interface LanInfo {
   lanUrl: string;
   reachable: boolean;
@@ -95,6 +104,15 @@ function ItemCard({
 
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
+  const hostname = formatHost(usingLan && lan ? lan.lanUrl : item.url);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+  };
 
   return (
     <a
@@ -107,41 +125,64 @@ function ItemCard({
       data-item-id={item.id}
       data-selected={selected || undefined}
       aria-current={selected || undefined}
+      onMouseMove={handleMouseMove}
     >
-      {item.pinned && <span className="pin">●</span>}
-      <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
-        {(!icon || broken || !loaded) && (
-          <span className="card-icon-initial">{initial(item.title)}</span>
-        )}
-        {icon && !broken && (
-          <img
-            src={icon}
-            alt=""
-            loading="lazy"
-            data-loaded={loaded}
-            onLoad={() => setLoaded(true)}
-            onError={() => setBroken(true)}
-          />
-        )}
-      </span>
-      <span className="card-body">
-        <span className="card-title">{item.title}</span>
-        {showDescription && item.description && <span className="card-desc">{item.description}</span>}
-      </span>
-      {lan && (
-        <button
-          className={usingLan ? 'lan-toggle lan-on' : 'lan-toggle'}
-          onClick={(event) => {
-            // The button lives inside the link; without this the click navigates.
-            event.preventDefault();
-            event.stopPropagation();
-            onToggleLan(item.id, usingLan ? 'public' : 'lan');
-          }}
-          title={usingLan ? '当前走内网，点击切换为外网' : '当前走外网，点击切换为内网'}
-          aria-label={usingLan ? '切换为外网地址' : '切换为内网地址'}
-        >
-          {usingLan ? '内' : '外'}
-        </button>
+      {item.pinned && <span className="pin" title="置顶推荐">●</span>}
+      <div className="card-main">
+        <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
+          {(!icon || broken || !loaded) && (
+            <span className="card-icon-initial">{initial(item.title)}</span>
+          )}
+          {icon && !broken && (
+            <img
+              src={icon}
+              alt=""
+              loading="lazy"
+              data-loaded={loaded}
+              onLoad={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+            />
+          )}
+        </span>
+        <span className="card-body">
+          <div className="card-title-row">
+            <span className="card-title">{item.title}</span>
+            <span className="card-arrow" aria-hidden="true">↗</span>
+          </div>
+          {showDescription && item.description ? (
+            <span className="card-desc">{item.description}</span>
+          ) : (
+            <span className="card-host" title={href}>
+              <span className="card-host-dot" />
+              {hostname}
+            </span>
+          )}
+        </span>
+      </div>
+
+      {(item.tags.length > 0 || lan) && (
+        <div className="card-footer">
+          {item.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="card-tag">
+              {tag}
+            </span>
+          ))}
+          {lan && (
+            <button
+              className={usingLan ? 'lan-toggle lan-on' : 'lan-toggle'}
+              onClick={(event) => {
+                // The button lives inside the link; without this the click navigates.
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleLan(item.id, usingLan ? 'public' : 'lan');
+              }}
+              title={usingLan ? '当前走内网，点击切换为外网' : '当前走外网，点击切换为内网'}
+              aria-label={usingLan ? '切换为外网地址' : '切换为内网地址'}
+            >
+              {usingLan ? '内网' : '外网'}
+            </button>
+          )}
+        </div>
       )}
     </a>
   );
