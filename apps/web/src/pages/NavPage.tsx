@@ -3,6 +3,7 @@ import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
 import { formatDisplayHost } from '../lib/punycode';
+import { getItemPalette, getGroupPalette, type GroupPalette } from '../lib/color';
 import {
   applyTheme,
   layoutAttributes,
@@ -97,6 +98,7 @@ function ItemCard({
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
   const hostname = formatDisplayHost(usingLan && lan ? lan.lanUrl : item.url);
+  const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -109,7 +111,15 @@ function ItemCard({
   return (
     <a
       className="card pn-enter"
-      style={{ '--stagger': Math.min(index, 8) } as React.CSSProperties}
+      style={
+        {
+          '--stagger': Math.min(index, 8),
+          '--card-hue': palette.hue,
+          '--card-color': palette.color,
+          '--card-glow': palette.glow,
+          '--card-subtle': palette.subtleGlow,
+        } as React.CSSProperties
+      }
       href={href}
       target={item.openInNewTab ? '_blank' : undefined}
       rel={item.openInNewTab ? 'noreferrer noopener' : undefined}
@@ -178,6 +188,7 @@ function ItemCard({
 
 function GroupSection({
   group,
+  groupIndex,
   query,
   visible,
   lanMap,
@@ -188,6 +199,7 @@ function GroupSection({
   selectedId,
 }: {
   group: PublicGroup;
+  groupIndex: number;
   query: string;
   visible: PublicItem[];
   lanMap: Map<string, LanInfo>;
@@ -198,9 +210,20 @@ function GroupSection({
   selectedId: string | null;
 }) {
   if (query && visible.length === 0) return null;
+  const palette = useMemo(() => getGroupPalette(group.name, groupIndex), [group.name, groupIndex]);
 
   return (
-    <section className="group">
+    <section
+      className="group"
+      style={
+        {
+          '--group-hue': palette.hue,
+          '--group-color': palette.color,
+          '--group-glow': palette.glow,
+          '--group-gradient': palette.gradient,
+        } as React.CSSProperties
+      }
+    >
       <div className="group-head">
         <button
           className="group-toggle-btn"
@@ -212,8 +235,12 @@ function GroupSection({
           <span className="group-arrow">▼</span>
         </button>
         <h2 className="group-title">
-          {group.icon && <span className="group-icon">{group.icon}</span>}
-          {group.name}
+          {group.icon && (
+            <span className="group-icon-badge">
+              <span className="group-icon">{group.icon}</span>
+            </span>
+          )}
+          <span className="group-title-text">{group.name}</span>
         </h2>
         <span className="group-count">{visible.length}</span>
       </div>
@@ -499,8 +526,14 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   };
 
   return (
-    <div className="shell">
-      <header className="topbar">
+    <>
+      <div className="ambient-aurora" aria-hidden="true">
+        <div className="aurora-orb aurora-orb-1" />
+        <div className="aurora-orb aurora-orb-2" />
+        <div className="aurora-orb aurora-orb-3" />
+      </div>
+      <div className="shell">
+        <header className="topbar">
         <div className="brand">
           <span className="brand-mark">P</span>
           <span>{config?.site.identity.title ?? 'PureNav'}</span>
@@ -600,10 +633,11 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
       )}
 
       {!loading &&
-        groups.map(({ group, visible }) => (
+        groups.map(({ group, visible }, index) => (
           <GroupSection
             key={group.id}
             group={group}
+            groupIndex={index}
             query={query}
             visible={visible}
             lanMap={lanMap}
@@ -614,6 +648,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             selectedId={selectedId}
           />
         ))}
-    </div>
+      </div>
+    </>
   );
 }

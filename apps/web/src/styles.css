@@ -157,7 +157,86 @@ button {
 
 /* ---------- Layout ---------- */
 
+/* Ambient Aurora Floating Mesh */
+.ambient-aurora {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.aurora-orb-1 {
+  top: -100px;
+  left: 20%;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 35%, transparent) 0%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.45;
+  animation: aurora-float-1 24s ease-in-out infinite alternate;
+}
+
+.aurora-orb-2 {
+  top: 35%;
+  right: -80px;
+  width: 560px;
+  height: 560px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.28) 0%, transparent 70%);
+  filter: blur(95px);
+  opacity: 0.4;
+  animation: aurora-float-2 28s ease-in-out infinite alternate;
+}
+
+.aurora-orb-3 {
+  bottom: -80px;
+  left: 5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.3) 0%, transparent 70%);
+  filter: blur(85px);
+  opacity: 0.4;
+  animation: aurora-float-3 30s ease-in-out infinite alternate;
+}
+
+:root[data-theme='dark'] .aurora-orb-1 {
+  opacity: 0.35;
+  filter: blur(100px);
+}
+:root[data-theme='dark'] .aurora-orb-2 {
+  opacity: 0.22;
+  filter: blur(110px);
+}
+:root[data-theme='dark'] .aurora-orb-3 {
+  opacity: 0.25;
+  filter: blur(100px);
+}
+
+@keyframes aurora-float-1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(50px, 35px, 0) scale(1.08); }
+  100% { transform: translate3d(-35px, 20px, 0) scale(0.96); }
+}
+@keyframes aurora-float-2 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-45px, -30px, 0) scale(1.06); }
+  100% { transform: translate3d(25px, 35px, 0) scale(0.94); }
+}
+@keyframes aurora-float-3 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(35px, -45px, 0) scale(1.05); }
+  100% { transform: translate3d(-25px, 25px, 0) scale(0.95); }
+}
+
 .shell {
+  position: relative;
+  z-index: 1;
   max-width: 1240px;
   margin: 0 auto;
   padding: 36px 24px 80px;
@@ -349,7 +428,8 @@ button {
 }
 
 .group {
-  margin-bottom: 36px;
+  position: relative;
+  margin-bottom: 38px;
 }
 
 .group-head {
@@ -357,6 +437,8 @@ button {
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in oklab, var(--group-color, var(--text)) 12%, transparent);
 }
 
 .group-toggle-btn {
@@ -389,25 +471,40 @@ button {
 .group-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
+  gap: 9px;
+  font-size: 14px;
   font-weight: 650;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--text);
   margin: 0;
 }
 
+.group-icon-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--group-color, var(--accent)) 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in oklab, var(--group-color, var(--accent)) 24%, var(--border));
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--group-color, var(--accent)) 16%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 .group-count {
   font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-dim);
-  background: color-mix(in oklab, var(--text) 4%, transparent);
-  border: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--group-color, var(--text-dim));
+  background: color-mix(in oklab, var(--group-color, var(--text)) 9%, var(--bg-elevated));
+  border: 1px solid color-mix(in oklab, var(--group-color, var(--text)) 22%, var(--border));
   border-radius: 999px;
-  padding: 0 7px;
+  padding: 0 8px;
   height: 20px;
   display: inline-flex;
   align-items: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .group-icon {
@@ -520,8 +617,12 @@ button {
   min-height: 82px;
   padding: 13px 15px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  border: 1px solid color-mix(in oklab, var(--card-color, var(--border)) 14%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--card-color, var(--bg-elevated)) 4.5%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 70%
+  );
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: 
@@ -530,7 +631,7 @@ button {
   transition: transform var(--dur-base) var(--ease-spring),
     box-shadow var(--dur-base) var(--ease-standard),
     border-color var(--dur-base) var(--ease-standard),
-    background-color var(--dur-base) var(--ease-standard);
+    background var(--dur-base) var(--ease-standard);
   will-change: transform, box-shadow;
   background-clip: padding-box;
   text-decoration: none;
@@ -539,12 +640,18 @@ button {
 }
 
 :root[data-theme='dark'] .card {
+  border-color: color-mix(in oklab, var(--card-color, var(--border)) 18%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--card-color, var(--bg-elevated)) 6.5%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 75%
+  );
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     var(--shadow);
 }
 
-/* Mouse-following dynamic spotlight */
+/* Mouse-following dynamic spotlight with item brand color */
 .card::before {
   content: '';
   position: absolute;
@@ -552,7 +659,7 @@ button {
   border-radius: inherit;
   background: radial-gradient(
     circle 140px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    color-mix(in oklab, var(--accent) 10%, transparent),
+    color-mix(in oklab, var(--card-color, var(--accent)) 16%, transparent),
     transparent 75%
   );
   opacity: 0;
@@ -565,13 +672,15 @@ button {
   transform: translate3d(0, -2.5px, 0);
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 8px 24px color-mix(in oklab, var(--card-color, var(--accent)) 12%, transparent),
     var(--shadow-strong);
-  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+  border-color: color-mix(in oklab, var(--card-color, var(--accent)) 38%, var(--border));
 }
 
 :root[data-theme='dark'] .card:hover {
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px color-mix(in oklab, var(--card-color, var(--accent)) 18%, transparent),
     var(--shadow-strong);
 }
 
@@ -581,8 +690,8 @@ button {
 
 .card:hover .card-icon {
   transform: scale(1.08) rotate(-1.5deg);
-  box-shadow: 0 4px 14px color-mix(in oklab, var(--accent) 30%, transparent);
-  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  box-shadow: 0 4px 16px color-mix(in oklab, var(--card-color, var(--accent)) 35%, transparent);
+  border-color: color-mix(in oklab, var(--card-color, var(--accent)) 50%, var(--border));
 }
 
 .card:active {
@@ -592,8 +701,8 @@ button {
 
 /* Keyboard selection: high-visibility glowing ring */
 .card[data-selected='true'] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2.5px color-mix(in oklab, var(--accent) 38%, transparent), var(--shadow-strong);
+  border-color: var(--card-color, var(--accent));
+  box-shadow: 0 0 0 2.5px color-mix(in oklab, var(--card-color, var(--accent)) 38%, transparent), var(--shadow-strong);
   transform: translate3d(0, -3px, 0);
 }
 
@@ -615,19 +724,20 @@ button {
   display: grid;
   place-items: center;
   background: var(--bg-solid);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in oklab, var(--card-color, var(--border)) 18%, var(--border));
   overflow: hidden;
   font-weight: 700;
   font-size: 15px;
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.03);
+  color: var(--card-color, var(--accent));
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--card-color, var(--accent)) 14%, transparent),
+              0 1px 2px rgba(0, 0, 0, 0.03);
   transition: transform var(--dur-base) var(--ease-spring),
     box-shadow var(--dur-base) var(--ease-standard),
     border-color var(--dur-base) var(--ease-standard);
 }
 
 :root[data-theme='dark'] .card-icon {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--card-color, var(--accent)) 22%, transparent);
 }
 
 .card-icon img {
@@ -686,7 +796,7 @@ button {
 
 .card:hover .card-arrow {
   opacity: 1;
-  color: var(--accent);
+  color: var(--card-color, var(--accent));
   transform: translate3d(2px, -2px, 0);
 }
 
@@ -722,9 +832,9 @@ button {
 }
 
 .card:hover .card-tag {
-  background: color-mix(in oklab, var(--accent) 12%, transparent);
-  border-color: color-mix(in oklab, var(--accent) 28%, transparent);
-  color: var(--accent);
+  background: color-mix(in oklab, var(--card-color, var(--accent)) 12%, transparent);
+  border-color: color-mix(in oklab, var(--card-color, var(--accent)) 28%, transparent);
+  color: var(--card-color, var(--accent));
 }
 
 .card-footer .lan-toggle {
@@ -752,8 +862,8 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
+  background: var(--card-color, var(--accent));
+  box-shadow: 0 0 6px var(--card-color, var(--accent));
 }
 
 .lan-toggle {
