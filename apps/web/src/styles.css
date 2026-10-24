@@ -1220,6 +1220,21 @@ button {
   margin-bottom: 20px;
 }
 
+.admin-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-header-actions .btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 550;
+  border-radius: var(--radius-xs);
+  line-height: 1;
+}
+
 .admin-header h2 {
   margin: 0;
   font-size: 18px;

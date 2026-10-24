@@ -618,37 +618,39 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           <h2>{activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? '分组' : '全部站点'}</h2>
           <span className="badge">{items.length} 个</span>
           <div className="spacer" />
-          <button
-            className="btn btn-sm"
-            onClick={() => bookmarkInputRef.current?.click()}
-            title="支持从 Chrome、Edge、Safari、Firefox 导出的 HTML 格式书签导入"
-          >
-            📥 导入书签
-          </button>
-          <input
-            ref={bookmarkInputRef}
-            type="file"
-            accept=".html,text/html"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleBookmarkFile(file);
-              e.target.value = '';
-            }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              const groupId = activeGroup ?? groups[0]?.id;
-              if (!groupId) {
-                setError('请先创建一个分组');
-                return;
-              }
-              setForm(EMPTY_FORM(groupId));
-            }}
-          >
-            + 添加站点
-          </button>
+          <div className="admin-header-actions">
+            <button
+              className="btn btn-sm"
+              onClick={() => bookmarkInputRef.current?.click()}
+              title="支持从 Chrome、Edge、Safari、Firefox 导出的 HTML 格式书签导入"
+            >
+              📥 导入书签
+            </button>
+            <input
+              ref={bookmarkInputRef}
+              type="file"
+              accept=".html,text/html"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleBookmarkFile(file);
+                e.target.value = '';
+              }}
+            />
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => {
+                const groupId = activeGroup ?? groups[0]?.id;
+                if (!groupId) {
+                  setError('请先创建一个分组');
+                  return;
+                }
+                setForm(EMPTY_FORM(groupId));
+              }}
+            >
+              + 添加站点
+            </button>
+          </div>
         </div>
 
         {error && <p className="error-text">{error}</p>}
