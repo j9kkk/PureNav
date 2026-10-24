@@ -69,6 +69,11 @@ function initial(title: string): string {
   return title.trim().slice(0, 1).toUpperCase() || '·';
 }
 
+function cleanGroupName(name: string, hasIcon: boolean): string {
+  if (!hasIcon) return name;
+  return name.replace(/^[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\uFE0F\s]+/u, '').trim() || name;
+}
+
 interface LanInfo {
   lanUrl: string;
   reachable: boolean;
@@ -167,17 +172,18 @@ function ItemCard({
           ))}
           {lan && (
             <button
-              className={usingLan ? 'lan-toggle lan-on' : 'lan-toggle'}
+              className="lan-pill"
+              data-using-lan={usingLan ? 'true' : 'false'}
               onClick={(event) => {
-                // The button lives inside the link; without this the click navigates.
                 event.preventDefault();
                 event.stopPropagation();
                 onToggleLan(item.id, usingLan ? 'public' : 'lan');
               }}
-              title={usingLan ? '当前走内网，点击切换为外网' : '当前走外网，点击切换为内网'}
-              aria-label={usingLan ? '切换为外网地址' : '切换为内网地址'}
+              title={usingLan ? '当前直连内网地址（点击切换公网）' : '当前访问公网地址（点击切换内网）'}
+              aria-label={usingLan ? '切换为公网地址' : '切换为内网地址'}
             >
-              {usingLan ? '内网' : '外网'}
+              <span className="lan-dot" />
+              <span>{usingLan ? '内网' : '外网'}</span>
             </button>
           )}
         </div>
@@ -232,7 +238,9 @@ function GroupSection({
           data-collapsed={collapsed}
           title={collapsed ? '展开分组' : '折叠分组'}
         >
-          <span className="group-arrow">▼</span>
+          <svg className="group-arrow-svg" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+            <path d="M2.5 3.5L5 6L7.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
         <h2 className="group-title">
           {group.icon && (
@@ -240,7 +248,7 @@ function GroupSection({
               <span className="group-icon">{group.icon}</span>
             </span>
           )}
-          <span className="group-title-text">{group.name}</span>
+          <span className="group-title-text">{cleanGroupName(group.name, !!group.icon)}</span>
         </h2>
         <span className="group-count">{visible.length}</span>
       </div>
@@ -551,20 +559,22 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
           />
           {!query && <kbd className="search-kbd">/</kbd>}
         </div>
-        <button
-          className="icon-btn"
-          onClick={toggleView}
-          aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
-          title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
-        >
-          {layout.view === 'grid' ? '☰' : '▦'}
-        </button>
-        <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
-          {themeMode === 'dark' ? '☀' : '☾'}
-        </button>
-        <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
-          ⚙
-        </button>
+        <div className="topbar-actions">
+          <button
+            className="icon-btn"
+            onClick={toggleView}
+            aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+            title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+          >
+            {layout.view === 'grid' ? '☰' : '▦'}
+          </button>
+          <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
+            {themeMode === 'dark' ? '☀' : '☾'}
+          </button>
+          <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
+            ⚙
+          </button>
+        </div>
       </header>
 
       {/* Tag pills filter bar */}

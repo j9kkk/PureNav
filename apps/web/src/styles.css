@@ -317,6 +317,8 @@ button {
   scrollbar-width: none;
   margin-top: -14px;
   margin-bottom: 24px;
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
 }
 
 .tag-filter-bar::-webkit-scrollbar {
@@ -471,6 +473,13 @@ button {
   transform: scale(0.92);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
 .group {
   position: relative;
   margin-bottom: 36px;
@@ -492,24 +501,21 @@ button {
   place-items: center;
   border-radius: var(--radius-xs);
   color: var(--text-dim);
-  font-size: 10px;
   transition: transform var(--dur-base) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
 }
 
 .group-toggle-btn:hover {
-  background: color-mix(in oklab, var(--text) 6%, transparent);
+  background: color-mix(in oklab, var(--text) 8%, transparent);
   color: var(--text);
 }
 
-.group-toggle-btn[data-collapsed='true'] svg,
-.group-toggle-btn[data-collapsed='true'] span {
-  transform: rotate(-90deg);
+.group-arrow-svg {
+  display: block;
+  transition: transform var(--dur-base) var(--ease-standard);
 }
 
-.group-arrow {
-  display: inline-block;
-  transition: transform var(--dur-base) var(--ease-standard);
-  font-size: 9px;
+.group-toggle-btn[data-collapsed='true'] .group-arrow-svg {
+  transform: rotate(-90deg);
 }
 
 .group-title {
@@ -912,52 +918,56 @@ button {
 
 .pin {
   position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 6px;
-  height: 6px;
+  top: 9px;
+  left: 10px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 999px;
   background: var(--card-color, var(--accent));
   box-shadow: 0 0 6px var(--card-color, var(--accent));
+  z-index: 3;
 }
 
-.lan-toggle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  line-height: 1;
+.lan-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4.5px;
+  font-size: 10.5px;
+  font-weight: 550;
+  padding: 1.5px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--text) 4%, var(--bg-solid));
+  border: 0.5px solid var(--border);
   color: var(--text-muted);
-  background: var(--bg-solid);
-  border: 1px solid var(--border);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-standard),
-    color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-standard);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-/* Reveal on hover, but keep it visible while the item is actually routed internally. */
-.card:hover .lan-toggle,
-.lan-toggle:focus-visible,
-.lan-toggle.lan-on {
-  opacity: 1;
+.lan-pill .lan-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: all var(--dur-fast) var(--ease-standard);
 }
 
-.lan-toggle.lan-on {
-  color: var(--accent);
+.lan-pill[data-using-lan='true'] {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.lan-pill[data-using-lan='true'] .lan-dot {
+  background: #10b981;
+  box-shadow: 0 0 5px #10b981;
+}
+
+.lan-pill:hover {
+  transform: translateY(-0.5px);
   border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
-  background: color-mix(in oklab, var(--accent) 12%, var(--bg-solid));
-}
-
-/* Touch devices have no hover, so the toggle would otherwise stay invisible. */
-@media (hover: none) {
-  .lan-toggle {
-    opacity: 1;
-  }
+  color: var(--text);
 }
 
 .empty {
@@ -1743,6 +1753,32 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "brand actions"
+      "search search";
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .brand {
+    grid-area: brand;
+  }
+  .spacer {
+    display: none;
+  }
+  .topbar-actions {
+    grid-area: actions;
+  }
+  .search {
+    grid-area: search;
+    width: 100%;
+    flex: none;
+  }
 }
 
 @media (max-width: 760px) {
