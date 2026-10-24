@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
 import { Switch } from '../components/Switch';
 import { TagInput } from '../components/TagInput';
+import { BookmarkImportModal } from '../components/BookmarkImportModal';
+import {
+  parseBookmarksHtml,
+  bookmarkFoldersToImportPayload,
+  type ParsedBookmarkFolder,
+} from '../lib/bookmarkParser';
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 import { getItemPalette } from '../lib/color';
@@ -254,12 +260,45 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string } | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
+  const bookmarkInputRef = useRef<HTMLInputElement>(null);
 
   const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => item.tags))).sort(), [items]);
 
   const flash = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(''), 2200);
+  };
+
+  const handleBookmarkFile = async (file: File) => {
+    setError('');
+    try {
+      const text = await file.text();
+      const folders = parseBookmarksHtml(text);
+      if (folders.length === 0) {
+        setError('未在文件中识别到有效的浏览器书签');
+        return;
+      }
+      setPendingBookmarkFolders(folders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '解析书签文件失败');
+    }
+  };
+
+  const handleImportSelectedBookmarks = async (
+    selectedFolders: ParsedBookmarkFolder[],
+    mode: 'merge' | 'replace',
+  ) => {
+    if (mode === 'replace' && !window.confirm('替换会清空现有全部分组与站点。确定继续？')) return;
+    try {
+      const payload = bookmarkFoldersToImportPayload(selectedFolders);
+      const result = await api.importConfig(payload, mode);
+      setPendingBookmarkFolders(null);
+      flash(`书签导入成功，共创建 ${result.created} 条数据`);
+      await load(activeGroup ?? undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '导入失败');
+    }
   };
 
   const load = async (groupId?: string) => {
@@ -579,6 +618,24 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           <h2>{activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? '分组' : '全部站点'}</h2>
           <span className="badge">{items.length} 个</span>
           <div className="spacer" />
+          <button
+            className="btn btn-sm"
+            onClick={() => bookmarkInputRef.current?.click()}
+            title="支持从 Chrome、Edge、Safari、Firefox 导出的 HTML 格式书签导入"
+          >
+            📥 导入书签
+          </button>
+          <input
+            ref={bookmarkInputRef}
+            type="file"
+            accept=".html,text/html"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleBookmarkFile(file);
+              e.target.value = '';
+            }}
+          />
           <button
             className="btn btn-primary"
             onClick={() => {
@@ -927,6 +984,14 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingBookmarkFolders && (
+        <BookmarkImportModal
+          initialFolders={pendingBookmarkFolders}
+          onClose={() => setPendingBookmarkFolders(null)}
+          onImport={handleImportSelectedBookmarks}
+        />
       )}
 
       {toast && <div className="toast">{toast}</div>}

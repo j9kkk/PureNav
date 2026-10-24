@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api, type AdminSettings, type SettingsPatch } from '../api';
 import { Switch } from '../components/Switch';
+import { BookmarkImportModal } from '../components/BookmarkImportModal';
+import {
+  parseBookmarksHtml,
+  bookmarkFoldersToImportPayload,
+  type ParsedBookmarkFolder,
+} from '../lib/bookmarkParser';
 
 const PRESET_COLORS = ['#5b8def', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 
@@ -20,6 +26,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
+  const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
 
   const load = async () => {
     try {
@@ -61,6 +68,37 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
       const payload = JSON.parse(text) as unknown;
       const result = await api.importConfig(payload, mode);
       flash(`导入完成，共 ${result.created} 条`);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '导入失败');
+    }
+  };
+
+  const handleBookmarkFile = async (file: File) => {
+    setError('');
+    try {
+      const text = await file.text();
+      const folders = parseBookmarksHtml(text);
+      if (folders.length === 0) {
+        setError('未在文件中识别到有效的浏览器书签');
+        return;
+      }
+      setPendingBookmarkFolders(folders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '解析书签文件失败');
+    }
+  };
+
+  const handleImportSelectedBookmarks = async (
+    selectedFolders: ParsedBookmarkFolder[],
+    mode: 'merge' | 'replace',
+  ) => {
+    if (mode === 'replace' && !window.confirm('替换会清空现有全部分组与站点。确定继续？')) return;
+    try {
+      const payload = bookmarkFoldersToImportPayload(selectedFolders);
+      const result = await api.importConfig(payload, mode);
+      setPendingBookmarkFolders(null);
+      flash(`书签导入成功，共创建 ${result.created} 条数据`);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '导入失败');
@@ -283,7 +321,26 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
       </div>
 
       <div className="field">
-        <label htmlFor="s-import">导入 JSON</label>
+        <label htmlFor="s-import-bookmarks">导入浏览器收藏夹 (HTML)</label>
+        <div className="icon-upload">
+          <input
+            id="s-import-bookmarks"
+            type="file"
+            accept=".html,text/html"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleBookmarkFile(file);
+              event.target.value = '';
+            }}
+          />
+        </div>
+        <span className="hint">
+          支持 Chrome、Edge、Safari、Firefox 等浏览器导出的 HTML 格式书签文件，导入前支持勾选导入范围。
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="s-import">导入完整 JSON 配置</label>
         <div className="icon-upload">
           <select
             id="s-import-mode"
@@ -311,6 +368,14 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
       {busy && <p className="hint">保存中…</p>}
       {notice && <div className="toast">{notice}</div>}
+
+      {pendingBookmarkFolders && (
+        <BookmarkImportModal
+          initialFolders={pendingBookmarkFolders}
+          onClose={() => setPendingBookmarkFolders(null)}
+          onImport={handleImportSelectedBookmarks}
+        />
+      )}
     </div>
   );
 }
