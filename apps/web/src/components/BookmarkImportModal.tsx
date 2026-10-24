@@ -11,8 +11,10 @@ interface Props {
 export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props) {
   const [folders, setFolders] = useState<ParsedBookmarkFolder[]>(initialFolders);
   const [filterQuery, setFilterQuery] = useState('');
+  const [activeFolderId, setActiveFolderId] = useState<string>(() => initialFolders[0]?.id || '');
   const [mode, setMode] = useState<'merge' | 'replace'>('merge');
   const [submitting, setSubmitting] = useState(false);
+  const [viewLayout, setViewLayout] = useState<'split' | 'accordion'>('split');
 
   const toggleFolder = (folderId: string) => {
     setFolders((prev) =>
@@ -51,6 +53,10 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
     );
   };
 
+  const setAllCollapse = (collapsed: boolean) => {
+    setFolders((prev) => prev.map((folder) => ({ ...folder, collapsed })));
+  };
+
   const selectAll = (selected: boolean) => {
     setFolders((prev) =>
       prev.map((folder) => ({
@@ -79,7 +85,8 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
     if (!q) return folders;
     return folders
       .map((folder) => {
-        const folderMatch = folder.name.toLowerCase().includes(q);
+        const folderMatch =
+          folder.name.toLowerCase().includes(q) || (folder.fullPath && folder.fullPath.toLowerCase().includes(q));
         const matchedItems = folder.items.filter(
           (item) => item.title.toLowerCase().includes(q) || item.url.toLowerCase().includes(q),
         );
@@ -89,6 +96,11 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
       })
       .filter((f): f is ParsedBookmarkFolder => f !== null);
   }, [folders, filterQuery]);
+
+  // For split view: the active folder
+  const currentActiveFolder = useMemo(() => {
+    return visibleFolders.find((f) => f.id === activeFolderId) || visibleFolders[0] || null;
+  }, [visibleFolders, activeFolderId]);
 
   const handleSubmit = async () => {
     if (selectedCount === 0 || submitting) return;
@@ -109,12 +121,17 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-large pn-enter" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h2 className="modal-title">导入浏览器收藏夹</h2>
-            <p className="modal-subtitle">
-              已解析 {folders.length} 个书签文件夹，共 {totalItems} 个网址。请勾选导入范围：
+      <div className="modal modal-wide-stage pn-enter" onClick={(e) => e.stopPropagation()}>
+        {/* Top Header */}
+        <div className="bm-stage-header">
+          <div className="bm-stage-header-info">
+            <div className="bm-stage-title-row">
+              <span className="bm-stage-icon">🔖</span>
+              <h2 className="bm-stage-title">导入浏览器收藏夹</h2>
+              <span className="bm-stage-badge">已解析 {folders.length} 个文件夹 / {totalItems} 条书签</span>
+            </div>
+            <p className="bm-stage-desc">
+              支持按文件夹自由勾选导入范围，所有导入的网址均清晰可预览并支持一键外跳验证。
             </p>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="关闭">
@@ -122,7 +139,8 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
           </button>
         </div>
 
-        <div className="bm-toolbar">
+        {/* Toolbar Controls */}
+        <div className="bm-stage-toolbar">
           <div className="bm-search-wrap">
             <span className="bm-search-icon">⌕</span>
             <input
@@ -130,118 +148,297 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
               className="bm-search-input"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="快速过滤书签或文件夹…"
+              placeholder="快速搜索书签标题、域名或文件夹…"
             />
+            {filterQuery && (
+              <button className="bm-search-clear" onClick={() => setFilterQuery('')} title="清空搜索">
+                ×
+              </button>
+            )}
           </div>
 
-          <div className="bm-actions-strip">
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(true)}>
-              全选
-            </button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(false)}>
-              清空
-            </button>
+          <div className="bm-stage-actions">
+            <div className="btn-group">
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(true)}>
+                ✓ 全选
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(false)}>
+                ✕ 清空
+              </button>
+            </div>
+
+            <div className="bm-view-switch">
+              <button
+                type="button"
+                className={`bm-view-btn ${viewLayout === 'split' ? 'is-active' : ''}`}
+                onClick={() => setViewLayout('split')}
+                title="两栏分类视图：左侧文件夹目录，右侧书签列表"
+              >
+                ⊞ 分栏视图
+              </button>
+              <button
+                type="button"
+                className={`bm-view-btn ${viewLayout === 'accordion' ? 'is-active' : ''}`}
+                onClick={() => setViewLayout('accordion')}
+                title="展开折叠流式视图"
+              >
+                ☰ 折叠列表
+              </button>
+            </div>
+
+            {viewLayout === 'accordion' && (
+              <div className="btn-group">
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAllCollapse(false)}>
+                  全部展开
+                </button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAllCollapse(true)}>
+                  全部收起
+                </button>
+              </div>
+            )}
+
             <div className="spacer" />
+
             <div className="bm-mode-selector">
-              <label htmlFor="bm-import-mode">导入策略：</label>
+              <span className="bm-mode-label">导入模式：</span>
               <select
                 id="bm-import-mode"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as 'merge' | 'replace')}
               >
-                <option value="merge">追加合并到现有分组</option>
-                <option value="replace">清空并替换现有数据</option>
+                <option value="merge">追加合并到现有分组（安全）</option>
+                <option value="replace">清空并替换现有全部数据</option>
               </select>
             </div>
           </div>
         </div>
 
-        <div className="bm-folder-list">
-          {visibleFolders.length === 0 && (
-            <div className="bm-empty-hint">没有匹配「{filterQuery}」的书签</div>
-          )}
+        {/* Main Body */}
+        {visibleFolders.length === 0 ? (
+          <div className="bm-empty-stage">
+            <span className="bm-empty-icon">🔍</span>
+            <p>没有匹配「{filterQuery}」的书签或文件夹</p>
+            <button className="btn btn-sm" onClick={() => setFilterQuery('')}>
+              清空搜索条件
+            </button>
+          </div>
+        ) : viewLayout === 'split' ? (
+          /* Two-column Split View: left folder sidebar, right bookmark item list */
+          <div className="bm-split-container">
+            {/* Left Folders Sidebar */}
+            <div className="bm-split-sidebar">
+              <div className="bm-sidebar-header">
+                <span>文件夹列表 ({visibleFolders.length})</span>
+              </div>
+              <div className="bm-sidebar-list">
+                {visibleFolders.map((folder) => {
+                  const selCount = folder.items.filter((it) => it.selected).length;
+                  const isAll = folder.items.length > 0 && selCount === folder.items.length;
+                  const isPart = selCount > 0 && !isAll;
+                  const isCurrent = currentActiveFolder?.id === folder.id;
 
-          {visibleFolders.map((folder) => {
-            const folderSelectedCount = folder.items.filter((item) => item.selected).length;
-            const isAllSelected = folder.items.length > 0 && folderSelectedCount === folder.items.length;
-            const isIndeterminate = folderSelectedCount > 0 && !isAllSelected;
+                  return (
+                    <div
+                      key={folder.id}
+                      className={`bm-folder-nav-item ${isCurrent ? 'is-active' : ''}`}
+                      onClick={() => setActiveFolderId(folder.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isAll}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isPart;
+                        }}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleFolder(folder.id);
+                        }}
+                      />
+                      <span className="bm-folder-nav-name" title={folder.fullPath || folder.name}>
+                        {folder.name}
+                      </span>
+                      <span className={`bm-folder-nav-count ${selCount > 0 ? 'has-selected' : ''}`}>
+                        {selCount}/{folder.items.length}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-            return (
-              <div key={folder.id} className="bm-folder-card">
-                <div className="bm-folder-header">
-                  <label className="bm-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = isIndeterminate;
-                      }}
-                      onChange={() => toggleFolder(folder.id)}
-                    />
-                    <span className="bm-folder-icon">📁</span>
-                    <span className="bm-folder-name">{folder.name}</span>
-                    <span className="bm-folder-badge">
-                      {folderSelectedCount} / {folder.items.length}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    className="bm-toggle-collapse"
-                    onClick={() => toggleCollapse(folder.id)}
-                    title={folder.collapsed ? '展开' : '折叠'}
-                  >
-                    <span className={`bm-arrow ${folder.collapsed ? 'is-collapsed' : ''}`}>▼</span>
-                  </button>
-                </div>
+            {/* Right Bookmarks Table Panel */}
+            <div className="bm-split-main">
+              {currentActiveFolder && (
+                <>
+                  <div className="bm-main-header">
+                    <div className="bm-main-folder-title">
+                      <span className="bm-main-icon">📁</span>
+                      <span className="bm-main-name">{currentActiveFolder.fullPath || currentActiveFolder.name}</span>
+                    </div>
+                    <div className="bm-main-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => toggleFolder(currentActiveFolder.id)}
+                      >
+                        {currentActiveFolder.items.every((i) => i.selected) ? '本组全取消' : '本组全选'}
+                      </button>
+                    </div>
+                  </div>
 
-                {!folder.collapsed && (
-                  <div className="bm-items-grid">
-                    {folder.items.map((item) => (
-                      <label key={item.id} className="bm-item-row" data-selected={item.selected}>
+                  <div className="bm-items-table">
+                    {currentActiveFolder.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`bm-table-row ${item.selected ? 'is-selected' : ''}`}
+                        onClick={() => toggleItem(currentActiveFolder.id, item.id)}
+                      >
                         <input
                           type="checkbox"
                           checked={item.selected}
-                          onChange={() => toggleItem(folder.id, item.id)}
+                          onChange={() => toggleItem(currentActiveFolder.id, item.id)}
+                          onClick={(e) => e.stopPropagation()}
                         />
-                        <span className="bm-item-icon">
+                        <span className="bm-row-icon">
                           {item.icon ? (
                             <img src={item.icon} alt="" />
                           ) : (
                             <span>{item.title.trim().slice(0, 1).toUpperCase() || '·'}</span>
                           )}
                         </span>
-                        <div className="bm-item-info">
-                          <span className="bm-item-title" title={item.title}>
+                        <div className="bm-row-content">
+                          <span className="bm-row-title" title={item.title}>
                             {item.title}
                           </span>
-                          <span className="bm-item-host" title={item.url}>
-                            {formatDisplayHost(item.url)}
+                          <span className="bm-row-url" title={item.url}>
+                            {item.url}
                           </span>
                         </div>
-                      </label>
+                        <a
+                          className="bm-row-external-link"
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(e) => e.stopPropagation()}
+                          title="在浏览器新窗口打开此网址测试预览"
+                        >
+                          ↗ 预览
+                        </a>
+                      </div>
                     ))}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Accordion Streaming View */
+          <div className="bm-folder-list">
+            {visibleFolders.map((folder) => {
+              const folderSelectedCount = folder.items.filter((item) => item.selected).length;
+              const isAllSelected = folder.items.length > 0 && folderSelectedCount === folder.items.length;
+              const isIndeterminate = folderSelectedCount > 0 && !isAllSelected;
 
-        <div className="modal-actions bm-modal-footer">
-          <span className="bm-summary-count">
-            已勾选 <strong>{selectedCount}</strong> 个书签（涵盖 {selectedFolderCount} 个分组）
-          </span>
+              return (
+                <div key={folder.id} className="bm-folder-card">
+                  <div className="bm-folder-header">
+                    <label className="bm-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isIndeterminate;
+                        }}
+                        onChange={() => toggleFolder(folder.id)}
+                      />
+                      <span className="bm-folder-icon">📁</span>
+                      <span className="bm-folder-name" title={folder.fullPath || folder.name}>
+                        {folder.fullPath || folder.name}
+                      </span>
+                      <span className={`bm-folder-badge ${folderSelectedCount > 0 ? 'has-selected' : ''}`}>
+                        {folderSelectedCount} / {folder.items.length}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="bm-toggle-collapse"
+                      onClick={() => toggleCollapse(folder.id)}
+                      title={folder.collapsed ? '展开' : '折叠'}
+                    >
+                      <span className={`bm-arrow ${folder.collapsed ? 'is-collapsed' : ''}`}>▼</span>
+                    </button>
+                  </div>
+
+                  {!folder.collapsed && (
+                    <div className="bm-items-table">
+                      {folder.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`bm-table-row ${item.selected ? 'is-selected' : ''}`}
+                          onClick={() => toggleItem(folder.id, item.id)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.selected}
+                            onChange={() => toggleItem(folder.id, item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="bm-row-icon">
+                            {item.icon ? (
+                              <img src={item.icon} alt="" />
+                            ) : (
+                              <span>{item.title.trim().slice(0, 1).toUpperCase() || '·'}</span>
+                            )}
+                          </span>
+                          <div className="bm-row-content">
+                            <span className="bm-row-title" title={item.title}>
+                              {item.title}
+                            </span>
+                            <span className="bm-row-url" title={item.url}>
+                              {item.url}
+                            </span>
+                          </div>
+                          <a
+                            className="bm-row-external-link"
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            onClick={(e) => e.stopPropagation()}
+                            title="在浏览器新窗口打开此网址测试预览"
+                          >
+                            ↗ 预览
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Modal Footer Actions */}
+        <div className="bm-stage-footer">
+          <div className="bm-summary-wrap">
+            <span className="bm-summary-pill">
+              已选 <strong>{selectedCount}</strong> / {totalItems} 项网址
+            </span>
+            <span className="bm-summary-folders">
+              （跨 {selectedFolderCount} 个文件夹）
+            </span>
+          </div>
           <div className="spacer" />
           <button type="button" className="btn" onClick={onClose} disabled={submitting}>
             取消
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-import-submit"
             onClick={handleSubmit}
             disabled={selectedCount === 0 || submitting}
           >
-            {submitting ? '导入中…' : `导入选中的 ${selectedCount} 个书签`}
+            {submitting ? '正在导入中…' : `确认导入选中的 ${selectedCount} 个网址`}
           </button>
         </div>
       </div>

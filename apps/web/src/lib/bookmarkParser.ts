@@ -11,6 +11,8 @@ export interface ParsedBookmarkItem {
 export interface ParsedBookmarkFolder {
   id: string;
   name: string;
+  fullPath: string; // e.g. "书签栏 / 开发 / 前端"
+  depth: number;
   items: ParsedBookmarkItem[];
   selected: boolean;
   collapsed?: boolean;
@@ -28,10 +30,19 @@ function decodeHtml(html: string): string {
 
 /**
  * Parses standard Netscape Bookmark HTML exported from Chrome, Safari, Edge, Firefox, etc.
+ * Supports preservation of hierarchy paths and smart folder flattening.
  */
 export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] {
-  const foldersMap = new Map<string, ParsedBookmarkItem[]>();
-  const currentPath: string[] = [];
+  // Folder tree tracker
+  interface FolderEntry {
+    name: string;
+    fullPath: string;
+    depth: number;
+    items: ParsedBookmarkItem[];
+  }
+
+  const folderEntries: FolderEntry[] = [];
+  const folderStack: string[] = [];
 
   // Match folder <H3>, bookmark <A>, and container open/close <DL> / </DL>
   const tagRegex = /<(H3)[^>]*>([\s\S]*?)<\/H3>|<(A)\s+([^>]+)>([\s\S]*?)<\/A>|<\/?(DL)[^>]*>/gi;
@@ -39,12 +50,23 @@ export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] 
   let match: RegExpExecArray | null;
   let itemCounter = 0;
 
+  // Root level virtual folder if any bookmarks exist outside <H3> folders
+  const rootItems: ParsedBookmarkItem[] = [];
+
   while ((match = tagRegex.exec(htmlContent)) !== null) {
     if (match[1]) {
       // <H3> folder title
       const rawTitle = match[2]?.trim().replace(/<[^>]+>/g, '') ?? '';
       const folderTitle = decodeHtml(rawTitle) || '未命名文件夹';
-      currentPath.push(folderTitle);
+      folderStack.push(folderTitle);
+
+      const fullPath = folderStack.join(' / ');
+      folderEntries.push({
+        name: folderTitle,
+        fullPath,
+        depth: folderStack.length - 1,
+        items: [],
+      });
     } else if (match[3]) {
       // <A HREF="..." ...>title</A>
       const attrs = match[4] ?? '';
@@ -58,37 +80,53 @@ export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] 
         const url = hrefMatch[1]?.trim() ?? '';
         // Only accept standard web URLs (exclude javascript:, chrome://, file:, place:)
         if (/^https?:\/\//i.test(url)) {
-          const folderName = currentPath.length > 0 ? currentPath[currentPath.length - 1]! : '快捷书签';
-          if (!foldersMap.has(folderName)) {
-            foldersMap.set(folderName, []);
-          }
           itemCounter++;
-          foldersMap.get(folderName)!.push({
+          const bookmark: ParsedBookmarkItem = {
             id: `bm-${itemCounter}`,
             title: title || url,
             url,
             icon: iconMatch ? iconMatch[1] : undefined,
             selected: true,
-          });
+          };
+
+          if (folderEntries.length > 0) {
+            folderEntries[folderEntries.length - 1]!.items.push(bookmark);
+          } else {
+            rootItems.push(bookmark);
+          }
         }
       }
     } else if (match[6]) {
       // <DL> or </DL>
       if (match[0].startsWith('</')) {
-        currentPath.pop();
+        folderStack.pop();
       }
     }
   }
 
+  // If there are root items, prepend as "快捷书签"
+  const allFolders: FolderEntry[] = [];
+  if (rootItems.length > 0) {
+    allFolders.push({
+      name: '快捷书签',
+      fullPath: '快捷书签',
+      depth: 0,
+      items: rootItems,
+    });
+  }
+  allFolders.push(...folderEntries);
+
   let folderCounter = 0;
-  return Array.from(foldersMap.entries())
-    .filter(([_, items]) => items.length > 0)
-    .map(([name, items]) => {
+  return allFolders
+    .filter((f) => f.items.length > 0)
+    .map((f) => {
       folderCounter++;
       return {
         id: `folder-${folderCounter}`,
-        name,
-        items,
+        name: f.name,
+        fullPath: f.fullPath,
+        depth: f.depth,
+        items: f.items,
         selected: true,
         collapsed: false,
       };
@@ -101,7 +139,7 @@ export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] 
 export function bookmarkFoldersToImportPayload(folders: ParsedBookmarkFolder[]) {
   const groups = folders.map((folder, gIdx) => ({
     id: folder.id,
-    name: folder.name,
+    name: folder.fullPath || folder.name,
     sort_order: (gIdx + 1) * 1024,
     visibility: 'public',
     enabled: 1,
