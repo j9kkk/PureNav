@@ -48,11 +48,12 @@ function itemMatches(item: PublicItem, query: string, activeTag: string | null):
   );
 }
 
-function iconUrl(item: PublicItem): string | null {
+function iconUrl(item: PublicItem, color?: string): string | null {
   if (item.icon.type === 'asset' && item.icon.ref) return item.icon.ref;
   if (item.icon.type === 'url' && item.icon.ref) return item.icon.ref;
   if (item.icon.type === 'iconify' && item.icon.ref) {
-    return `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg`;
+    const base = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg`;
+    return color ? `${base}?color=${encodeURIComponent(color)}` : base;
   }
   if (item.icon.type === 'auto') {
     try {
@@ -95,7 +96,8 @@ function ItemCard({
   showDescription: boolean;
   selected: boolean;
 }) {
-  const icon = iconUrl(item);
+  const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
+  const icon = useMemo(() => iconUrl(item, palette.color), [item, palette.color]);
   // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
@@ -103,7 +105,6 @@ function ItemCard({
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
   const hostname = formatDisplayHost(usingLan && lan ? lan.lanUrl : item.url);
-  const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();

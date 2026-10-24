@@ -5,6 +5,7 @@ dist/
 .env.*
 !.env.example
 data/
+data-*/
 apps/*/data/
 .DS_Store
 coverage/
