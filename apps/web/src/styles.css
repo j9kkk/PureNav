@@ -1755,6 +1755,161 @@ button {
   gap: 10px;
 }
 
+/* ---------- Apple-style Capsule Tag Input ---------- */
+.capsule-tag-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.capsule-tag-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-solid);
+  cursor: text;
+  transition: all var(--dur-fast) var(--ease-standard);
+  box-shadow: var(--specular-top);
+}
+
+.capsule-tag-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+}
+
+.capsule-tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2.5px 8px 2.5px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated));
+  border: 0.5px solid color-mix(in oklab, var(--accent) 25%, var(--border));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.35;
+  user-select: none;
+  animation: pn-fade var(--dur-fast) var(--ease-standard);
+}
+
+:root[data-theme='dark'] .capsule-tag-item {
+  background: color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.06));
+  border-color: color-mix(in oklab, var(--accent) 35%, rgba(255, 255, 255, 0.1));
+}
+
+.capsule-tag-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capsule-tag-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all var(--dur-fast) var(--ease-standard);
+}
+
+.capsule-tag-remove:hover {
+  background: color-mix(in oklab, var(--text) 12%, transparent);
+  color: var(--text);
+}
+
+.capsule-tag-field {
+  flex: 1 1 80px;
+  min-width: 80px;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 4px 2px !important;
+  font-size: 13px !important;
+  color: var(--text) !important;
+}
+
+.capsule-tag-field::placeholder {
+  color: var(--text-dim);
+}
+
+/* Suggestion dropdown */
+.capsule-tag-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--bg-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  overflow: hidden;
+  animation: pn-rise var(--dur-fast) var(--ease-entrance);
+}
+
+.capsule-tag-dropdown-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 0.5px solid var(--border);
+  background: color-mix(in oklab, var(--text) 2%, transparent);
+}
+
+.capsule-tag-dropdown-list {
+  padding: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.capsule-tag-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+.capsule-tag-suggestion.is-active,
+.capsule-tag-suggestion:hover {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.suggestion-bullet {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 12px;
+}
+
 @media (max-width: 640px) {
   .topbar {
     display: grid;

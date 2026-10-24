@@ -3,6 +3,7 @@ import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
 import { Switch } from '../components/Switch';
+import { TagInput } from '../components/TagInput';
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 import { getItemPalette } from '../lib/color';
@@ -253,6 +254,8 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string } | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+
+  const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => item.tags))).sort(), [items]);
 
   const flash = (message: string) => {
     setToast(message);
@@ -855,8 +858,14 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             )}
 
             <div className="field">
-              <label htmlFor="f-tags">标签（逗号分隔）</label>
-              <input id="f-tags" value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} />
+              <label htmlFor="f-tags">标签（胶囊式，回车确认）</label>
+              <TagInput
+                id="f-tags"
+                value={form.tags}
+                onChange={(tags) => setForm({ ...form, tags })}
+                availableTags={allTags}
+                placeholder="输入标签按回车确认…"
+              />
             </div>
 
             <div className="field switch-group">
