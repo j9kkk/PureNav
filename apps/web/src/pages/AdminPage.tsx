@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
 import { Switch } from '../components/Switch';
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
+import { getItemPalette } from '../lib/color';
 
 interface Props {
   user: SessionUser;
@@ -31,12 +32,13 @@ interface ItemForm {
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
+  const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
 
   let src: string | null = null;
   if (item.icon.type === 'asset' && item.icon.ref) src = item.icon.ref;
   else if (item.icon.type === 'url' && item.icon.ref) src = item.icon.ref;
   else if (item.icon.type === 'iconify' && item.icon.ref) {
-    src = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg`;
+    src = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg?color=${encodeURIComponent(palette.color)}`;
   } else if (item.icon.type === 'auto') {
     try {
       const host = new URL(item.url).hostname;
@@ -49,7 +51,15 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const initial = item.title.trim().slice(0, 1).toUpperCase() || '·';
 
   return (
-    <span className="admin-item-icon" data-has-image={src && loaded && !broken ? 'true' : 'false'}>
+    <span
+      className="admin-item-icon"
+      data-has-image={src && loaded && !broken ? 'true' : 'false'}
+      style={{
+        color: palette.color,
+        borderColor: `color-mix(in oklab, ${palette.color} 25%, var(--border))`,
+        boxShadow: `0 1px 4px ${palette.subtleGlow}`,
+      }}
+    >
       {(!src || broken || !loaded) && <span>{initial}</span>}
       {src && !broken && (
         <img
