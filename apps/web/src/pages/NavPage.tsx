@@ -75,6 +75,22 @@ function cleanGroupName(name: string, hasIcon: boolean): string {
   return name.replace(/^[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\uFE0F\s]+/u, '').trim() || name;
 }
 
+const WEEK_DAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const;
+
+function formatClock(d: Date = new Date()): { time: string; date: string; full: string } {
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const week = WEEK_DAYS[d.getDay()] ?? '';
+  const hours = d.getHours().toString().padStart(2, '0');
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+
+  return {
+    time: `${hours}:${minutes}`,
+    date: `${month}月${day}日 ${week}`,
+    full: `${month}月${day}日 ${week} ${hours}:${minutes}`,
+  };
+}
+
 interface LanInfo {
   lanUrl: string;
   reachable: boolean;
@@ -135,7 +151,6 @@ function ItemCard({
       aria-current={selected || undefined}
       onMouseMove={handleMouseMove}
     >
-      {item.pinned && <span className="pin" title="置顶推荐">●</span>}
       <span className="card-arrow" aria-hidden="true">↗</span>
 
       <div className="card-main">
@@ -155,7 +170,17 @@ function ItemCard({
           )}
         </span>
         <span className="card-body">
-          <span className="card-title">{item.title}</span>
+          <span className="card-title">
+            {item.title}
+            {item.pinned && (
+              <span className="pin-badge" title="置顶推荐">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.927 5.927 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.923-1.414.728-.195-.195.533-1.22.728-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.767 2.375-.72a5.922 5.922 0 0 1 1.013.16l3.134-3.133a2.772 2.772 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146z" />
+                </svg>
+                <span>置顶</span>
+              </span>
+            )}
+          </span>
           {showDescription && item.description ? (
             <span className="card-desc">{item.description}</span>
           ) : (
@@ -231,18 +256,29 @@ function GroupSection({
         } as React.CSSProperties
       }
     >
-      <div className="group-head">
-        <button
+      <div
+        className="group-head"
+        onClick={() => onToggleCollapse(group.id)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        data-collapsed={collapsed}
+        title={collapsed ? '点击展开分组' : '点击折叠分组'}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggleCollapse(group.id);
+          }
+        }}
+      >
+        <span
           className="group-toggle-btn"
-          onClick={() => onToggleCollapse(group.id)}
-          aria-expanded={!collapsed}
-          data-collapsed={collapsed}
-          title={collapsed ? '展开分组' : '折叠分组'}
+          aria-hidden="true"
         >
           <svg className="group-arrow-svg" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
             <path d="M2.5 3.5L5 6L7.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
+        </span>
         <h2 className="group-title">
           {group.icon && (
             <span className="group-icon-badge">
@@ -286,10 +322,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [offline, setOffline] = useState(false);
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(() => {
-    const d = new Date();
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-  });
+  const [clock, setClock] = useState(() => formatClock());
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
   const [viewOverride, setViewOverride] = useState<'grid' | 'list' | null>(null);
@@ -301,10 +334,9 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   // Update clock every minute
   useEffect(() => {
     const tick = () => {
-      const d = new Date();
-      setCurrentTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+      setClock(formatClock());
     };
-    const timer = setInterval(tick, 30000);
+    const timer = setInterval(tick, 10000);
     return () => clearInterval(timer);
   }, []);
 
@@ -413,13 +445,17 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     });
   };
 
+  const isFiltering = !!query.trim() || !!activeTag;
+
   const groups = useMemo(() => {
     if (!config) return [];
-    return config.groups.map((group) => ({
+    const all = config.groups.map((group) => ({
       group,
       visible: group.items.filter((item) => itemMatches(item, query, activeTag)),
     }));
-  }, [config, query, activeTag]);
+    // 当处于搜索或标签筛选状态时，过滤掉结果数为 0 的分组
+    return isFiltering ? all.filter((entry) => entry.visible.length > 0) : all;
+  }, [config, query, activeTag, isFiltering]);
 
   // A group starts collapsed if the site says so; the user's clicks override that.
   const isCollapsed = (groupId: string, defaultCollapsed: boolean): boolean =>
@@ -543,24 +579,26 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
       </div>
       <div className="shell">
         <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">P</span>
-          <span>{config?.site.identity.title ?? 'PureNav'}</span>
-          <span className="brand-clock" title="当前时间">{currentTime}</span>
-        </div>
-        <div className="spacer" />
-        <div className="search">
-          <span className="search-icon">⌕</span>
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索站点或敲 /"
-            aria-label="搜索站点"
-          />
-          {!query && <kbd className="search-kbd">/</kbd>}
-        </div>
-        <div className="topbar-actions">
+          <div className="brand">
+            <span className="brand-mark">P</span>
+            <span>{config?.site.identity.title ?? 'PureNav'}</span>
+            <span className="brand-clock" title={clock.full}>
+              <span className="brand-clock-date">{clock.date}</span>
+              <span className="brand-clock-time">{clock.time}</span>
+            </span>
+          </div>
+          <div className="search" onClick={() => searchRef.current?.focus()}>
+            <span className="search-icon">⌕</span>
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索站点或敲 /"
+              aria-label="搜索站点"
+            />
+            {!query && <kbd className="search-kbd">/</kbd>}
+          </div>
+          <div className="topbar-actions">
           <button
             className="icon-btn"
             onClick={toggleView}
@@ -621,22 +659,26 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
       {!loading && !isEmpty && totalVisible === 0 && (
         <div className="empty pn-fade">
-          <h2>没有匹配「{query}」的站内结果</h2>
-          <p>继续通过外部搜索引擎查找：</p>
-          <div className="external-search-actions">
-            <button className="btn btn-sm" onClick={() => openExternalSearch('google')}>
-              Google 搜索
-            </button>
-            <button className="btn btn-sm" onClick={() => openExternalSearch('github')}>
-              GitHub 搜索
-            </button>
-            <button className="btn btn-sm" onClick={() => openExternalSearch('bing')}>
-              Bing 搜索
-            </button>
-            <button className="btn btn-sm" onClick={() => openExternalSearch('baidu')}>
-              百度 搜索
-            </button>
-          </div>
+          <h2>{query.trim() ? `没有匹配「${query}」的站内结果` : activeTag ? `标签「${activeTag}」下暂无站点` : '未找到匹配结果'}</h2>
+          {query.trim() && (
+            <>
+              <p>继续通过外部搜索引擎查找：</p>
+              <div className="external-search-actions">
+                <button className="btn btn-sm" onClick={() => openExternalSearch('google')}>
+                  Google 搜索
+                </button>
+                <button className="btn btn-sm" onClick={() => openExternalSearch('github')}>
+                  GitHub 搜索
+                </button>
+                <button className="btn btn-sm" onClick={() => openExternalSearch('bing')}>
+                  Bing 搜索
+                </button>
+                <button className="btn btn-sm" onClick={() => openExternalSearch('baidu')}>
+                  百度 搜索
+                </button>
+              </div>
+            </>
+          )}
           <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => { setQuery(''); setActiveTag(null); }}>
             清空筛选
           </button>
