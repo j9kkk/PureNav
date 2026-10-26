@@ -1,7 +1,7 @@
 {
   "name": "purenav",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Lightweight self-hosted navigation page with card-based layout and high-fidelity motion.",
   "license": "MIT",
   "type": "module",
