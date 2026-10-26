@@ -68,12 +68,23 @@ function iconUrl(item: PublicItem, color?: string): string | null {
   if (item.icon.type === 'auto') {
     try {
       const host = new URL(item.url).hostname;
-      return `https://icons.duckduckgo.com/ip3/${host}.ico`;
+      // 走同源代理：既能取到 128px 高清源，也让 Canvas 能采样四角透明度。
+      return `/api/v1/icons/favicon?host=${encodeURIComponent(host)}`;
     } catch {
       return null;
     }
   }
   return null;
+}
+
+/** 代理不可用时的直连兜底，避免自建实例离线后整站图标全空。 */
+function fallbackIconUrl(item: PublicItem): string | null {
+  if (item.icon.type !== 'auto') return null;
+  try {
+    return `https://icons.duckduckgo.com/ip3/${new URL(item.url).hostname}.ico`;
+  } catch {
+    return null;
+  }
 }
 
 function initial(title: string): string {
@@ -128,10 +139,29 @@ function ItemCard({
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
   const [variant, setVariant] = useState<IconVariant>('inset');
+  // 同源代理失败时退到直连 CDN，自建实例离线也不会整站图标全空。
+  const [src, setSrc] = useState(icon);
 
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
   const hostname = formatDisplayHost(usingLan && lan ? lan.lanUrl : item.url);
+
+  useEffect(() => {
+    setSrc(icon);
+    setLoaded(false);
+    setBroken(false);
+    setVariant('inset');
+  }, [icon]);
+
+  const handleIconError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const fallback = fallbackIconUrl(item);
+    if (fallback && event.currentTarget.src !== fallback) {
+      // 先换直连源重试；直连也失败才算真正损坏。
+      setSrc(fallback);
+      return;
+    }
+    setBroken(true);
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -156,7 +186,11 @@ function ItemCard({
       href={href}
       target={item.openInNewTab ? '_blank' : undefined}
       rel={item.openInNewTab ? 'noreferrer noopener' : undefined}
-      title={lan && usingLan ? `${lan.lanUrl}（内网）` : (item.description ?? item.url)}
+      title={
+        lan && usingLan
+          ? `${item.title}\n${lan.lanUrl}（内网）`
+          : `${item.title}${item.description ? `\n${item.description}` : ''}\n${item.url}`
+      }
       data-item-id={item.id}
       data-selected={selected || undefined}
       aria-current={selected || undefined}
@@ -169,29 +203,30 @@ function ItemCard({
       <div className="card-main">
         <span
           className="card-icon"
-          data-has-image={icon && loaded && !broken ? 'true' : 'false'}
+          data-has-image={src && loaded && !broken ? 'true' : 'false'}
           data-variant={variant}
         >
-          {(!icon || broken || !loaded) && (
+          {(!src || broken || !loaded) && (
             <span className="card-icon-initial">{initial(item.title)}</span>
           )}
-          {icon && !broken && (
+          {src && !broken && (
             <img
-              src={icon}
+              src={src}
               alt=""
               loading="lazy"
               data-loaded={loaded}
               onLoad={(e) => {
                 setLoaded(true);
+                setBroken(false);
                 setVariant(detectIconVariant(e.currentTarget));
               }}
-              onError={() => setBroken(true)}
+              onError={handleIconError}
             />
           )}
         </span>
         <span className="card-body">
-          <span className="card-title">
-            {item.title}
+          <span className="card-title" title={item.title}>
+            <span className="card-title-text">{item.title}</span>
             {item.pinned && (
               <span className="pin-badge" title="置顶推荐">
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

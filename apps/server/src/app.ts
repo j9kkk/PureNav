@@ -14,6 +14,7 @@ import { authRoutes } from './routes/auth.js';
 import { groupRoutes } from './routes/groups.js';
 import { itemRoutes } from './routes/items.js';
 import { settingsRoutes, assetUploadRoutes, assetReadRoutes } from './routes/settings.js';
+import { iconProxyRoutes } from './routes/icons.js';
 
 export interface BuildAppOptions {
   /** Overrides the SPA directory; `null` skips static serving entirely. */
@@ -123,6 +124,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       await api.register(itemRoutes);
       await api.register(settingsRoutes);
       await api.register(assetUploadRoutes);
+      await api.register(iconProxyRoutes);
     },
     { prefix: '/api/v1' },
   );

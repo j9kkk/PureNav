@@ -62,7 +62,8 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   } else if (item.icon.type === 'auto') {
     try {
       const host = new URL(item.url).hostname;
-      src = `https://icons.duckduckgo.com/ip3/${host}.ico`;
+      // 与前台一致走同源代理，后台预览才和实际呈现保持一致。
+      src = `/api/v1/icons/favicon?host=${encodeURIComponent(host)}`;
     } catch {
       src = null;
     }
@@ -906,7 +907,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 </td>
                 <td>
                   <div className="table-item-primary">
-                    <span className="table-item-title">{item.title}</span>
+                    <span className="table-item-title" title={item.title}>{item.title}</span>
                     <span className="table-item-url">
                       {item.url}
                       {item.lanUrl && <span className="badge badge-lan">内网</span>}
