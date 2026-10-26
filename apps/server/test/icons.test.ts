@@ -183,6 +183,80 @@ test('icon proxy: a redirect towards a private host is not followed', async () =
   }
 });
 
+test('icon proxy: a host behind basic auth is not retried or sent to icon CDNs', async () => {
+  const ctx = await createTestApp();
+  const realFetch = globalThis.fetch;
+  const hits: string[] = [];
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    hits.push(url);
+    // 整站 Basic Auth：任何路径都是 401，包括第三方图标库也拿不到内容。
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: { 'www-authenticate': 'Basic realm="restricted"' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const response = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/v1/icons/favicon?host=gated.example',
+      headers: { host: TEST_HOST },
+    });
+    assert.equal(response.statusCode, 404);
+    assert.match(response.body, /ICON_UNAVAILABLE/);
+
+    // https 上首页与 /favicon.ico 并发各探一次即确认需要认证，之后立即收手：
+    // 不再换 http 重试，也不去问第三方图标库。
+    assert.equal(hits.length, 2, `expected to stop after the https probes, got ${hits.join(', ')}`);
+    assert.ok(!hits.some((url) => url.startsWith('http://')), 'must not retry the same host over http');
+    assert.ok(!hits.some((url) => url.includes('google.com')), 'must not fall back to a third-party icon CDN');
+    assert.ok(!hits.some((url) => url.includes('duckduckgo.com')), 'must not fall back to a third-party icon CDN');
+  } finally {
+    globalThis.fetch = realFetch;
+    await clearIconCache();
+    await teardown(ctx);
+  }
+});
+
+test('icon proxy: a 404 on /favicon.ico still tries the icon declared in HTML', async () => {
+  const ctx = await createTestApp();
+  const realFetch = globalThis.fetch;
+  const png = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  ]);
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/favicon.ico')) return new Response('', { status: 404 });
+    if (url === 'https://partial404.example/') {
+      return new Response('<html><head><link rel="icon" href="/brand.png" sizes="180x180"></head></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }
+    if (url === 'https://partial404.example/brand.png') {
+      return new Response(png, { status: 200, headers: { 'content-type': 'image/png' } });
+    }
+    return new Response('', { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const response = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/v1/icons/favicon?host=partial404.example',
+      headers: { host: TEST_HOST },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['content-type'], 'image/png');
+  } finally {
+    globalThis.fetch = realFetch;
+    await clearIconCache();
+    await teardown(ctx);
+  }
+});
+
 test('icon proxy: a miss is cached so repeated refreshes stay fast', async () => {
   const ctx = await createTestApp();
   const realFetch = globalThis.fetch;

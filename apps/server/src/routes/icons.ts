@@ -192,10 +192,36 @@ async function requestWithHostGuard(
       current = new URL(location, current).toString();
       continue;
     }
-    return response.ok ? response : null;
+
+    if (response.ok) return response;
+
+    /*
+     * 整站要求认证时，换协议重试、或者去问第三方图标库都不会有不同结果，
+     * 只会把整页图标一起拖慢——直接标记为「已定论」。
+     * 其它错误码（404 / 403 / 5xx）不在此列：同站别的路径可能仍有图标，
+     * 值得继续找。
+     */
+    if (AUTH_REQUIRED_STATUSES.has(response.status)) throw new HostRefused(response.status);
+    return null;
   }
   return null;
 }
+
+/** 站点要求认证：调用方据此跳过后续的所有重试与兜底。 */
+class HostRefused extends Error {
+  constructor(readonly status: number) {
+    super(`refused with ${status}`);
+  }
+}
+
+/**
+ * 需要凭据（401 / 407）：整站上了认证，不带凭据任何路径都拿不到，
+ * 换协议、换路径、问第三方图标库都不会有不同结果。
+ *
+ * 403 与 429 不算——前者常只拦特定路径（同站别的图标仍可用），
+ * 后者是临时限流，过一会儿就好，都不该当成定论。
+ */
+const AUTH_REQUIRED_STATUSES = new Set([401, 407]);
 
 async function fetchImage(url: string, deadline: number): Promise<{ body: Buffer; contentType: string } | null> {
   await acquireSlot();
@@ -320,6 +346,9 @@ function parseManifestIcons(json: string, manifestUrl: string): Candidate[] {
  *
  * `preferredScheme` 来自站点条目自己的地址，省掉「猜协议」的往返：
  * 纯 http 的自建服务不必先等一次 https 超时。
+ *
+ * 站点要求认证（401/407）时抛 `HostRefused`：主机是通的，但没有凭据
+ * 任何路径都拿不到，换协议、换路径都不会有不同结果，继续试只会拖慢整页。
  */
 async function resolveDirect(
   host: string,
@@ -333,8 +362,8 @@ async function resolveDirect(
 
   for (const origin of origins) {
     const [homepage, plainIcon] = await Promise.all([
-      fetchText(origin, HTML_MAX_BYTES, deadline).catch(() => null),
-      fetchImage(`${origin}favicon.ico`, deadline).catch(() => null),
+      fetchText(origin, HTML_MAX_BYTES, deadline).catch(swallowUnlessRefused),
+      fetchImage(`${origin}favicon.ico`, deadline).catch(swallowUnlessRefused),
     ]);
     // 两个都拿不到说明这个协议根本不通，可以换另一个试；
     // 只要有一个有响应（哪怕是 403），换协议也不会有不同结果。
@@ -345,7 +374,7 @@ async function resolveDirect(
       const candidates = [...icons];
 
       if (manifest && Date.now() < deadline) {
-        const manifestText = await fetchText(manifest, MANIFEST_MAX_BYTES, deadline).catch(() => null);
+        const manifestText = await fetchText(manifest, MANIFEST_MAX_BYTES, deadline).catch(swallowUnlessRefused);
         if (manifestText) candidates.push(...parseManifestIcons(manifestText, manifest));
       }
 
@@ -361,6 +390,12 @@ async function resolveDirect(
     if (reachable || Date.now() > deadline) break;
   }
 
+  return null;
+}
+
+/** 网络错误按「无结果」处理，但站点的明确拒绝要继续往上抛。 */
+function swallowUnlessRefused(error: unknown): null {
+  if (error instanceof HostRefused) throw error;
   return null;
 }
 
@@ -435,9 +470,18 @@ export async function iconProxyRoutes(app: FastifyInstance): Promise<void> {
       const deadline = Date.now() + TOTAL_BUDGET_MS;
       let pending = inFlight.get(target);
       if (!pending) {
-        const started = (async () =>
-          (await resolveDirect(target, preferredScheme, deadline)) ??
-          (await resolveFromUpstreams(target, deadline)))();
+        const started = (async () => {
+          try {
+            const direct = await resolveDirect(target, preferredScheme, deadline);
+            if (direct) return direct;
+          } catch (error) {
+            // 站点要求认证（如整站 Basic Auth）：第三方图标库拿到的也是同一堵墙，
+            // 不再兜底，直接按「无图标」收尾。
+            if (error instanceof HostRefused) return null;
+            throw error;
+          }
+          return resolveFromUpstreams(target, deadline);
+        })();
         inFlight.set(target, started);
         // 无论成败都要释放，否则这个主机后续永远拿到一个已结束的 Promise。
         void started.finally(() => {
