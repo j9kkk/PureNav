@@ -221,22 +221,27 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
           </div>
 
           <div className="field">
-            <label htmlFor="s-radius">圆角：{settings.theme.radius}px</label>
-            <input
-              id="s-radius"
-              type="range"
-              min={0}
-              max={32}
-              step={2}
-              value={settings.theme.radius}
-              onChange={(event) => {
-                const radius = Number(event.target.value);
-                setSettings({ ...settings, theme: { ...settings.theme, radius } });
-              }}
-              // Commit on release; dragging should not write on every pixel.
-              onMouseUp={() => void save({ theme: { radius: settings.theme.radius } })}
-              onTouchEnd={() => void save({ theme: { radius: settings.theme.radius } })}
-            />
+            <label htmlFor="s-radius">圆角</label>
+            <div className="field-inline">
+              <input
+                id="s-radius"
+                type="range"
+                min={0}
+                max={32}
+                step={2}
+                value={settings.theme.radius}
+                onChange={(event) => {
+                  const radius = Number(event.target.value);
+                  setSettings({ ...settings, theme: { ...settings.theme, radius } });
+                }}
+                // Commit on release; dragging should not write on every pixel.
+                onMouseUp={() => void save({ theme: { radius: settings.theme.radius } })}
+                onTouchEnd={() => void save({ theme: { radius: settings.theme.radius } })}
+              />
+              <output htmlFor="s-radius" className="num">
+                {settings.theme.radius}px
+              </output>
+            </div>
           </div>
         </div>
       </div>
@@ -274,14 +279,11 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
                   void save({ layout: { cardSize } });
                 }}
               >
-                <option value="sm">小</option>
-                <option value="md">中</option>
-                <option value="lg">大</option>
+                <option value="sm">小 · 紧凑</option>
+                <option value="md">中 · 标准</option>
+                <option value="lg">大 · 舒展</option>
               </select>
             </div>
-          </div>
-
-          <div className="field-row">
             <div className="field">
               <label htmlFor="s-view">默认视图</label>
               <select
@@ -322,7 +324,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
             <label>导出</label>
             <div className="settings-inline">
               <button
-                className="btn btn-sm"
+                className="btn"
                 onClick={async () => {
                   try {
                     downloadBlob(await api.exportJson(), 'purenav-export.json');
@@ -335,7 +337,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
                 导出 JSON
               </button>
               <button
-                className="btn btn-sm"
+                className="btn"
                 onClick={async () => {
                   try {
                     downloadBlob(await api.exportBookmarks(), 'purenav-bookmarks.html');
@@ -352,17 +354,20 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
           <div className="field">
             <label htmlFor="s-import-bookmarks">导入浏览器收藏夹 (HTML)</label>
-            <div className="icon-upload">
-              <input
-                id="s-import-bookmarks"
-                type="file"
-                accept=".html,text/html"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void handleBookmarkFile(file);
-                  event.target.value = '';
-                }}
-              />
+            <div className="settings-inline">
+              <label className="btn file-btn">
+                选择 HTML 文件
+                <input
+                  id="s-import-bookmarks"
+                  type="file"
+                  accept=".html,text/html"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleBookmarkFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
             </div>
             <span className="hint">
               支持 Chrome、Edge、Safari、Firefox 等浏览器导出的 HTML 格式书签文件，导入前支持勾选导入范围。
@@ -371,7 +376,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
           <div className="field">
             <label htmlFor="s-import">导入完整 JSON 配置</label>
-            <div className="icon-upload">
+            <div className="settings-inline">
               <select
                 id="s-import-mode"
                 value={importMode}
@@ -380,16 +385,19 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
                 <option value="merge">合并到现有数据</option>
                 <option value="replace">替换全部数据</option>
               </select>
-              <input
-                id="s-import"
-                type="file"
-                accept="application/json"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void importFile(file, importMode);
-                  event.target.value = '';
-                }}
-              />
+              <label className="btn file-btn">
+                选择 JSON 文件
+                <input
+                  id="s-import"
+                  type="file"
+                  accept="application/json"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void importFile(file, importMode);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
             </div>
             <span className="hint">
               {importMode === 'merge' ? '保留现有分组与站点，追加导入内容。' : '会清空现有全部分组与站点。'}
