@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
-import { SortableList, DragHandle, useRowDrag } from '../components/SortableList';
+import { DragHandle, useRowDrag } from '../components/SortableList';
+import { GroupTreeNav } from '../components/GroupTree';
+import { applyGroupMove, buildGroupTree, treeToSnapshot, type DropMode, type GroupNode } from '../lib/groupTree';
 import { Switch } from '../components/Switch';
 import { TagInput } from '../components/TagInput';
 import { BookmarkImportModal } from '../components/BookmarkImportModal';
@@ -13,6 +15,15 @@ import {
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 import { getItemPalette } from '../lib/color';
+import {
+  IconDownload,
+  IconGrid,
+  IconHome,
+  IconLogout,
+  IconPlus,
+  IconSliders,
+  IconUser,
+} from '../components/icons';
 
 interface Props {
   user: SessionUser;
@@ -61,11 +72,7 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
     <span
       className="admin-item-icon"
       data-has-image={src && loaded && !broken ? 'true' : 'false'}
-      style={{
-        color: palette.color,
-        borderColor: `color-mix(in oklab, ${palette.color} 25%, var(--border))`,
-        boxShadow: `0 1px 4px ${palette.subtleGlow}`,
-      }}
+      style={{ color: palette.color }}
     >
       {(!src || broken || !loaded) && <span>{initial}</span>}
       {src && !broken && (
@@ -184,6 +191,21 @@ const EMPTY_FORM = (groupId: string): ItemForm => ({
   pinned: false,
 });
 
+/** 生成带省略号的分页按钮序列，如 [1, '…', 4, 5, 6, '…', 20] */
+function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const wanted = new Set([1, total, current - 1, current, current + 1]);
+  const sorted = [...wanted].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const out: (number | 'ellipsis')[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (p - prev > 1) out.push('ellipsis');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
 /** Debounced Iconify search. Queries shorter than two characters are ignored by the server. */
 function IconSearch({ onPick }: { onPick: (id: string) => void }) {
   const [query, setQuery] = useState('');
@@ -257,13 +279,46 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [panel, setPanel] = useState<'items' | 'settings' | 'account'>('items');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<ItemForm | null>(null);
-  const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string } | null>(null);
+  const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string; parentId: string | null } | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
   const bookmarkInputRef = useRef<HTMLInputElement>(null);
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
 
   const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => item.tags))).sort(), [items]);
+
+  // 面包屑路径：从根到当前选中分组，支持逐级点击返回
+  const activeBreadcrumbs = useMemo(() => {
+    if (!activeGroup) return [];
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const trail: AdminGroupDto[] = [];
+    let cur = byId.get(activeGroup);
+    while (cur) {
+      trail.unshift(cur);
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return trail;
+  }, [groups, activeGroup]);
+
+  // 服务端分页：列表接口按 page/pageSize/q 返回当前页与总数
+  const totalPages = Math.max(1, Math.ceil(serverTotal / pageSize));
+  const safePage = Math.min(pageIndex, totalPages);
+  // 仅当整组数据都在当前页且未搜索时才允许拖拽排序（order 接口要求完整 id 列表）
+  const canDragItems = !!activeGroup && serverTotal <= pageSize && !search;
+
+  useEffect(() => {
+    setPageIndex(1);
+  }, [activeGroup, pageSize, search]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const flash = (message: string) => {
     setToast(message);
@@ -295,26 +350,31 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       const result = await api.importConfig(payload, mode);
       setPendingBookmarkFolders(null);
       flash(`书签导入成功，共创建 ${result.created} 条数据`);
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '导入失败');
     }
   };
 
-  const load = async (groupId?: string) => {
+  const load = async () => {
     setError('');
     try {
-      const [groupResult, itemResult] = await Promise.all([api.groups(), api.items(groupId)]);
+      const [groupResult, itemResult] = await Promise.all([
+        api.groups(),
+        api.items(activeGroup ?? undefined, { page: pageIndex, pageSize, q: search || undefined }),
+      ]);
       setGroups(groupResult.items);
       setItems(itemResult.items);
+      setServerTotal(itemResult.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     }
   };
 
   useEffect(() => {
-    void load(activeGroup ?? undefined);
-  }, [activeGroup]);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroup, pageIndex, pageSize, search]);
 
   const createGroup = async () => {
     if (!groupDialog) return;
@@ -322,55 +382,68 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     if (!name) return;
     try {
       if (groupDialog.id) {
-        await api.updateGroup(groupDialog.id, { name, icon: groupDialog.icon.trim() || null });
+        await api.updateGroup(groupDialog.id, {
+          name,
+          icon: groupDialog.icon.trim() || null,
+          parentId: groupDialog.parentId || null,
+        });
         flash('分组已更新');
       } else {
-        const created = await api.createGroup({ name, icon: groupDialog.icon.trim() || null });
+        const created = await api.createGroup({
+          name,
+          icon: groupDialog.icon.trim() || null,
+          parentId: groupDialog.parentId || null,
+        });
         flash('分组已创建');
         setActiveGroup(created.id);
       }
       setGroupDialog(null);
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
     }
   };
 
   const removeGroup = async (group: AdminGroupDto) => {
-    const cascade = group.itemCount > 0
-      ? window.confirm(`「${group.name}」下还有 ${group.itemCount} 个站点，删除会一并移除。继续？`)
+    const cascade = group.totalCount > 0
+      ? window.confirm(`「${group.name}」及其子分组共 ${group.totalCount} 个站点，删除会一并移除。继续？`)
       : window.confirm(`删除分组「${group.name}」？`);
     if (!cascade) return;
     try {
-      await api.deleteGroup(group.id, group.itemCount > 0);
+      await api.deleteGroup(group.id, group.totalCount > 0);
       flash('分组已删除');
-      if (activeGroup === group.id) setActiveGroup(null);
-      await load(activeGroup === group.id ? undefined : activeGroup ?? undefined);
+      if (activeGroup && groupIdsUnder(group.id).includes(activeGroup)) setActiveGroup(null);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除失败');
     }
   };
 
-  const moveGroup = async (id: string, direction: -1 | 1) => {
-    const index = groups.findIndex((group) => group.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= groups.length) return;
-    const ordered = groups.map((group) => group.id);
-    const moved = ordered.splice(index, 1)[0]!;
-    ordered.splice(target, 0, moved);
-    await applyGroupOrder(ordered);
+  /** 拖拽分组树：换父或兄弟内排序。乐观更新，失败回滚。 */
+  const handleGroupTreeMove = async (draggedId: string, targetId: string, mode: DropMode) => {
+    const next = applyGroupMove(groups, draggedId, targetId, mode);
+    if (!next) return;
+    const snapshot = treeToSnapshot(buildGroupTree(next));
+    setGroups(next);
+    try {
+      await api.reorderGroups(snapshot);
+      flash('分组结构已更新');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移动失败');
+      await load();
+    }
   };
 
-  /** Optimistic: repaint immediately, roll back to server state if the write fails. */
-  const applyGroupOrder = async (ordered: string[]) => {
-    const byId = new Map(groups.map((group) => [group.id, group]));
-    setGroups(ordered.map((id) => byId.get(id)!).filter(Boolean));
-    try {
-      await api.reorderGroups(ordered);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '排序失败');
-      await load(activeGroup ?? undefined);
-    }
+  const groupIdsUnder = (rootId: string): string[] => {
+    const out: string[] = [];
+    const walk = (id: string) => {
+      out.push(id);
+      for (const group of groups) {
+        if (group.parentId === id) walk(group.id);
+      }
+    };
+    walk(rootId);
+    return out;
   };
 
   const applyItemOrder = async (groupId: string, ordered: string[]) => {
@@ -384,7 +457,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       await api.reorderItems(groupId, ordered);
     } catch (err) {
       setError(err instanceof Error ? err.message : '排序失败');
-      await load(activeGroup ?? undefined);
+      await load();
     }
   };
 
@@ -424,7 +497,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         flash('站点已添加');
       }
       setForm(null);
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
     }
@@ -435,7 +508,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     try {
       await api.deleteItem(item.id);
       flash('站点已删除');
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除失败');
     }
@@ -458,7 +531,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const toggleItem = async (item: AdminItemDto) => {
     try {
       await api.updateItem(item.id, { enabled: !item.enabled });
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
     }
@@ -473,7 +546,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       const result = await api.batchItems(op, ids, moveTo);
       flash(`已处理 ${result.affected} 项`);
       setSelectedIds(new Set());
-      await load(activeGroup ?? undefined);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '批量操作失败');
     }
@@ -526,64 +599,89 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   return (
     <div className="admin-layout">
       <aside className="admin-side">
-        <div className="brand" style={{ marginBottom: 12 }}>
+        <div className="brand" style={{ marginBottom: 14, padding: '0 8px' }}>
           <span className="brand-mark">P</span>
-          PureNav 后台
+          <span className="brand-title">PureNav</span>
+          <span className="count-chip">后台</span>
         </div>
 
-        <div className="side-item" aria-current={panel === 'items' && activeGroup === null}>
+        <nav className="admin-nav">
           <button
-            className="btn-ghost btn btn-sm"
-            style={{ padding: 0 }}
+            className="side-item"
+            aria-current={panel === 'items' && activeGroup === null ? 'true' : undefined}
             onClick={() => {
               setPanel('items');
               setActiveGroup(null);
             }}
           >
+            <span className="side-icon">
+              <IconGrid size={16} />
+            </span>
             全部站点
           </button>
-        </div>
 
-        {groups.map((group) => (
-          <div className="side-item" key={group.id} aria-current={panel === 'items' && activeGroup === group.id}>
-            <button
-              className="btn-ghost btn btn-sm"
-              style={{ padding: 0, flex: 1, textAlign: 'left' }}
-              onClick={() => {
+          <div className="admin-side-tree">
+            <GroupTreeNav
+              groups={groups}
+              activeGroup={panel === 'items' ? activeGroup : null}
+              onSelect={(groupId) => {
                 setPanel('items');
-                setActiveGroup(group.id);
+                setActiveGroup(groupId);
               }}
-            >
-              {group.name}
-            </button>
-            <span className="badge">{group.itemCount}</span>
+              onMove={(draggedId, targetId, mode) => void handleGroupTreeMove(draggedId, targetId, mode)}
+              onEdit={(group) => setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '', parentId: group.parentId })}
+              onDelete={(group) => void removeGroup(group)}
+              onCreateChild={(parentGroup) => setGroupDialog({ name: '', icon: '', parentId: parentGroup.id })}
+            />
           </div>
-        ))}
 
-        <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => setGroupDialog({ name: '', icon: '' })}>
-          + 新建分组
-        </button>
+          <button
+            className="side-item"
+            onClick={() => setGroupDialog({ name: '', icon: '', parentId: null })}
+          >
+            <span className="side-icon">
+              <IconPlus size={16} />
+            </span>
+            新建分组
+          </button>
 
-        <div className="side-item" aria-current={panel === 'settings'} style={{ marginTop: 10 }}>
-          <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setPanel('settings')}>
+          <div className="side-sep" role="presentation" />
+
+          <button
+            className="side-item"
+            aria-current={panel === 'settings' ? 'true' : undefined}
+            onClick={() => setPanel('settings')}
+          >
+            <span className="side-icon">
+              <IconSliders size={16} />
+            </span>
             站点设置
           </button>
-        </div>
 
-        <div className="side-item" aria-current={panel === 'account'}>
-          <button className="btn-ghost btn btn-sm" style={{ padding: 0 }} onClick={() => setPanel('account')}>
+          <button
+            className="side-item"
+            aria-current={panel === 'account' ? 'true' : undefined}
+            onClick={() => setPanel('account')}
+          >
+            <span className="side-icon">
+              <IconUser size={16} />
+            </span>
             账户与日志
           </button>
-        </div>
+        </nav>
 
         <div className="spacer" />
-        <div className="hint" style={{ marginBottom: 8 }}>
-          {user.username}
-        </div>
-        <button className="btn btn-sm" onClick={onHome}>
+        <div className="side-user">{user.username}</div>
+        <button className="side-item" onClick={onHome}>
+          <span className="side-icon">
+            <IconHome size={16} />
+          </span>
           返回前台
         </button>
-        <button className="btn btn-sm btn-ghost" onClick={logout}>
+        <button className="side-item" onClick={logout}>
+          <span className="side-icon">
+            <IconLogout size={16} />
+          </span>
           退出登录
         </button>
       </aside>
@@ -592,7 +690,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         {panel === 'settings' ? (
           <>
             <div className="admin-header">
-              <h2>站点设置</h2>
+              <h1>站点设置</h1>
             </div>
             <SettingsPage
               onChanged={() => {
@@ -608,23 +706,65 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         ) : panel === 'account' ? (
           <>
             <div className="admin-header">
-              <h2>账户与日志</h2>
+              <h1>账户与日志</h1>
             </div>
             <AccountPage />
           </>
         ) : (
           <>
         <div className="admin-header">
-          <h2>{activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? '分组' : '全部站点'}</h2>
-          <span className="badge">{items.length} 个</span>
+          <div className="admin-title-wrap">
+            {activeBreadcrumbs.length > 0 ? (
+              <nav className="admin-breadcrumb" aria-label="分组层级">
+                <button
+                  type="button"
+                  className="crumb-btn"
+                  onClick={() => setActiveGroup(null)}
+                >
+                  全部站点
+                </button>
+                {activeBreadcrumbs.map((crumb, idx) => {
+                  const isLast = idx === activeBreadcrumbs.length - 1;
+                  return (
+                    <span key={crumb.id} className="crumb-segment">
+                      <span className="crumb-sep">/</span>
+                      {isLast ? (
+                        <h1 className="crumb-current">{crumb.name}</h1>
+                      ) : (
+                        <button
+                          type="button"
+                          className="crumb-btn"
+                          onClick={() => setActiveGroup(crumb.id)}
+                        >
+                          {crumb.name}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </nav>
+            ) : (
+              <h1>全部站点</h1>
+            )}
+            <span className="count-chip num">{serverTotal} 个站点</span>
+          </div>
           <div className="spacer" />
+          <input
+            className="admin-search"
+            type="search"
+            placeholder="搜索标题或网址…"
+            aria-label="搜索站点"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
           <div className="admin-header-actions">
             <button
               className="btn btn-sm"
               onClick={() => bookmarkInputRef.current?.click()}
               title="支持从 Chrome、Edge、Safari、Firefox 导出的 HTML 格式书签导入"
             >
-              📥 导入书签
+              <IconDownload size={15} />
+              导入书签
             </button>
             <input
               ref={bookmarkInputRef}
@@ -654,32 +794,6 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         </div>
 
         {error && <p className="error-text">{error}</p>}
-
-        {!activeGroup && groups.length > 0 && (
-          <div className="sort-block">
-            <h3 className="group-title" style={{ marginBottom: 8 }}>分组顺序</h3>
-            <p className="hint" style={{ marginTop: -4 }}>拖动左侧把手调整顺序，也可用上移 / 下移按钮。</p>
-            <SortableList
-              items={groups}
-              getId={(group) => group.id}
-              onReorder={(ordered) => void applyGroupOrder(ordered)}
-              className="sort-list"
-              renderRow={(group, state) => (
-                <>
-                  <DragHandle handleProps={state.handleProps} />
-                  <span className="sort-row-label">{group.name}</span>
-                  <span className="badge">{group.itemCount}</span>
-                  <span className="sort-row-actions">
-                    <button className="btn btn-sm" onClick={() => moveGroup(group.id, -1)} aria-label="上移">↑</button>
-                    <button className="btn btn-sm" onClick={() => moveGroup(group.id, 1)} aria-label="下移">↓</button>
-                    <button className="btn btn-sm" onClick={() => setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '' })}>编辑</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => removeGroup(group)}>删除</button>
-                  </span>
-                </>
-              )}
-            />
-          </div>
-        )}
 
         {selectedIds.size > 0 && (
           <div className="bulk-bar pn-fade">
@@ -718,6 +832,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           </div>
         )}
 
+        <div className="admin-table-wrap">
         <table className="table admin-table">
           <thead>
             <tr>
@@ -725,10 +840,17 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
               <th style={{ width: 34 }}>
                 <input
                   type="checkbox"
-                  aria-label="全选"
-                  checked={items.length > 0 && selectedIds.size === items.length}
+                  aria-label="全选本页"
+                  checked={items.length > 0 && items.every((item) => selectedIds.has(item.id))}
                   onChange={(event) => {
-                    setSelectedIds(event.target.checked ? new Set(items.map((item) => item.id)) : new Set());
+                    setSelectedIds((current) => {
+                      const next = new Set(current);
+                      for (const item of items) {
+                        if (event.target.checked) next.add(item.id);
+                        else next.delete(item.id);
+                      }
+                      return next;
+                    });
                   }}
                 />
               </th>
@@ -743,15 +865,15 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             {items.map((item) => (
               <tr
                 key={item.id}
-                {...(activeGroup
+                {...(canDragItems
                   ? itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')
                   : { className: item.enabled ? undefined : 'row-muted' })}
               >
                 <td>
                   <DragHandle
-                    disabled={!activeGroup}
+                    disabled={!canDragItems}
                     handleProps={{
-                      draggable: !!activeGroup,
+                      draggable: canDragItems,
                       onDragStart: itemDrag.start(item.id),
                       onDragEnd: itemDrag.end,
                       onClick: (event) => event.preventDefault(),
@@ -791,11 +913,18 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 <td>
                   <div className="table-tag-list">
                     {item.tags.length > 0 ? (
-                      item.tags.map((t) => (
-                        <span key={t} className="badge">
-                          {t}
-                        </span>
-                      ))
+                      <>
+                        {item.tags.slice(0, 2).map((t) => (
+                          <span key={t} className="badge">
+                            {t}
+                          </span>
+                        ))}
+                        {item.tags.length > 2 && (
+                          <span className="badge badge-more" title={item.tags.slice(2).join(', ')}>
+                            +{item.tags.length - 2}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span className="hint">—</span>
                     )}
@@ -816,12 +945,55 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             {items.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
-                  这里还没有站点
+                  {search ? '没有匹配的站点' : '这里还没有站点'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
+
+        {(totalPages > 1 || serverTotal > 0) && (
+          <div className="table-pagination">
+            <span className="hint">共 {serverTotal} 个站点{search ? ` · 匹配「${search}」` : ''}</span>
+            <select
+              className="bulk-move"
+              value={pageSize}
+              onChange={(event) => setPageSize(Number(event.target.value))}
+              aria-label="每页数量"
+            >
+              <option value={20}>20 条/页</option>
+              <option value={50}>50 条/页</option>
+              <option value={100}>100 条/页</option>
+            </select>
+            {totalPages > 1 && (
+              <>
+                <div className="spacer" />
+                <div className="page-btns">
+                  <button className="btn btn-sm" disabled={safePage <= 1} onClick={() => setPageIndex(safePage - 1)}>
+                    上一页
+                  </button>
+                  {pageWindow(safePage, totalPages).map((page, idx) =>
+                    page === 'ellipsis' ? (
+                      <span key={`e-${idx}`} className="page-ellipsis">…</span>
+                    ) : (
+                      <button
+                        key={page}
+                        className={`page-btn${page === safePage ? ' is-current' : ''}`}
+                        onClick={() => setPageIndex(page)}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                  <button className="btn btn-sm" disabled={safePage >= totalPages} onClick={() => setPageIndex(safePage + 1)}>
+                    下一页
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {visibleGroups.length === 0 && groups.length === 0 && (
           <p className="hint" style={{ marginTop: 16 }}>先创建一个分组，然后就能添加站点了。</p>
@@ -842,7 +1014,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
 
             <div className="field">
               <label htmlFor="f-url">地址</label>
-              <input id="f-url" value={form.url} placeholder="https://example.com" onChange={(event) => setForm({ ...form, url: event.target.value })} />
+              <input id="f-url" value={form.url} placeholder="https://…" onChange={(event) => setForm({ ...form, url: event.target.value })} />
             </div>
 
             <div className="field">
@@ -975,10 +1147,37 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 id="g-icon"
                 value={groupDialog.icon}
                 maxLength={8}
-                placeholder="🧰"
+                placeholder="任意单个 emoji 表情"
                 onChange={(event) => setGroupDialog({ ...groupDialog, icon: event.target.value })}
               />
               <span className="hint">会显示在前台分组标题左侧。</span>
+            </div>
+            <div className="field">
+              <label htmlFor="g-parent">上级分组</label>
+              <select
+                id="g-parent"
+                value={groupDialog.parentId ?? ''}
+                onChange={(event) => setGroupDialog({ ...groupDialog, parentId: event.target.value || null })}
+              >
+                <option value="">无（根层级）</option>
+                {(() => {
+                  // 可选父级 = 全部分组；编辑时排除自身及其子孙（避免成环）
+                  const excluded = groupDialog.id ? new Set(groupIdsUnder(groupDialog.id)) : new Set<string>();
+                  const walk = (nodes: GroupNode[], depth: number): Array<{ id: string; label: string }> =>
+                    nodes.flatMap((node) => [
+                      { id: node.group.id, label: `${'　'.repeat(depth)}${node.group.name}` },
+                      ...walk(node.children, depth + 1),
+                    ]);
+                  return walk(buildGroupTree(groups), 1)
+                    .filter((option) => !excluded.has(option.id))
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ));
+                })()}
+              </select>
+              <span className="hint">选择后该分组将成为其子分组，前台按层级嵌套展示。</span>
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setGroupDialog(null)}>取消</button>

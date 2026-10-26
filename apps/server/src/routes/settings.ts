@@ -159,6 +159,16 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
         created += 1;
       }
 
+      // 第二遍恢复层级：导出载荷里 parent_id 指向旧 id，经映射后回写。
+      const linkParent = db.prepare('UPDATE groups SET parent_id = ? WHERE id = ?');
+      for (const group of importedGroups) {
+        const oldParent = (group as { parent_id?: string | null }).parent_id;
+        if (!oldParent) continue;
+        const newId = groupIdMap.get(String(group.id));
+        const newParentId = groupIdMap.get(String(oldParent));
+        if (newId && newParentId) linkParent.run(newParentId, newId);
+      }
+
       const itemIdMap = new Map<string, string>();
       for (const item of importedItems) {
         const groupId = groupIdMap.get(String(item.group_id)) ?? groupIdMap.values().next().value;

@@ -106,117 +106,137 @@ export function AccountPage() {
   };
 
   return (
-    <div style={{ maxWidth: 680 }}>
+    <div className="settings">
       {error && <p className="error-text">{error}</p>}
 
-      <h3 className="group-title">修改密码</h3>
-      <form onSubmit={changePassword} style={{ maxWidth: 380 }}>
-        <div className="field">
-          <label htmlFor="a-current">当前密码</label>
-          <input
-            id="a-current"
-            type="password"
-            autoComplete="current-password"
-            value={current}
-            onChange={(event) => setCurrent(event.target.value)}
-            required
-          />
+      <div className="settings-row">
+        <div className="settings-label">
+          <h3>修改密码</h3>
+          <p>更新管理员密码。更新后其它设备的登录状态会全部失效。</p>
         </div>
-        <div className="field">
-          <label htmlFor="a-next">新密码</label>
-          <input
-            id="a-next"
-            type="password"
-            autoComplete="new-password"
-            value={next}
-            onChange={(event) => setNext(event.target.value)}
-            required
-          />
-          <span className="hint">至少 8 位</span>
+        <div className="settings-panel">
+          <form onSubmit={changePassword} style={{ maxWidth: 380 }}>
+            <div className="field">
+              <label htmlFor="a-current">当前密码</label>
+              <input
+                id="a-current"
+                type="password"
+                autoComplete="current-password"
+                value={current}
+                onChange={(event) => setCurrent(event.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="a-next">新密码</label>
+              <input
+                id="a-next"
+                type="password"
+                autoComplete="new-password"
+                value={next}
+                onChange={(event) => setNext(event.target.value)}
+                required
+              />
+              <span className="hint">至少 8 位</span>
+            </div>
+            <div className="field">
+              <label htmlFor="a-confirm">确认新密码</label>
+              <input
+                id="a-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">
+              更新密码
+            </button>
+          </form>
         </div>
-        <div className="field">
-          <label htmlFor="a-confirm">确认新密码</label>
-          <input
-            id="a-confirm"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
-            required
-          />
-        </div>
-        <button type="submit" className="btn btn-primary">
-          更新密码
-        </button>
-      </form>
+      </div>
 
-      <h3 className="group-title" style={{ marginTop: 30 }}>登录设备</h3>
-      <p className="hint" style={{ marginTop: -6 }}>修改密码后，除当前设备外的会话会全部失效。</p>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>来源 IP</th>
-            <th>客户端</th>
-            <th>最近活动</th>
-            <th style={{ width: 90 }}>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sessions.map((session) => (
-            <tr key={session.id}>
-              <td>{session.ip ?? '—'}</td>
-              <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {session.userAgent ?? '—'}
-              </td>
-              <td>{formatTime(session.lastSeenAt ?? session.createdAt)}</td>
-              <td>
-                <button className="btn btn-sm btn-danger" onClick={() => revoke(session.id)}>
-                  退出
-                </button>
-              </td>
-            </tr>
-          ))}
-          {sessions.length === 0 && (
-            <tr>
-              <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
-                没有其它会话
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <div className="settings-row">
+        <div className="settings-label">
+          <h3>登录设备</h3>
+          <p>当前账号的所有活跃会话，可以单独退出某个设备。</p>
+        </div>
+        <div className="settings-panel">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>来源 IP</th>
+                <th>客户端</th>
+                <th>最近活动</th>
+                <th style={{ width: 90 }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((session) => (
+                <tr key={session.id}>
+                  <td>{session.ip ?? '—'}</td>
+                  <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {session.userAgent ?? '—'}
+                  </td>
+                  <td className="num">{formatTime(session.lastSeenAt ?? session.createdAt)}</td>
+                  <td>
+                    <button className="btn btn-sm" onClick={() => revoke(session.id)}>
+                      退出
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {sessions.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                    没有其它会话
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <h3 className="group-title" style={{ marginTop: 30 }}>操作日志</h3>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>操作</th>
-            <th>对象</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((entry) => (
-            <tr key={entry.id}>
-              <td>{formatTime(entry.created_at)}</td>
-              <td>{labelFor(entry.action)}</td>
-              <td className="hint">{entry.entity_type ?? '—'}</td>
-            </tr>
-          ))}
-          {logs.length === 0 && (
-            <tr>
-              <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
-                暂无记录
-              </td>
-            </tr>
+      <div className="settings-row">
+        <div className="settings-label">
+          <h3>操作日志</h3>
+          <p>后台的关键操作审计记录，按时间倒序。</p>
+        </div>
+        <div className="settings-panel">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>操作</th>
+                <th>对象</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((entry) => (
+                <tr key={entry.id}>
+                  <td className="num">{formatTime(entry.created_at)}</td>
+                  <td>{labelFor(entry.action)}</td>
+                  <td className="hint">{entry.entity_type ?? '—'}</td>
+                </tr>
+              ))}
+              {logs.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                    暂无记录
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {cursor && (
+            <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => void loadLogs(cursor)}>
+              加载更多
+            </button>
           )}
-        </tbody>
-      </table>
-      {cursor && (
-        <button className="btn btn-sm" onClick={() => void loadLogs(cursor)}>
-          加载更多
-        </button>
-      )}
+        </div>
+      </div>
 
       {notice && <div className="toast">{notice}</div>}
     </div>

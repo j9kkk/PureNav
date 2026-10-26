@@ -135,6 +135,8 @@ export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] 
 
 /**
  * Converts selected bookmark folders into standard PureNav import payload.
+ * 浏览器导出的 base64 data-URI 图标会被丢弃（每个几 KB、动辄数千个，会令配置载荷膨胀数 MB 拖慢前台），
+ * 改用 auto 模式由 DuckDuckGo 自动匹配高清 favicon。
  */
 export function bookmarkFoldersToImportPayload(folders: ParsedBookmarkFolder[]) {
   const groups = folders.map((folder, gIdx) => ({
@@ -146,18 +148,22 @@ export function bookmarkFoldersToImportPayload(folders: ParsedBookmarkFolder[]) 
   }));
 
   const items = folders.flatMap((folder) =>
-    folder.items.map((item, iIdx) => ({
-      group_id: folder.id,
-      title: item.title,
-      url: item.url,
-      icon_type: item.icon ? 'url' : 'auto',
-      icon_ref: item.icon || null,
-      open_in_new_tab: 1,
-      pinned: 0,
-      sort_order: (iIdx + 1) * 1024,
-      visibility: 'public',
-      enabled: 1,
-    })),
+    folder.items.map((item, iIdx) => {
+      // data: URI 图标体积过大，统一降级为 auto；仅保留 http(s) 远程图标
+      const remoteIcon = item.icon && /^https?:\/\//i.test(item.icon) ? item.icon : null;
+      return {
+        group_id: folder.id,
+        title: item.title,
+        url: item.url,
+        icon_type: remoteIcon ? 'url' : 'auto',
+        icon_ref: remoteIcon,
+        open_in_new_tab: 1,
+        pinned: 0,
+        sort_order: (iIdx + 1) * 1024,
+        visibility: 'public',
+        enabled: 1,
+      };
+    }),
   );
 
   return {

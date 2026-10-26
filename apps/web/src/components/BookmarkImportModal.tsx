@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { ParsedBookmarkFolder, ParsedBookmarkItem } from '../lib/bookmarkParser';
 import { formatDisplayHost } from '../lib/punycode';
+import { IconBookmark, IconFolder, IconSearch } from './icons';
 
 interface Props {
   initialFolders: ParsedBookmarkFolder[];
@@ -126,7 +127,9 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
         <div className="bm-stage-header">
           <div className="bm-stage-header-info">
             <div className="bm-stage-title-row">
-              <span className="bm-stage-icon">🔖</span>
+              <span className="bm-stage-icon">
+                <IconBookmark size={16} />
+              </span>
               <h2 className="bm-stage-title">导入浏览器收藏夹</h2>
               <span className="bm-stage-badge">已解析 {folders.length} 个文件夹 / {totalItems} 条书签</span>
             </div>
@@ -142,7 +145,9 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
         {/* Toolbar Controls */}
         <div className="bm-stage-toolbar">
           <div className="bm-search-wrap">
-            <span className="bm-search-icon">⌕</span>
+            <span className="bm-search-icon">
+              <IconSearch size={14} />
+            </span>
             <input
               type="text"
               className="bm-search-input"
@@ -160,10 +165,10 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
           <div className="bm-stage-actions">
             <div className="btn-group">
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(true)}>
-                ✓ 全选
+                全选
               </button>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => selectAll(false)}>
-                ✕ 清空
+                清空
               </button>
             </div>
 
@@ -174,7 +179,7 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
                 onClick={() => setViewLayout('split')}
                 title="两栏分类视图：左侧文件夹目录，右侧书签列表"
               >
-                ⊞ 分栏视图
+                分栏视图
               </button>
               <button
                 type="button"
@@ -182,7 +187,7 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
                 onClick={() => setViewLayout('accordion')}
                 title="展开折叠流式视图"
               >
-                ☰ 折叠列表
+                折叠列表
               </button>
             </div>
 
@@ -216,7 +221,9 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
         {/* Main Body */}
         {visibleFolders.length === 0 ? (
           <div className="bm-empty-stage">
-            <span className="bm-empty-icon">🔍</span>
+            <span className="bm-empty-icon">
+              <IconSearch size={28} />
+            </span>
             <p>没有匹配「{filterQuery}」的书签或文件夹</p>
             <button className="btn btn-sm" onClick={() => setFilterQuery('')}>
               清空搜索条件
@@ -272,7 +279,9 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
                 <>
                   <div className="bm-main-header">
                     <div className="bm-main-folder-title">
-                      <span className="bm-main-icon">📁</span>
+                      <span className="bm-main-icon">
+                        <IconFolder size={14} />
+                      </span>
                       <span className="bm-main-name">{currentActiveFolder.fullPath || currentActiveFolder.name}</span>
                     </div>
                     <div className="bm-main-actions">
@@ -351,7 +360,9 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
                         }}
                         onChange={() => toggleFolder(folder.id)}
                       />
-                      <span className="bm-folder-icon">📁</span>
+                      <span className="bm-folder-icon">
+                        <IconFolder size={14} />
+                      </span>
                       <span className="bm-folder-name" title={folder.fullPath || folder.name}>
                         {folder.fullPath || folder.name}
                       </span>

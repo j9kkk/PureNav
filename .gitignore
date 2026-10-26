@@ -11,4 +11,6 @@ apps/*/data/
 coverage/
 *.tsbuildinfo
 
+.taste-skill/
+
 docker-compose.local.yml

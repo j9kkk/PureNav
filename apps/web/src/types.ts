@@ -20,6 +20,7 @@ export interface PublicGroup {
   name: string;
   description: string | null;
   icon: string | null;
+  parentId: string | null;
   collapsed: boolean;
   items: PublicItem[];
 }
@@ -41,7 +42,10 @@ export interface AdminGroup extends PublicGroup {
   sortOrder: number;
   visibility: 'public' | 'private';
   enabled: boolean;
+  /** 直接归属该分组的站点数 */
   itemCount: number;
+  /** 含全部子孙分组的站点数（树形徽标用） */
+  totalCount: number;
 }
 
 export interface AdminItem extends PublicItem {

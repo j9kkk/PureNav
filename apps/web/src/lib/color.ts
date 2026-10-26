@@ -11,7 +11,6 @@ export interface GroupPalette {
   hue: number;
   color: string;
   glow: string;
-  gradient: string;
 }
 
 const KNOWN_BRANDS: Record<string, number> = {
@@ -89,49 +88,15 @@ export function getItemPalette(rawUrl: string, title: string): ItemPalette {
   };
 }
 
-const GROUP_PALETTES: { hue: number; color: string; glow: string; gradient: string }[] = [
-  {
-    hue: 242,
-    color: '#6366f1',
-    glow: 'rgba(99, 102, 241, 0.16)',
-    gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-  },
-  {
-    hue: 188,
-    color: '#06b6d4',
-    glow: 'rgba(6, 182, 212, 0.16)',
-    gradient: 'linear-gradient(135deg, #06b6d4 0%, #10b981 100%)',
-  },
-  {
-    hue: 345,
-    color: '#f43f5e',
-    glow: 'rgba(244, 63, 94, 0.16)',
-    gradient: 'linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)',
-  },
-  {
-    hue: 38,
-    color: '#f59e0b',
-    glow: 'rgba(245, 158, 11, 0.16)',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
-  },
-  {
-    hue: 215,
-    color: '#3b82f6',
-    glow: 'rgba(59, 130, 246, 0.16)',
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
-  },
-  {
-    hue: 315,
-    color: '#ec4899',
-    glow: 'rgba(236, 72, 153, 0.16)',
-    gradient: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-  },
-  {
-    hue: 155,
-    color: '#10b981',
-    glow: 'rgba(16, 185, 129, 0.16)',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-  },
+/* 分组数据色：苹果系统色相（无紫 / 靛），只用于分组徽标的小面积着色 */
+const GROUP_PALETTES: { hue: number; color: string; glow: string }[] = [
+  { hue: 211, color: '#0071e3', glow: 'rgba(0, 113, 227, 0.14)' },
+  { hue: 187, color: '#30b0c7', glow: 'rgba(48, 176, 199, 0.14)' },
+  { hue: 145, color: '#34a853', glow: 'rgba(52, 168, 83, 0.14)' },
+  { hue: 35, color: '#e08700', glow: 'rgba(224, 135, 0, 0.14)' },
+  { hue: 4, color: '#e0362c', glow: 'rgba(224, 54, 44, 0.14)' },
+  { hue: 338, color: '#e0397e', glow: 'rgba(224, 57, 126, 0.14)' },
+  { hue: 30, color: '#b0641a', glow: 'rgba(176, 100, 26, 0.14)' },
 ];
 
 export function getGroupPalette(groupName: string, index: number): GroupPalette {
@@ -141,12 +106,9 @@ export function getGroupPalette(groupName: string, index: number): GroupPalette 
   }
   const hash = hashString(groupName);
   const hue = Math.round((hash * 137.508) % 360);
-  const color = `hsl(${hue}, 70%, 54%)`;
-  const nextColor = `hsl(${(hue + 40) % 360}, 75%, 56%)`;
   return {
     hue,
-    color,
-    glow: `hsla(${hue}, 75%, 55%, 0.16)`,
-    gradient: `linear-gradient(135deg, ${color} 0%, ${nextColor} 100%)`,
+    color: `hsl(${hue}, 62%, 44%)`,
+    glow: `hsla(${hue}, 62%, 44%, 0.14)`,
   };
 }

@@ -48,14 +48,21 @@ export const api = {
     request<AdminGroupDto>(`/admin/groups/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteGroup: (id: string, cascade = false) =>
     request<void>(`/admin/groups/${id}${cascade ? '?cascade=true' : ''}`, { method: 'DELETE' }),
-  reorderGroups: (orderedIds: string[]) =>
+  reorderGroups: (nodes: { id: string; parentId: string | null }[]) =>
     request<{ ok: true }>('/admin/groups/order', {
       method: 'PUT',
-      body: JSON.stringify({ ordered_ids: orderedIds }),
+      body: JSON.stringify({ nodes }),
     }),
 
-  items: (groupId?: string) =>
-    request<{ items: AdminItemDto[]; total: number }>(`/admin/items${groupId ? `?groupId=${groupId}` : ''}`),
+  items: (groupId?: string, opts?: { page?: number; pageSize?: number; q?: string }) => {
+    const params = new URLSearchParams();
+    if (groupId) params.set('groupId', groupId);
+    if (opts?.page) params.set('page', String(opts.page));
+    if (opts?.pageSize) params.set('pageSize', String(opts.pageSize));
+    if (opts?.q) params.set('q', opts.q);
+    const qs = params.toString();
+    return request<{ items: AdminItemDto[]; total: number }>(`/admin/items${qs ? `?${qs}` : ''}`);
+  },
   createItem: (body: Record<string, unknown>) =>
     request<AdminItemDto>('/admin/items', { method: 'POST', body: JSON.stringify(body) }),
   updateItem: (id: string, body: Record<string, unknown>) =>
@@ -183,11 +190,13 @@ export interface AdminGroupDto {
   name: string;
   description: string | null;
   icon: string | null;
+  parentId: string | null;
   sortOrder: number;
   collapsed: boolean;
   visibility: 'public' | 'private';
   enabled: boolean;
   itemCount: number;
+  totalCount: number;
 }
 
 export interface AdminItemDto {

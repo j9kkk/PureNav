@@ -22,22 +22,38 @@ test('sort: group reorder persists and is idempotent', async () => {
   const b = await createGroup(ctx, cookie, uniqueName('B'));
   const c = await createGroup(ctx, cookie, uniqueName('C'));
 
-  const order = [c, a, b];
+  const list = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
+  const others = list
+    .json<{ items: { id: string }[] }>()
+    .items.map((group) => group.id)
+    .filter((id) => ![a, b, c].includes(id));
+
+  // 树快照：others 保持原样，三个测试分组按 c, a, b 顺序放在根层级。
+  const buildPayload = () => ({
+    nodes: [
+      ...others.map((id) => ({ id, parentId: null })),
+      { id: c, parentId: null },
+      { id: a, parentId: null },
+      { id: b, parentId: null },
+    ],
+  });
+
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await ctx.app.inject({
       method: 'PUT',
       url: '/api/v1/admin/groups/order',
       headers: authed(cookie, ctx),
-      payload: { ordered_ids: order },
+      payload: buildPayload(),
     });
     assert.equal(response.statusCode, 200, `attempt ${attempt}: ${response.body}`);
   }
 
-  const list = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
-  const all = list.json<{ items: { id: string; name: string; sortOrder: number }[] }>().items;
+  const all = list.json<{ items: { id: string; name: string; sortOrder: number; parentId: string | null }[] }>().items;
+  const fresh = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
+  const refreshed = fresh.json<{ items: { id: string; sortOrder: number }[] }>().items;
   // Other tests may have created groups; assert only on relative order of these three.
-  const mine = order.map((id) => all.find((group) => group.id === id)!);
-  const positions = all.map((group) => group.id);
+  const mine = [c, a, b].map((id) => refreshed.find((group) => group.id === id)!);
+  const positions = refreshed.map((group) => group.id);
   assert.ok(
     positions.indexOf(mine[0]!.id) < positions.indexOf(mine[1]!.id) &&
       positions.indexOf(mine[1]!.id) < positions.indexOf(mine[2]!.id),
@@ -47,6 +63,57 @@ test('sort: group reorder persists and is idempotent', async () => {
   // Rewriting the same order must be stable, not accumulate drift.
   const [first, second, third] = mine.map((group) => group.sortOrder);
   assert.ok(first! < second! && second! < third!, `sort orders not monotonic: ${first}, ${second}, ${third}`);
+  void all;
+});
+
+test('sort: group reorder supports nesting and rejects cycles', async () => {
+  const parent = await createGroup(ctx, cookie, uniqueName('TreeParent'));
+  const child = await createGroup(ctx, cookie, uniqueName('TreeChild'));
+  const grandchild = await createGroup(ctx, cookie, uniqueName('TreeGrandchild'));
+
+  const list = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
+  const others = list
+    .json<{ items: { id: string }[] }>()
+    .items.map((group) => group.id)
+    .filter((id) => ![parent, child, grandchild].includes(id));
+
+  // 父 → 子 → 孙 依次嵌套
+  const nest = await ctx.app.inject({
+    method: 'PUT',
+    url: '/api/v1/admin/groups/order',
+    headers: authed(cookie, ctx),
+    payload: {
+      nodes: [
+        ...others.map((id) => ({ id, parentId: null })),
+        { id: parent, parentId: null },
+        { id: child, parentId: parent },
+        { id: grandchild, parentId: child },
+      ],
+    },
+  });
+  assert.equal(nest.statusCode, 200, nest.body);
+
+  const detail = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
+  const byId = new Map(detail.json<{ items: { id: string; parentId: string | null }[] }>().items.map((g) => [g.id, g]));
+  assert.equal(byId.get(child)!.parentId, parent);
+  assert.equal(byId.get(grandchild)!.parentId, child);
+
+  // 环：把 parent 挂到 grandchild 下必须被拒绝
+  const cycle = await ctx.app.inject({
+    method: 'PUT',
+    url: '/api/v1/admin/groups/order',
+    headers: authed(cookie, ctx),
+    payload: {
+      nodes: [
+        ...others.map((id) => ({ id, parentId: null })),
+        { id: parent, parentId: grandchild },
+        { id: child, parentId: parent },
+        { id: grandchild, parentId: child },
+      ],
+    },
+  });
+  assert.equal(cycle.statusCode, 422);
+  assert.equal(cycle.json<{ error: { code: string } }>().error.code, 'VALIDATION_FAILED');
 });
 
 test('sort: reorder rejects a partial list instead of silently dropping rows', async () => {
@@ -58,7 +125,7 @@ test('sort: reorder rejects a partial list instead of silently dropping rows', a
     method: 'PUT',
     url: '/api/v1/admin/groups/order',
     headers: authed(cookie, ctx),
-    payload: { ordered_ids: [one] },
+    payload: { nodes: [{ id: one, parentId: null }] },
   });
   assert.equal(response.statusCode, 422, `expected 422 for 1 of ${total} ids, got ${response.statusCode}`);
   assert.equal(response.json<{ error: { code: string } }>().error.code, 'VALIDATION_FAILED');
@@ -73,7 +140,7 @@ test('sort: reorder rejects unknown and duplicate ids', async () => {
     method: 'PUT',
     url: '/api/v1/admin/groups/order',
     headers: authed(cookie, ctx),
-    payload: { ordered_ids: [...ids.slice(1), 'does-not-exist'] },
+    payload: { nodes: [...ids.slice(1), 'does-not-exist'].map((id) => ({ id, parentId: null })) },
   });
   assert.equal(unknown.statusCode, 422);
 
@@ -81,7 +148,9 @@ test('sort: reorder rejects unknown and duplicate ids', async () => {
     method: 'PUT',
     url: '/api/v1/admin/groups/order',
     headers: authed(cookie, ctx),
-    payload: { ordered_ids: [first, ...ids.slice(1, -1), first] },
+    payload: {
+      nodes: [first, ...ids.slice(1, -1), first].map((id) => ({ id, parentId: null })),
+    },
   });
   assert.equal(duplicate.statusCode, 422);
 });

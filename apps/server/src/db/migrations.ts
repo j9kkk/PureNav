@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
+import { ulid } from '../lib/ids.js';
 
-export const MIGRATIONS: { id: string; sql: string }[] = [
+export const MIGRATIONS: { id: string; sql: string; after?: (db: Database.Database) => void }[] = [
   {
     id: '0001_init',
     sql: `
@@ -129,7 +130,65 @@ CREATE INDEX ix_audit_created ON audit_logs(created_at DESC);
 CREATE INDEX ix_audit_entity ON audit_logs(entity_type, entity_id);
 `,
   },
+  {
+    id: '0002_group_tree',
+    sql: `
+ALTER TABLE groups ADD COLUMN parent_id TEXT REFERENCES groups(id) ON DELETE CASCADE;
+CREATE INDEX ix_groups_parent ON groups(parent_id);
+`,
+    after: backfillGroupTree,
+  },
 ];
+
+/**
+ * One-time backfill: bookmark imports once stored the whole folder hierarchy inside the
+ * group name ("收藏夹栏 / private / VPN"). Rebuilds real parent links from those paths and
+ * renames each group to its last segment, matching how Edge/natively-managed trees look.
+ */
+function backfillGroupTree(db: Database.Database): void {
+  interface Row {
+    id: string;
+    name: string;
+  }
+  const rows = db.prepare('SELECT id, name FROM groups').all() as Row[];
+
+  // fullPath -> group id; seeds with existing full-path names so already-imported
+  // parents are reused instead of duplicated.
+  const knownPaths = new Map<string, string>();
+  for (const row of rows) {
+    if (row.name.includes(' / ')) knownPaths.set(row.name, row.id);
+  }
+
+  const insert = db.prepare(
+    `INSERT INTO groups (id, name, sort_order, collapsed, visibility, enabled, parent_id, created_at, updated_at)
+     VALUES (?, ?, ?, 0, 'public', 1, ?, ?, ?)`,
+  );
+  const rename = db.prepare('UPDATE groups SET name = ?, parent_id = ?, updated_at = ? WHERE id = ?');
+  let orderSeq = (db.prepare('SELECT MAX(sort_order) AS m FROM groups').get() as { m: number | null }).m ?? 0;
+
+  for (const row of rows) {
+    if (!row.name.includes(' / ')) continue;
+    const segments = row.name.split(' / ').map((part) => part.trim()).filter(Boolean);
+    if (segments.length < 2) continue;
+
+    let parentId: string | null = null;
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      const pathKey = segments.slice(0, i + 1).join(' / ');
+      let ancestorId = knownPaths.get(pathKey);
+      if (!ancestorId) {
+        ancestorId = ulid();
+        orderSeq += 1024;
+        insert.run(ancestorId, segments[i]!, orderSeq, parentId, new Date().toISOString(), new Date().toISOString());
+        knownPaths.set(pathKey, ancestorId);
+      }
+      parentId = ancestorId;
+    }
+
+    // Register the original full path before renaming so deeper descendants can find it.
+    knownPaths.set(row.name, row.id);
+    rename.run(segments[segments.length - 1]!, parentId, new Date().toISOString(), row.id);
+  }
+}
 
 export function migrate(db: Database.Database): void {
   db.exec(`
@@ -153,6 +212,7 @@ export function migrate(db: Database.Database): void {
         new Date().toISOString(),
       );
       db.exec('COMMIT');
+      migration.after?.(db);
     } catch (error) {
       db.exec('ROLLBACK');
       throw error;

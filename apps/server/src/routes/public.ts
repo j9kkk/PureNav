@@ -8,6 +8,7 @@ interface GroupRow {
   name: string;
   description: string | null;
   icon: string | null;
+  parent_id: string | null;
   sort_order: number;
   collapsed: number;
 }
@@ -42,6 +43,7 @@ export interface PublicGroup {
   name: string;
   description: string | null;
   icon: string | null;
+  parentId: string | null;
   collapsed: boolean;
   items: PublicItem[];
 }
@@ -55,7 +57,7 @@ export function buildPublicConfig(): {
 } {
   const groups = db
     .prepare(
-      `SELECT id, name, description, icon, sort_order, collapsed FROM groups
+      `SELECT id, name, description, icon, parent_id, sort_order, collapsed FROM groups
        WHERE enabled = 1 AND visibility = 'public' ORDER BY sort_order ASC, id ASC`,
     )
     .all() as GroupRow[];
@@ -124,6 +126,7 @@ export function buildPublicConfig(): {
       name: group.name,
       description: group.description,
       icon: group.icon,
+      parentId: group.parent_id ?? null,
       collapsed: group.collapsed === 1,
       items: itemsByGroup.get(group.id) ?? [],
     })),

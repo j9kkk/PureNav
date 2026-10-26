@@ -5,6 +5,15 @@ import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from 
 import { formatDisplayHost } from '../lib/punycode';
 import { getItemPalette, getGroupPalette, type GroupPalette } from '../lib/color';
 import {
+  IconArrowUpRight,
+  IconGrid,
+  IconListRows,
+  IconMoon,
+  IconSearch,
+  IconSliders,
+  IconSun,
+} from '../components/icons';
+import {
   applyTheme,
   layoutAttributes,
   readThemeOverride,
@@ -151,7 +160,9 @@ function ItemCard({
       aria-current={selected || undefined}
       onMouseMove={handleMouseMove}
     >
-      <span className="card-arrow" aria-hidden="true">↗</span>
+      <span className="card-arrow" aria-hidden="true">
+        <IconArrowUpRight size={12} />
+      </span>
 
       <div className="card-main">
         <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
@@ -218,31 +229,43 @@ function ItemCard({
   );
 }
 
+interface NavEntry {
+  group: PublicGroup;
+  visible: PublicItem[];
+}
+
+interface RenderNode {
+  entry: NavEntry;
+  children: RenderNode[];
+  /** DFS 序号，用于生成稳定的分组配色 */
+  paletteIndex: number;
+  /** 自身 + 全部子孙的可见站点数（分组角标） */
+  totalCount: number;
+}
+
 function GroupSection({
-  group,
-  groupIndex,
-  query,
-  visible,
+  node,
   lanMap,
   onToggleLan,
   layout,
-  collapsed,
+  isCollapsed,
   onToggleCollapse,
   selectedId,
 }: {
-  group: PublicGroup;
-  groupIndex: number;
-  query: string;
-  visible: PublicItem[];
+  node: RenderNode;
   lanMap: Map<string, LanInfo>;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
   layout: ReturnType<typeof layoutAttributes>;
-  collapsed: boolean;
+  /** 每个分组（含子分组）独立判定折叠态：用户点击 > 分组默认设置 */
+  isCollapsed: (groupId: string, defaultCollapsed: boolean) => boolean;
   onToggleCollapse: (id: string) => void;
   selectedId: string | null;
 }) {
-  if (query && visible.length === 0) return null;
-  const palette = useMemo(() => getGroupPalette(group.name, groupIndex), [group.name, groupIndex]);
+  const { entry, children } = node;
+  const group = entry.group;
+  const visible = entry.visible;
+  const collapsed = isCollapsed(group.id, group.collapsed);
+  const palette = getGroupPalette(group.name, node.paletteIndex);
 
   return (
     <section
@@ -252,7 +275,6 @@ function GroupSection({
           '--group-hue': palette.hue,
           '--group-color': palette.color,
           '--group-glow': palette.glow,
-          '--group-gradient': palette.gradient,
         } as React.CSSProperties
       }
     >
@@ -287,29 +309,47 @@ function GroupSection({
           )}
           <span className="group-title-text">{cleanGroupName(group.name, !!group.icon)}</span>
         </h2>
-        <span className="group-count">{visible.length}</span>
+        <span className="group-count">{node.totalCount}</span>
       </div>
       <div className="group-body" data-collapsed={collapsed}>
         <div className="group-body-inner">
-          <div
-            className="grid pn-fade"
-            data-view={layout.view}
-            data-density={layout.density}
-            data-size={layout.size}
-            data-show-desc={layout.showDescription}
-          >
-            {visible.map((item, index) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                index={index}
-                lan={lanMap.get(item.id)}
-                onToggleLan={onToggleLan}
-                showDescription={layout.showDescription}
-                selected={selectedId === item.id}
-              />
-            ))}
-          </div>
+          {visible.length > 0 && (
+            <div
+              className="grid pn-fade"
+              data-view={layout.view}
+              data-density={layout.density}
+              data-size={layout.size}
+              data-show-desc={layout.showDescription}
+            >
+              {visible.map((item, index) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  lan={lanMap.get(item.id)}
+                  onToggleLan={onToggleLan}
+                  showDescription={layout.showDescription}
+                  selected={selectedId === item.id}
+                />
+              ))}
+            </div>
+          )}
+          {children.length > 0 && (
+            <div className="group-children">
+              {children.map((child) => (
+                <GroupSection
+                  key={child.entry.group.id}
+                  node={child}
+                  lanMap={lanMap}
+                  onToggleLan={onToggleLan}
+                  layout={layout}
+                  isCollapsed={isCollapsed}
+                  onToggleCollapse={onToggleCollapse}
+                  selectedId={selectedId}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -449,13 +489,50 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   const groups = useMemo(() => {
     if (!config) return [];
-    const all = config.groups.map((group) => ({
+    return config.groups.map((group) => ({
       group,
       visible: group.items.filter((item) => itemMatches(item, query, activeTag)),
     }));
-    // 当处于搜索或标签筛选状态时，过滤掉结果数为 0 的分组
-    return isFiltering ? all.filter((entry) => entry.visible.length > 0) : all;
-  }, [config, query, activeTag, isFiltering]);
+  }, [config, query, activeTag]);
+
+  // 构建渲染树：父子按 parentId 归位（父级不可见时子级提升为根），
+  // 筛选状态下裁掉自身与子树均无命中的节点。
+  const renderTree = useMemo(() => {
+    const ids = new Set(groups.map((entry) => entry.group.id));
+    const childrenMap = new Map<string, NavEntry[]>();
+    const roots: NavEntry[] = [];
+    for (const entry of groups) {
+      const parentId = entry.group.parentId;
+      if (parentId && ids.has(parentId)) {
+        const list = childrenMap.get(parentId) ?? [];
+        list.push(entry);
+        childrenMap.set(parentId, list);
+      } else {
+        roots.push(entry);
+      }
+    }
+
+    let counter = 0;
+    const build = (entry: NavEntry): RenderNode | null => {
+      const children = (childrenMap.get(entry.group.id) ?? [])
+        .map(build)
+        .filter((node): node is RenderNode => node !== null);
+      if (isFiltering && entry.visible.length === 0 && children.length === 0) return null;
+      const totalCount =
+        entry.visible.length + children.reduce((sum, child) => sum + child.totalCount, 0);
+      return { entry, children, paletteIndex: counter++, totalCount };
+    };
+    const nodes = roots.map(build).filter((node): node is RenderNode => node !== null);
+    return nodes;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, isFiltering]);
+
+  // 大数据量（>120 个站点）时切换到性能模式：跳过昂贵的逐卡毛玻璃合成与屏外渲染
+  const totalItems = useMemo(
+    () => groups.reduce((sum, entry) => sum + entry.group.items.length, 0),
+    [groups],
+  );
+  const perfMode = totalItems > 120;
 
   // A group starts collapsed if the site says so; the user's clicks override that.
   const isCollapsed = (groupId: string, defaultCollapsed: boolean): boolean =>
@@ -484,15 +561,20 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   // Keyboard navigation walks the flattened list of cards that are actually rendered,
   // so collapsed groups and filtered-out items are skipped automatically.
-  const navigable = useMemo(
-    () =>
-      groups
-        .filter((entry) => !(query && entry.visible.length === 0))
-        .filter((entry) => !isCollapsed(entry.group.id, entry.group.collapsed))
-        .flatMap((entry) => entry.visible),
+  const navigable = useMemo(() => {
+    const out: PublicItem[] = [];
+    const walk = (nodes: RenderNode[]) => {
+      for (const node of nodes) {
+        if (!isCollapsed(node.entry.group.id, node.entry.group.collapsed)) {
+          out.push(...node.entry.visible);
+          walk(node.children);
+        }
+      }
+    };
+    walk(renderTree);
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups, collapsedIds, expandedIds, query],
-  );
+  }, [renderTree, collapsedIds, expandedIds]);
 
   const moveSelection = (delta: 1 | -1) => {
     if (navigable.length === 0) return;
@@ -572,23 +654,21 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   return (
     <>
-      <div className="ambient-aurora" aria-hidden="true">
-        <div className="aurora-orb aurora-orb-1" />
-        <div className="aurora-orb aurora-orb-2" />
-        <div className="aurora-orb aurora-orb-3" />
-      </div>
-      <div className="shell">
+      <div className="ambient-aurora" aria-hidden="true" />
+      <div className={perfMode ? 'shell perf' : 'shell'}>
         <header className="topbar">
           <div className="brand">
             <span className="brand-mark">P</span>
-            <span>{config?.site.identity.title ?? 'PureNav'}</span>
+            <h1 className="brand-title">{config?.site.identity.title ?? 'PureNav'}</h1>
             <span className="brand-clock" title={clock.full}>
               <span className="brand-clock-date">{clock.date}</span>
               <span className="brand-clock-time">{clock.time}</span>
             </span>
           </div>
           <div className="search" onClick={() => searchRef.current?.focus()}>
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">
+              <IconSearch size={15} />
+            </span>
             <input
               ref={searchRef}
               value={query}
@@ -605,13 +685,13 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
             title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
           >
-            {layout.view === 'grid' ? '☰' : '▦'}
+            {layout.view === 'grid' ? <IconListRows size={16} /> : <IconGrid size={16} />}
           </button>
           <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
-            {themeMode === 'dark' ? '☀' : '☾'}
+            {themeMode === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
           </button>
           <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
-            ⚙
+            <IconSliders size={16} />
           </button>
         </div>
       </header>
@@ -686,17 +766,14 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
       )}
 
       {!loading &&
-        groups.map(({ group, visible }, index) => (
+        renderTree.map((node) => (
           <GroupSection
-            key={group.id}
-            group={group}
-            groupIndex={index}
-            query={query}
-            visible={visible}
+            key={node.entry.group.id}
+            node={node}
             lanMap={lanMap}
             onToggleLan={onToggleLan}
             layout={layout}
-            collapsed={isCollapsed(group.id, group.collapsed)}
+            isCollapsed={isCollapsed}
             onToggleCollapse={toggleCollapse}
             selectedId={selectedId}
           />
