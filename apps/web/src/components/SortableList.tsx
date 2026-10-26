@@ -22,11 +22,22 @@ export interface RowState {
   };
 }
 
+/** dataTransfer 里标记「这是站点行」的类型，侧栏分组树据此识别跨目录拖拽来源。 */
+export const ITEM_DRAG_TYPE = 'application/x-purenav-item';
+
 /**
  * Drag state for tables, where rows must stay `<tr>` and therefore cannot be wrapped
  * in the SortableList container. Rows opt in by spreading `rowProps` onto `<tr>`.
+ *
+ * `reorderEnabled` only gates drops inside the table. The handle stays draggable while
+ * it is off, because dragging a row onto the sidebar tree moves it to another group
+ * regardless of whether the current page holds a complete group.
  */
-export function useRowDrag(ids: string[], onReorder: (ordered: string[]) => void) {
+export function useRowDrag(
+  ids: string[],
+  onReorder: (ordered: string[]) => void,
+  { reorderEnabled = true }: { reorderEnabled?: boolean } = {},
+) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
 
@@ -36,6 +47,8 @@ export function useRowDrag(ids: string[], onReorder: (ordered: string[]) => void
   };
 
   return {
+    /** 当前拖拽中的行 id；跨组件（如侧栏分组树）据此判定拖拽来源。 */
+    dragId,
     reset,
     start: (id: string) => (event: DragEvent<HTMLElement>) => {
       const row = event.currentTarget.closest('tr');
@@ -45,12 +58,18 @@ export function useRowDrag(ids: string[], onReorder: (ordered: string[]) => void
       }
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', id);
+      event.dataTransfer.setData(ITEM_DRAG_TYPE, id);
       setDragId(id);
     },
     end: reset,
     /** Spread onto <tr>. `extraClassName` keeps caller styling without clobbering drag state. */
     rowProps: (id: string, extraClassName?: string) => {
-      const drop = dropTarget?.id === id && dragId !== id ? (dropTarget.after ? 'after' : 'before') : null;
+      const drop =
+        reorderEnabled && dropTarget?.id === id && dragId !== id
+          ? dropTarget.after
+            ? 'after'
+            : 'before'
+          : null;
       return {
         className:
           [extraClassName, dragId === id ? 'sortable-dragging' : '', drop ? `drop-${drop}` : '']
@@ -58,14 +77,14 @@ export function useRowDrag(ids: string[], onReorder: (ordered: string[]) => void
             .join(' ') || undefined,
         'data-sortable-item': id,
         onDragOver: (event: DragEvent<HTMLElement>) => {
-          if (!dragId || dragId === id) return;
+          if (!reorderEnabled || !dragId || dragId === id) return;
           event.preventDefault();
           const rect = event.currentTarget.getBoundingClientRect();
           const after = event.clientY > rect.top + rect.height / 2;
           setDropTarget((current) => (current?.id === id && current.after === after ? current : { id, after }));
         },
         onDrop: () => {
-          if (dragId && dropTarget && dragId !== dropTarget.id) {
+          if (reorderEnabled && dragId && dropTarget && dragId !== dropTarget.id) {
             const next = ids.filter((value) => value !== dragId);
             const targetIndex = next.indexOf(dropTarget.id);
             if (targetIndex >= 0) {
@@ -189,12 +208,20 @@ export function SortableList<T>({
 }
 
 /** The grip itself. Kept out of the tab order: keyboard users get explicit move buttons. */
-export function DragHandle({ handleProps, disabled }: { handleProps: RowState['handleProps']; disabled?: boolean }) {
+export function DragHandle({
+  handleProps,
+  disabled,
+  title,
+}: {
+  handleProps: RowState['handleProps'];
+  disabled?: boolean;
+  title?: string;
+}) {
   return (
     <span
       className={disabled ? 'drag-handle drag-handle-off' : 'drag-handle'}
       aria-hidden="true"
-      title={disabled ? undefined : '拖拽调整顺序'}
+      title={disabled ? undefined : (title ?? '拖拽调整顺序')}
       draggable={handleProps.draggable}
       onDragStart={handleProps.onDragStart}
       onDragEnd={handleProps.onDragEnd}

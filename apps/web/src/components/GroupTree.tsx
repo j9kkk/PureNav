@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AdminGroupDto } from '../api';
 import { buildGroupTree, type DropMode, type GroupNode } from '../lib/groupTree';
+import { ITEM_DRAG_TYPE } from './SortableList';
 import { IconChevronRight, IconFolder, IconGrip } from './icons';
 
 interface MenuState {
@@ -67,9 +68,16 @@ interface NavProps {
   activeGroup: string | null;
   onSelect: (groupId: string | null) => void;
   onMove?: (draggedId: string, targetId: string, mode: DropMode) => void;
+  /** 站点行拖到分组上：把该站点移动到目标分组。 */
+  onItemDrop?: (itemId: string, groupId: string) => void;
   onEdit?: (group: AdminGroupDto) => void;
   onDelete?: (group: AdminGroupDto) => void;
   onCreateChild?: (parentGroup: AdminGroupDto) => void;
+}
+
+/** 拖拽来源是否为站点行（而非分组）——分组行的 dragover 需据此切换判定逻辑。 */
+function carriesItem(event: React.DragEvent): boolean {
+  return Array.from(event.dataTransfer.types).includes(ITEM_DRAG_TYPE);
 }
 
 /**
@@ -84,6 +92,7 @@ export function GroupTreeNav({
   activeGroup,
   onSelect,
   onMove,
+  onItemDrop,
   onEdit,
   onDelete,
   onCreateChild,
@@ -91,6 +100,8 @@ export function GroupTreeNav({
   const [expanded, setExpanded] = useExpandRootsOnce(groups);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; mode: DropMode } | null>(null);
+  // 站点行拖入时的目标分组（与分组自身的拖动状态分开，避免两条拖拽通道互相干扰）
+  const [itemDropGroupId, setItemDropGroupId] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<MenuState | null>(null);
 
   // 点击外部、页面滚动、调整窗口或按下 Escape 键时关闭浮动菜单
@@ -125,6 +136,14 @@ export function GroupTreeNav({
   };
 
   const handleDragOver = (event: React.DragEvent, node: GroupNode) => {
+    // 站点行拖入：整个分组行都是「移入」热区，不参与分组的前后插入判定。
+    if (onItemDrop && carriesItem(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = 'move';
+      setItemDropGroupId((current) => (current === node.group.id ? current : node.group.id));
+      return;
+    }
     if (!draggingId || !onMove) return;
     event.preventDefault();
     event.stopPropagation();
@@ -138,6 +157,14 @@ export function GroupTreeNav({
   };
 
   const handleDrop = (event: React.DragEvent, node: GroupNode) => {
+    if (onItemDrop && carriesItem(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = event.dataTransfer.getData(ITEM_DRAG_TYPE);
+      if (itemId) onItemDrop(itemId, node.group.id);
+      setItemDropGroupId(null);
+      return;
+    }
     if (!onMove) return;
     event.preventDefault();
     event.stopPropagation();
@@ -159,6 +186,7 @@ export function GroupTreeNav({
       const active = activeGroup === node.group.id;
       const isDragging = draggingId === node.group.id;
       const hint = dropHint?.id === node.group.id ? dropHint.mode : null;
+      const itemOver = itemDropGroupId === node.group.id;
       const menuOpen = openMenu?.group.id === node.group.id;
 
       return (
@@ -171,6 +199,7 @@ export function GroupTreeNav({
               hint === 'into' ? 'drop-into' : '',
               hint === 'before' ? 'drop-before' : '',
               hint === 'after' ? 'drop-after' : '',
+              itemOver ? 'drop-into' : '',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -186,11 +215,13 @@ export function GroupTreeNav({
             onDragEnd={() => {
               setDraggingId(null);
               setDropHint(null);
+              setItemDropGroupId(null);
             }}
             onDragOver={(event) => handleDragOver(event, node)}
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node)) {
                 setDropHint((current) => (current?.id === node.group.id ? null : current));
+                setItemDropGroupId((current) => (current === node.group.id ? null : current));
               }
             }}
             onDrop={(event) => handleDrop(event, node)}

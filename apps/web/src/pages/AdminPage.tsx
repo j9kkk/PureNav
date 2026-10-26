@@ -315,7 +315,8 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   // 服务端分页：列表接口按 page/pageSize/q 返回当前页与总数
   const totalPages = Math.max(1, Math.ceil(serverTotal / pageSize));
   const safePage = Math.min(pageIndex, totalPages);
-  // 仅当整组数据都在当前页且未搜索时才允许拖拽排序（order 接口要求完整 id 列表）
+  // 行内拖动排序要求整组数据都在当前页且未搜索（order 接口要求完整 id 列表）；
+  // 拖到侧栏分组换目录不依赖这个条件，所以手柄始终可拖。
   const canDragItems = !!activeGroup && serverTotal <= pageSize && !search;
 
   useEffect(() => {
@@ -597,11 +598,30 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const visibleGroups = activeGroup ? groups.filter((group) => group.id === activeGroup) : groups;
 
   // Dragging is only meaningful within one group's slice. In the all-groups view the
-  // rows are mixed, so drag stays off and the up/down buttons keep that edit path alive.
+  // rows are mixed, so in-row reordering stays off; dragging onto the sidebar tree
+  // still moves a row to another group, which is why the handle stays draggable.
   const itemDragIds = activeGroup ? items.filter((item) => item.groupId === activeGroup).map((item) => item.id) : [];
-  const itemDrag = useRowDrag(itemDragIds, (ordered) => {
-    if (activeGroup) void applyItemOrder(activeGroup, ordered);
-  });
+  const itemDrag = useRowDrag(
+    itemDragIds,
+    (ordered) => {
+      if (activeGroup) void applyItemOrder(activeGroup, ordered);
+    },
+    { reorderEnabled: canDragItems },
+  );
+
+  /** 站点行拖到侧栏分组：跨目录移动，落到目标分组末尾。 */
+  const moveItemToGroup = async (itemId: string, groupId: string) => {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item || item.groupId === groupId) return;
+    const group = groups.find((entry) => entry.id === groupId);
+    try {
+      await api.updateItem(itemId, { groupId });
+      flash(`「${item.title}」已移动到「${group?.name ?? '目标分组'}」`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移动失败');
+    }
+  };
 
   return (
     <div className="admin-layout">
@@ -636,6 +656,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 setActiveGroup(groupId);
               }}
               onMove={(draggedId, targetId, mode) => void handleGroupTreeMove(draggedId, targetId, mode)}
+              onItemDrop={(itemId, groupId) => void moveItemToGroup(itemId, groupId)}
               onEdit={(group) => setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '', parentId: group.parentId })}
               onDelete={(group) => void removeGroup(group)}
               onCreateChild={(parentGroup) => setGroupDialog({ name: '', icon: '', parentId: parentGroup.id })}
@@ -875,19 +896,17 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             {items.map((item) => (
               <tr
                 key={item.id}
-                {...(canDragItems
-                  ? itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')
-                  : { className: item.enabled ? undefined : 'row-muted' })}
+                {...itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')}
               >
                 <td>
                   <DragHandle
-                    disabled={!canDragItems}
                     handleProps={{
-                      draggable: canDragItems,
+                      draggable: true,
                       onDragStart: itemDrag.start(item.id),
                       onDragEnd: itemDrag.end,
                       onClick: (event) => event.preventDefault(),
                     }}
+                    title={canDragItems ? '拖拽调整顺序，或拖到左侧分组移动' : '拖到左侧分组移动'}
                   />
                 </td>
                 <td>
