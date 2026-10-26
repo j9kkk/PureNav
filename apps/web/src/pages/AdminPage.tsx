@@ -675,22 +675,25 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             </span>
             账户与日志
           </button>
+
+          <div className="side-sep" role="presentation" />
+
+          <button className="side-item" onClick={onHome}>
+            <span className="side-icon">
+              <IconHome size={16} />
+            </span>
+            返回前台
+          </button>
+          <button className="side-item" onClick={logout}>
+            <span className="side-icon">
+              <IconLogout size={16} />
+            </span>
+            退出登录
+          </button>
         </nav>
 
         <div className="spacer" />
         <div className="side-user">{user.username}</div>
-        <button className="side-item" onClick={onHome}>
-          <span className="side-icon">
-            <IconHome size={16} />
-          </span>
-          返回前台
-        </button>
-        <button className="side-item" onClick={logout}>
-          <span className="side-icon">
-            <IconLogout size={16} />
-          </span>
-          退出登录
-        </button>
       </aside>
 
       <main className="admin-main">

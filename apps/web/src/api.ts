@@ -94,8 +94,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  auditLogs: (cursor?: string) =>
-    request<AuditLogPage>(`/admin/audit-logs${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  auditLogs: (cursor?: string, limit = 20) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    return request<AuditLogPage>(`/admin/audit-logs?${params.toString()}`);
+  },
 
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>('/auth/password', {
