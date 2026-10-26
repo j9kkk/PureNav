@@ -1,4 +1,4 @@
-import { ApiError, type PublicConfig, type SessionUser } from './types';
+import { ApiError, type IconRef, type PublicConfig, type SessionUser } from './types';
 
 const BASE = '/api/v1';
 
@@ -209,7 +209,7 @@ export interface AdminItemDto {
   url: string;
   lanUrl: string | null;
   description: string | null;
-  icon: { type: string; ref: string | null; assetId: string | null };
+  icon: IconRef;
   openInNewTab: boolean;
   pinned: boolean;
   sortOrder: number;

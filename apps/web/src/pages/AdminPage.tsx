@@ -15,7 +15,8 @@ import {
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 import { getItemPalette } from '../lib/color';
-import { detectIconVariant, type IconVariant } from '../lib/iconTone';
+import { useIconImage } from '../lib/iconImage';
+import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
 import {
   IconDownload,
   IconGrid,
@@ -49,25 +50,25 @@ interface ItemForm {
 }
 
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
-  const [loaded, setLoaded] = useState(false);
-  const [broken, setBroken] = useState(false);
-  const [variant, setVariant] = useState<IconVariant>('inset');
   const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
+  // 与前台共用同一套解析，后台预览才和实际呈现保持一致。
+  const icon = useMemo(() => primaryIconSrc(item.icon, item.url, palette.color), [item.icon, item.url, palette.color]);
+  const [src, setSrc] = useState(icon);
+  const { ref: imgRef, loaded, broken, variant, onLoad, setBroken } = useIconImage(src);
 
-  let src: string | null = null;
-  if (item.icon.type === 'asset' && item.icon.ref) src = item.icon.ref;
-  else if (item.icon.type === 'url' && item.icon.ref) src = item.icon.ref;
-  else if (item.icon.type === 'iconify' && item.icon.ref) {
-    src = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg?color=${encodeURIComponent(palette.color)}`;
-  } else if (item.icon.type === 'auto') {
-    try {
-      const host = new URL(item.url).hostname;
-      // 与前台一致走同源代理，后台预览才和实际呈现保持一致。
-      src = `/api/v1/icons/favicon?host=${encodeURIComponent(host)}`;
-    } catch {
-      src = null;
+  useEffect(() => {
+    setSrc(icon);
+    setBroken(false);
+  }, [icon, setBroken]);
+
+  const handleIconError = () => {
+    const fallback = fallbackIconSrc(item.icon, item.url);
+    if (fallback && src !== fallback) {
+      setSrc(fallback);
+      return;
     }
-  }
+    setBroken(true);
+  };
 
   const initial = item.title.trim().slice(0, 1).toUpperCase() || '·';
 
@@ -80,16 +81,7 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
     >
       {(!src || broken || !loaded) && <span>{initial}</span>}
       {src && !broken && (
-        <img
-          src={src}
-          alt=""
-          loading="lazy"
-          onLoad={(e) => {
-            setLoaded(true);
-            setVariant(detectIconVariant(e.currentTarget));
-          }}
-          onError={() => setBroken(true)}
-        />
+        <img ref={imgRef} src={src} alt="" loading="lazy" onLoad={onLoad} onError={handleIconError} />
       )}
     </span>
   );

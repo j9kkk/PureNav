@@ -4,7 +4,8 @@ import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
 import { formatDisplayHost } from '../lib/punycode';
 import { getItemPalette, getGroupPalette, type GroupPalette } from '../lib/color';
-import { detectIconVariant, type IconVariant } from '../lib/iconTone';
+import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
+import { useIconImage } from '../lib/iconImage';
 import {
   IconArrowUpRight,
   IconGrid,
@@ -58,35 +59,6 @@ function itemMatches(item: PublicItem, query: string, activeTag: string | null):
   );
 }
 
-function iconUrl(item: PublicItem, color?: string): string | null {
-  if (item.icon.type === 'asset' && item.icon.ref) return item.icon.ref;
-  if (item.icon.type === 'url' && item.icon.ref) return item.icon.ref;
-  if (item.icon.type === 'iconify' && item.icon.ref) {
-    const base = `https://api.iconify.design/${item.icon.ref.replace(':', '/')}.svg`;
-    return color ? `${base}?color=${encodeURIComponent(color)}` : base;
-  }
-  if (item.icon.type === 'auto') {
-    try {
-      const host = new URL(item.url).hostname;
-      // 走同源代理：既能取到 128px 高清源，也让 Canvas 能采样四角透明度。
-      return `/api/v1/icons/favicon?host=${encodeURIComponent(host)}`;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-/** 代理不可用时的直连兜底，避免自建实例离线后整站图标全空。 */
-function fallbackIconUrl(item: PublicItem): string | null {
-  if (item.icon.type !== 'auto') return null;
-  try {
-    return `https://icons.duckduckgo.com/ip3/${new URL(item.url).hostname}.ico`;
-  } catch {
-    return null;
-  }
-}
-
 function initial(title: string): string {
   return title.trim().slice(0, 1).toUpperCase() || '·';
 }
@@ -134,13 +106,10 @@ function ItemCard({
   selected: boolean;
 }) {
   const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
-  const icon = useMemo(() => iconUrl(item, palette.color), [item, palette.color]);
-  // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
-  const [loaded, setLoaded] = useState(false);
-  const [broken, setBroken] = useState(false);
-  const [variant, setVariant] = useState<IconVariant>('inset');
-  // 同源代理失败时退到直连 CDN，自建实例离线也不会整站图标全空。
+  const icon = useMemo(() => primaryIconSrc(item.icon, item.url, palette.color), [item.icon, item.url, palette.color]);
+  // 同源代理失败时退到直连站点 favicon，自建实例离线也不会整站图标全空。
   const [src, setSrc] = useState(icon);
+  const { ref: imgRef, loaded, broken, variant, onLoad, setBroken } = useIconImage(src);
 
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
@@ -148,15 +117,13 @@ function ItemCard({
 
   useEffect(() => {
     setSrc(icon);
-    setLoaded(false);
     setBroken(false);
-    setVariant('inset');
-  }, [icon]);
+  }, [icon, setBroken]);
 
-  const handleIconError = (event: React.SyntheticEvent<HTMLImageElement>) => {
-    const fallback = fallbackIconUrl(item);
-    if (fallback && event.currentTarget.src !== fallback) {
-      // 先换直连源重试；直连也失败才算真正损坏。
+  const handleIconError = () => {
+    const fallback = fallbackIconSrc(item.icon, item.url);
+    // 只有代理给出的是另一条地址时才重试一次，否则直连失败就是真失败。
+    if (fallback && src !== fallback) {
       setSrc(fallback);
       return;
     }
@@ -211,15 +178,12 @@ function ItemCard({
           )}
           {src && !broken && (
             <img
+              ref={imgRef}
               src={src}
               alt=""
               loading="lazy"
               data-loaded={loaded}
-              onLoad={(e) => {
-                setLoaded(true);
-                setBroken(false);
-                setVariant(detectIconVariant(e.currentTarget));
-              }}
+              onLoad={onLoad}
               onError={handleIconError}
             />
           )}
