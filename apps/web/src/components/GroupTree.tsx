@@ -1,7 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AdminGroupDto } from '../api';
 import { buildGroupTree, type DropMode, type GroupNode } from '../lib/groupTree';
 import { IconChevronRight, IconFolder, IconGrip } from './icons';
+
+interface MenuState {
+  group: AdminGroupDto;
+  anchor: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  isContext?: boolean;
+}
+
+function calculateMenuStyle(anchor: MenuState['anchor'], isContext?: boolean): React.CSSProperties {
+  const menuWidth = 136;
+  const estimatedHeight = 112;
+  const gap = 4;
+  const padding = 8;
+
+  let left: number;
+  if (isContext) {
+    // 右键上下文菜单：跟随光标坐标
+    left = anchor.left;
+  } else {
+    // 点击 ··· 按钮：在侧栏内右对齐，落在按钮正下方
+    left = anchor.right - menuWidth;
+  }
+
+  // 保证水平不超出视口两端
+  if (left < padding) {
+    left = padding;
+  } else if (left + menuWidth > window.innerWidth - padding) {
+    left = window.innerWidth - padding - menuWidth;
+  }
+
+  // 垂直定位：优先向下展示，若下方空间不足则向上翻转
+  let top = anchor.bottom + gap;
+  if (top + estimatedHeight > window.innerHeight - padding) {
+    top = Math.max(padding, anchor.top - estimatedHeight - gap);
+  }
+
+  return {
+    top: `${Math.round(top)}px`,
+    left: `${Math.round(left)}px`,
+  };
+}
 
 /** groups 异步到达后，把根层级展开一次（随后完全交给用户控制）。 */
 function useExpandRootsOnce(groups: AdminGroupDto[]) {
@@ -45,21 +91,29 @@ export function GroupTreeNav({
   const [expanded, setExpanded] = useExpandRootsOnce(groups);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; mode: DropMode } | null>(null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<MenuState | null>(null);
 
-  // 点击外部关闭行内操作菜单：延迟到下一微任务监听，避免当前点击事件直接冒泡触发关闭
+  // 点击外部、页面滚动、调整窗口或按下 Escape 键时关闭浮动菜单
   useEffect(() => {
-    if (!activeMenuId) return;
-    let timer: number;
-    const onDocClick = () => setActiveMenuId(null);
-    timer = window.setTimeout(() => {
-      window.addEventListener('click', onDocClick);
+    if (!openMenu) return;
+    const close = () => setOpenMenu(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    const timer = window.setTimeout(() => {
+      window.addEventListener('click', close);
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('resize', close);
+      window.addEventListener('scroll', close, true);
     }, 0);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener('click', onDocClick);
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
     };
-  }, [activeMenuId]);
+  }, [openMenu]);
 
   const toggle = (id: string) => {
     setExpanded((current) => {
@@ -105,7 +159,7 @@ export function GroupTreeNav({
       const active = activeGroup === node.group.id;
       const isDragging = draggingId === node.group.id;
       const hint = dropHint?.id === node.group.id ? dropHint.mode : null;
-      const menuOpen = activeMenuId === node.group.id;
+      const menuOpen = openMenu?.group.id === node.group.id;
 
       return (
         <div key={node.group.id} className="tree-nav-branch">
@@ -124,6 +178,7 @@ export function GroupTreeNav({
             draggable={!!onMove}
             onDragStart={(event) => {
               if (!onMove) return;
+              setOpenMenu(null);
               setDraggingId(node.group.id);
               event.dataTransfer.effectAllowed = 'move';
               event.dataTransfer.setData('text/plain', node.group.id);
@@ -139,6 +194,21 @@ export function GroupTreeNav({
               }
             }}
             onDrop={(event) => handleDrop(event, node)}
+            onContextMenu={(event) => {
+              if (!onEdit && !onDelete && !onCreateChild) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setOpenMenu({
+                group: node.group,
+                anchor: {
+                  top: event.clientY,
+                  right: event.clientX,
+                  bottom: event.clientY,
+                  left: event.clientX,
+                },
+                isContext: true,
+              });
+            }}
           >
             <button
               type="button"
@@ -173,54 +243,29 @@ export function GroupTreeNav({
                   className="tree-row-menu-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setActiveMenuId((cur) => (cur === node.group.id ? null : node.group.id));
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setOpenMenu((cur) =>
+                      cur?.group.id === node.group.id
+                        ? null
+                        : {
+                            group: node.group,
+                            anchor: {
+                              top: rect.top,
+                              right: rect.right,
+                              bottom: rect.bottom,
+                              left: rect.left,
+                            },
+                            isContext: false,
+                          },
+                    );
                   }}
                   aria-expanded={menuOpen}
+                  aria-haspopup="menu"
                   title="操作分组"
                   aria-label={`操作分组 ${node.group.name}`}
                 >
                   ···
                 </button>
-                {menuOpen && (
-                  <div className="dropdown-menu tree-nav-dropdown pn-fade">
-                    {onCreateChild && (
-                      <button
-                        type="button"
-                        className="dropdown-item"
-                        onClick={() => {
-                          setActiveMenuId(null);
-                          onCreateChild(node.group);
-                        }}
-                      >
-                        + 新建子分组
-                      </button>
-                    )}
-                    {onEdit && (
-                      <button
-                        type="button"
-                        className="dropdown-item"
-                        onClick={() => {
-                          setActiveMenuId(null);
-                          onEdit(node.group);
-                        }}
-                      >
-                        编辑分组
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        type="button"
-                        className="dropdown-item dropdown-item-danger"
-                        onClick={() => {
-                          setActiveMenuId(null);
-                          onDelete(node.group);
-                        }}
-                      >
-                        删除分组
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -229,5 +274,66 @@ export function GroupTreeNav({
       );
     });
 
-  return <div className="tree-nav">{renderNodes(buildGroupTree(groups))}</div>;
+  return (
+    <>
+      <div className="tree-nav">{renderNodes(buildGroupTree(groups))}</div>
+      {openMenu && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="dropdown-menu tree-nav-dropdown pn-fade"
+              style={calculateMenuStyle(openMenu.anchor, openMenu.isContext)}
+              onClick={(e) => e.stopPropagation()}
+              role="menu"
+            >
+              {onCreateChild && (
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  role="menuitem"
+                  onClick={() => {
+                    const target = openMenu.group;
+                    setOpenMenu(null);
+                    onCreateChild(target);
+                  }}
+                >
+                  + 新建子分组
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  role="menuitem"
+                  onClick={() => {
+                    const target = openMenu.group;
+                    setOpenMenu(null);
+                    onEdit(target);
+                  }}
+                >
+                  编辑分组
+                </button>
+              )}
+              {onDelete && (
+                <>
+                  {(onCreateChild || onEdit) && <div className="dropdown-divider" />}
+                  <button
+                    type="button"
+                    className="dropdown-item dropdown-item-danger"
+                    role="menuitem"
+                    onClick={() => {
+                      const target = openMenu.group;
+                      setOpenMenu(null);
+                      onDelete(target);
+                    }}
+                  >
+                    删除分组
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
 }

@@ -12,5 +12,6 @@ coverage/
 *.tsbuildinfo
 
 .taste-skill/
+.zcode/
 
 docker-compose.local.yml

@@ -15,6 +15,7 @@ import {
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
 import { getItemPalette } from '../lib/color';
+import { detectIconVariant, type IconVariant } from '../lib/iconTone';
 import {
   IconDownload,
   IconGrid,
@@ -50,6 +51,7 @@ interface ItemForm {
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
+  const [variant, setVariant] = useState<IconVariant>('inset');
   const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
 
   let src: string | null = null;
@@ -72,6 +74,7 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
     <span
       className="admin-item-icon"
       data-has-image={src && loaded && !broken ? 'true' : 'false'}
+      data-variant={variant}
       style={{ color: palette.color }}
     >
       {(!src || broken || !loaded) && <span>{initial}</span>}
@@ -80,7 +83,10 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
           src={src}
           alt=""
           loading="lazy"
-          onLoad={() => setLoaded(true)}
+          onLoad={(e) => {
+            setLoaded(true);
+            setVariant(detectIconVariant(e.currentTarget));
+          }}
           onError={() => setBroken(true)}
         />
       )}

@@ -4,6 +4,7 @@ import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
 import { formatDisplayHost } from '../lib/punycode';
 import { getItemPalette, getGroupPalette, type GroupPalette } from '../lib/color';
+import { detectIconVariant, type IconVariant } from '../lib/iconTone';
 import {
   IconArrowUpRight,
   IconGrid,
@@ -126,6 +127,7 @@ function ItemCard({
   // The letter stays behind the image so a slow or blocked icon never leaves an empty box.
   const [loaded, setLoaded] = useState(false);
   const [broken, setBroken] = useState(false);
+  const [variant, setVariant] = useState<IconVariant>('inset');
 
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const href = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) : item.url;
@@ -165,7 +167,11 @@ function ItemCard({
       </span>
 
       <div className="card-main">
-        <span className="card-icon" data-has-image={icon && loaded && !broken ? 'true' : 'false'}>
+        <span
+          className="card-icon"
+          data-has-image={icon && loaded && !broken ? 'true' : 'false'}
+          data-variant={variant}
+        >
           {(!icon || broken || !loaded) && (
             <span className="card-icon-initial">{initial(item.title)}</span>
           )}
@@ -175,7 +181,10 @@ function ItemCard({
               alt=""
               loading="lazy"
               data-loaded={loaded}
-              onLoad={() => setLoaded(true)}
+              onLoad={(e) => {
+                setLoaded(true);
+                setVariant(detectIconVariant(e.currentTarget));
+              }}
               onError={() => setBroken(true)}
             />
           )}

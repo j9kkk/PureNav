@@ -685,6 +685,13 @@ p {
 .grid[data-view='list'] .card-icon img {
   width: 18px;
   height: 18px;
+  border-radius: 3px;
+}
+
+.grid[data-view='list'] .card-icon[data-variant='full'] img {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
 }
 
 .grid[data-view='list'] .card-desc {
@@ -791,6 +798,7 @@ p {
   transform: scale(1.06);
 }
 
+/* 基础同心圆角：消除方块 Favicon 的 0 圆角尖刺 (R_inner ≈ R_outer - Padding = 12px - 8px = 4px) */
 .card-icon img {
   position: absolute;
   inset: 0;
@@ -798,12 +806,61 @@ p {
   width: 24px;
   height: 24px;
   object-fit: contain;
+  border-radius: 4px;
   opacity: 0;
-  transition: opacity var(--dur-base) var(--ease-standard);
+  z-index: 1;
+  transition: opacity var(--dur-base) var(--ease-standard),
+              transform var(--dur-base) var(--ease-spring);
 }
 
 .card-icon img[data-loaded='true'] {
   opacity: 1;
+}
+
+/* 满铺 App 风格 (针对实心正方形底色，模拟 App Store 原生图标) */
+.card-icon[data-variant='full'] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.card-icon[data-variant='full'] img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-icon);
+  object-fit: cover;
+}
+
+/* 苹果系统同款 1px 内描边 (Inner Stroke)，防止纯白/纯黑图标边缘与卡片底色融化 */
+.card-icon[data-variant='full']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 2;
+}
+
+:root[data-theme='dark'] .card-icon[data-variant='full']::after {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+/* 居中内嵌模式环境微光晕 (Ambient Glow)，仅在有图片且居中时投射柔和光彩 */
+.card-icon[data-variant='inset'][data-has-image='true']::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 8px;
+  background: var(--card-color, transparent);
+  filter: blur(6px);
+  opacity: 0.16;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-standard);
+  z-index: 0;
+}
+
+.card:hover .card-icon[data-variant='inset'][data-has-image='true']::before {
+  opacity: 0.3;
 }
 
 .card-icon[data-has-image='true'] .card-icon-initial {
@@ -1155,6 +1212,7 @@ p {
   width: 26px;
   height: 26px;
   object-fit: contain;
+  border-radius: 4px;
 }
 
 .icon-upload input[type='file'] {
@@ -1497,6 +1555,32 @@ p {
   width: 18px;
   height: 18px;
   object-fit: contain;
+  border-radius: 3px;
+}
+
+.admin-item-icon[data-variant='full'] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.admin-item-icon[data-variant='full'] img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.admin-item-icon[data-variant='full']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
+:root[data-theme='dark'] .admin-item-icon[data-variant='full']::after {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .admin-item-icon[data-has-image='true'] > span {
@@ -2310,6 +2394,7 @@ input[type='checkbox'] {
   flex-direction: column;
   gap: 1px;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
   max-height: 52vh;
   margin: 2px -6px 0;
@@ -2396,12 +2481,10 @@ input[type='checkbox'] {
 }
 
 .tree-nav-dropdown {
-  position: absolute;
-  left: 100%;
-  top: 0;
-  margin-left: 4px;
-  min-width: 120px;
-  z-index: 100;
+  position: fixed;
+  min-width: 136px;
+  width: 136px;
+  z-index: 1000;
 }
 
 .tree-nav-label {
