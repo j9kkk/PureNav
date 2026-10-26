@@ -907,7 +907,15 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 </td>
                 <td>
                   <div className="table-item-primary">
-                    <span className="table-item-title" title={item.title}>{item.title}</span>
+                    <a
+                      className="table-item-title"
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </a>
                     <span className="table-item-url">
                       {item.url}
                       {item.lanUrl && <span className="badge badge-lan">内网</span>}

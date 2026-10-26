@@ -1607,6 +1607,26 @@ p {
   color: var(--text);
   font-size: var(--fs-body);
   line-height: 1.4;
+  /* 链接只占文字宽度，悬停下划线才不会横穿整列 */
+  align-self: flex-start;
+  max-width: 100%;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+
+/* 同色下划线：界面 Chrome 保持中性，accent 只留给焦点环 */
+.table-item-title:hover,
+.table-item-title:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+.table-item-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .table-item-url {
