@@ -165,3 +165,39 @@ export function IconFolder({ size = 14 }: IconProps) {
     </svg>
   );
 }
+
+export function IconPencil({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5.2 12.8 2.5 13.5l.7-2.7L11.5 2.5z" />
+      <path d="M9.5 4.5l2 2" />
+    </svg>
+  );
+}
+
+export function IconSlashCircle({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M4.1 4.1l7.8 7.8" />
+    </svg>
+  );
+}
+
+export function IconCheckCircle({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M5.2 8.2l2 2 3.8-4" />
+    </svg>
+  );
+}
+
+export function IconTrash({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M2.5 4.2h11M6 4.2V2.8a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.4M4 4.2l.7 8.3a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3l.7-8.3M6.5 7.2v4.5M9.5 7.2v4.5" />
+    </svg>
+  );
+}
+

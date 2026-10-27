@@ -200,11 +200,12 @@ function ItemCard({
               </span>
             )}
           </span>
-          {showDescription && item.description ? (
-            <span className="card-desc">{item.description}</span>
-          ) : (
-            <span className="card-host" title={href}>{hostname}</span>
-          )}
+          {showDescription &&
+            (item.description ? (
+              <span className="card-desc">{item.description}</span>
+            ) : (
+              <span className="card-host" title={href}>{hostname}</span>
+            ))}
         </span>
       </div>
 

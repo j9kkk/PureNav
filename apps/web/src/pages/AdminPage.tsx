@@ -18,12 +18,16 @@ import { getItemPalette } from '../lib/color';
 import { useIconImage } from '../lib/iconImage';
 import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
 import {
+  IconCheckCircle,
   IconDownload,
   IconGrid,
   IconHome,
   IconLogout,
+  IconPencil,
   IconPlus,
+  IconSlashCircle,
   IconSliders,
+  IconTrash,
   IconUser,
 } from '../components/icons';
 
@@ -89,88 +93,44 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
 
 function ItemActions({
   item,
-  canMove,
-  onMove,
   onEdit,
   onToggle,
   onRemove,
 }: {
   item: AdminItemDto;
-  canMove: boolean;
-  onMove: (delta: -1 | 1) => void;
   onEdit: () => void;
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = () => setOpen(false);
-    window.addEventListener('click', onDocClick);
-    return () => window.removeEventListener('click', onDocClick);
-  }, [open]);
-
   return (
     <div className="action-cell">
-      <button className="btn btn-sm" onClick={onEdit}>
-        编辑
+      <button
+        type="button"
+        className="action-icon-btn"
+        onClick={onEdit}
+        title="编辑站点"
+        aria-label={`编辑站点 ${item.title}`}
+      >
+        <IconPencil size={15} />
       </button>
-      <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="btn btn-sm btn-ghost"
-          onClick={() => setOpen((cur) => !cur)}
-          aria-expanded={open}
-          title="更多操作"
-        >
-          ···
-        </button>
-        {open && (
-          <div className="dropdown-menu pn-fade">
-            {canMove && (
-              <>
-                <button
-                  className="dropdown-item"
-                  onClick={() => {
-                    setOpen(false);
-                    onMove(-1);
-                  }}
-                >
-                  ↑ 上移一位
-                </button>
-                <button
-                  className="dropdown-item"
-                  onClick={() => {
-                    setOpen(false);
-                    onMove(1);
-                  }}
-                >
-                  ↓ 下移一位
-                </button>
-                <div className="dropdown-divider" />
-              </>
-            )}
-            <button
-              className="dropdown-item"
-              onClick={() => {
-                setOpen(false);
-                onToggle();
-              }}
-            >
-              {item.enabled ? '停用此项' : '启用此项'}
-            </button>
-            <button
-              className="dropdown-item dropdown-item-danger"
-              onClick={() => {
-                setOpen(false);
-                onRemove();
-              }}
-            >
-              删除站点
-            </button>
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        className={`action-icon-btn${item.enabled ? '' : ' is-disabled'}`}
+        onClick={onToggle}
+        title={item.enabled ? '停用此项' : '启用此项'}
+        aria-label={item.enabled ? `停用站点 ${item.title}` : `启用站点 ${item.title}`}
+      >
+        {item.enabled ? <IconSlashCircle size={15} /> : <IconCheckCircle size={15} />}
+      </button>
+      <button
+        type="button"
+        className="action-icon-btn action-icon-btn-danger"
+        onClick={onRemove}
+        title="删除站点"
+        aria-label={`删除站点 ${item.title}`}
+      >
+        <IconTrash size={15} />
+      </button>
     </div>
   );
 }
@@ -512,20 +472,6 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除失败');
     }
-  };
-
-  const moveItem = async (id: string, direction: -1 | 1) => {
-    const groupId = items.find((item) => item.id === id)?.groupId;
-    if (!groupId) return;
-    const inGroup = items.filter((item) => item.groupId === groupId);
-    const index = inGroup.findIndex((item) => item.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= inGroup.length) return;
-
-    const ordered = inGroup.map((item) => item.id);
-    const moved = ordered.splice(index, 1)[0]!;
-    ordered.splice(target, 0, moved);
-    await applyItemOrder(groupId, ordered);
   };
 
   const toggleItem = async (item: AdminItemDto) => {
@@ -881,7 +827,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
               <th>站点</th>
               <th>分组</th>
               <th>标签</th>
-              <th style={{ width: 110, textAlign: 'right' }}>操作</th>
+              <th style={{ width: 116, textAlign: 'right' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -962,8 +908,6 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 <td style={{ textAlign: 'right' }}>
                   <ItemActions
                     item={item}
-                    canMove={!!activeGroup}
-                    onMove={(d) => void moveItem(item.id, d)}
                     onEdit={() => openEdit(item)}
                     onToggle={() => void toggleItem(item)}
                     onRemove={() => void removeItem(item)}

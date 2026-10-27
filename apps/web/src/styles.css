@@ -489,6 +489,11 @@ p {
   margin-bottom: 36px;
 }
 
+.group:has(.card:hover),
+.group:has(.card[data-selected='true']) {
+  z-index: 2;
+}
+
 .group:last-child {
   margin-bottom: 0;
 }
@@ -602,29 +607,33 @@ p {
   font-size: var(--fs-body);
 }
 
-/* Accordion：grid-rows 过渡 */
+/* Accordion：grid-rows 过渡
+   展开静止态保持 overflow: visible，彻底释放卡片四周阴影，杜绝硬切；
+   折叠时立即切换为 hidden，展开过程中通过 step-end 延迟至高度完全到位后才切换为 visible */
 .group-body {
   display: grid;
   grid-template-rows: 1fr;
-  overflow: hidden;
+  overflow: visible;
   transition: grid-template-rows var(--dur-slow) var(--ease-entrance),
-    opacity var(--dur-base) var(--ease-standard);
+    opacity var(--dur-base) var(--ease-standard),
+    overflow var(--dur-slow) step-end allow-discrete;
   opacity: 1;
 }
 
 .group-body[data-collapsed='true'] {
   grid-template-rows: 0fr;
+  overflow: hidden;
   height: 0;
   min-height: 0;
   opacity: 0;
   pointer-events: none;
+  transition: grid-template-rows var(--dur-slow) var(--ease-entrance),
+    opacity var(--dur-base) var(--ease-standard),
+    overflow 0s 0s allow-discrete;
 }
 
 .group-body-inner {
   min-height: 0;
-  overflow: visible;
-  padding: 8px 6px 16px;
-  margin: -8px -6px -16px;
 }
 
 /* ---------- Card grid ---------- */
@@ -784,6 +793,7 @@ p {
   background: var(--bg-solid);
   border-color: var(--control-border);
   box-shadow: var(--specular-top), var(--shadow-strong);
+  z-index: 2;
 }
 
 :root[data-theme='dark'] .card:hover {
@@ -817,6 +827,7 @@ p {
 .card[data-selected='true'] {
   border-color: var(--accent);
   box-shadow: 0 0 0 2.5px color-mix(in oklab, var(--accent) 32%, transparent), var(--shadow-strong);
+  z-index: 2;
 }
 
 .card-main {
@@ -1252,7 +1263,16 @@ p {
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: start;
   gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* 行内间距统一由 .field-row 提供：.field 自带的 margin 若保留，
+   末列被 .settings-panel .field:last-child 归零后会被网格拉伸补齐行高，
+   多出的空隙均分进两条 auto 轨道，标签与控件就一起下移了。 */
+.field-row > .field {
+  margin-bottom: 0;
 }
 
 /* 行内字段：label 左、控件中、值右（如圆角滑杆），不再全宽拉伸 */
@@ -1772,8 +1792,70 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
   position: relative;
+  white-space: nowrap;
+}
+
+.action-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.action-icon-btn:hover {
+  background: var(--hover-fill);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .action-icon-btn:hover {
+  background: var(--active-fill);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.action-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.action-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.action-icon-btn svg {
+  display: block;
+  flex: none;
+}
+
+.action-icon-btn.is-disabled {
+  color: var(--text-dim);
+}
+
+.action-icon-btn.is-disabled:hover {
+  background: var(--positive-bg);
+  border-color: color-mix(in oklab, var(--positive) 30%, transparent);
+  color: var(--positive);
+}
+
+.action-icon-btn-danger:hover {
+  background: var(--negative-bg);
+  border-color: color-mix(in oklab, var(--negative) 30%, transparent);
+  color: var(--negative);
 }
 
 input[type='checkbox'] {
