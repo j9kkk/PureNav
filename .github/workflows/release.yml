@@ -70,3 +70,37 @@ jobs:
           cache-to: type=gha,mode=max,scope=purenav
           provenance: true
           sbom: true
+
+      - name: Trigger deploy webhook
+        if: success()
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::DEPLOY_WEBHOOK_URL is not configured, skipping webhook."
+            exit 0
+          fi
+          echo "Triggering deploy webhook..."
+          RESPONSE=$(curl -s -S --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "event": "image_released",
+              "repository": "${{ github.repository }}",
+              "ref_name": "${{ github.ref_name }}",
+              "sha": "${{ github.sha }}",
+              "actor": "${{ github.actor }}",
+              "image": "${{ env.IMAGE }}"
+            }')
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Webhook response status: $HTTP_STATUS"
+          echo "Webhook response body: $BODY"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Deploy webhook triggered successfully."
+          else
+            echo "::error::Deploy webhook failed with HTTP status $HTTP_STATUS"
+            exit 1
+          fi
