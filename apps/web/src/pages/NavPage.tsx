@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
@@ -15,6 +15,7 @@ import {
   IconSliders,
   IconSun,
 } from '../components/icons';
+import { AmbientField } from '../components/AmbientField';
 import {
   applyTheme,
   layoutAttributes,
@@ -379,6 +380,27 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const tagBarRef = useRef<HTMLDivElement | null>(null);
+  const [tagIndicator, setTagIndicator] = useState<{ x: number; w: number } | null>(null);
+  const [tagIndicatorReady, setTagIndicatorReady] = useState(false);
+
+  // 分段控件的选中块：跟着 activeTag 移动，而不是原地换底色
+  useLayoutEffect(() => {
+    const measure = () => {
+      const bar = tagBarRef.current;
+      if (!bar) return;
+      const active = bar.querySelector<HTMLElement>('.tag-pill-active');
+      setTagIndicator(active ? { x: active.offsetLeft, w: active.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [activeTag, config]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setTagIndicatorReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // Update clock every minute
   useEffect(() => {
@@ -663,51 +685,61 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   return (
     <>
-      <div className="ambient-aurora" aria-hidden="true" />
+      <AmbientField animate={totalVisible <= 200} />
       <div className={perfMode ? 'shell perf' : 'shell'}>
-        <header className="topbar">
-          <div className="brand">
-            <span className="brand-mark">P</span>
-            <h1 className="brand-title">{config?.site.identity.title ?? 'PureNav'}</h1>
-            <span className="brand-clock" title={clock.full}>
-              <span className="brand-clock-date">{clock.date}</span>
-              <span className="brand-clock-time">{clock.time}</span>
-            </span>
-          </div>
-          <div className="search" onClick={() => searchRef.current?.focus()}>
-            <span className="search-icon">
-              <IconSearch size={15} />
-            </span>
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索站点或敲 /"
-              aria-label="搜索站点"
-            />
-            {!query && <kbd className="search-kbd">/</kbd>}
-          </div>
-          <div className="topbar-actions">
-          <button
-            className="icon-btn"
-            onClick={toggleView}
-            aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
-            title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
-          >
-            {layout.view === 'grid' ? <IconListRows size={16} /> : <IconGrid size={16} />}
-          </button>
-          <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
-            {themeMode === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
-          </button>
-          <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
-            <IconSliders size={16} />
-          </button>
+        <div className="top-scrim" aria-hidden="true" />
+        <div className="topbar-shell">
+          <header className="topbar lg" data-lg="lens" data-lg-elevate data-lg-amp="14" data-lg-blur="12" data-lg-band="24">
+            <div className="brand">
+              <span className="brand-mark">P</span>
+              <h1 className="brand-title">{config?.site.identity.title ?? 'PureNav'}</h1>
+              <span className="brand-clock" title={clock.full}>
+                <span className="brand-clock-date">{clock.date}</span>
+                <span className="brand-clock-time">{clock.time}</span>
+              </span>
+            </div>
+            <div className="search" onClick={() => searchRef.current?.focus()}>
+              <span className="search-icon">
+                <IconSearch size={15} />
+              </span>
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索站点或敲 /"
+                aria-label="搜索站点"
+              />
+              {!query && <kbd className="search-kbd">/</kbd>}
+            </div>
+            <div className="topbar-actions">
+              <button
+                className="icon-btn"
+                onClick={toggleView}
+                aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+                title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+              >
+                {layout.view === 'grid' ? <IconListRows size={16} /> : <IconGrid size={16} />}
+              </button>
+              <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
+                {themeMode === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+              </button>
+              <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
+                <IconSliders size={16} />
+              </button>
+            </div>
+          </header>
         </div>
-      </header>
 
       {/* Tag pills filter bar */}
       {config && config.tags.length > 0 && (
-        <div className="tag-filter-bar">
+        <div className="tag-filter-bar lg" data-lg="lens" data-lg-amp="7" data-lg-band="12" data-lg-blur="14" ref={tagBarRef}>
+          {tagIndicator && (
+            <span
+              className={tagIndicatorReady ? 'tag-indicator' : 'tag-indicator no-anim'}
+              aria-hidden="true"
+              style={{ width: tagIndicator.w, transform: `translate3d(${tagIndicator.x}px, 0, 0)` }}
+            />
+          )}
           <button
             className={activeTag === null ? 'tag-pill tag-pill-active' : 'tag-pill'}
             onClick={() => setActiveTag(null)}

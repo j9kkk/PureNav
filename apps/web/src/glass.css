@@ -1,0 +1,609 @@
+/* ============================================================
+   Liquid Glass system —— PureNav 功能层材质
+   ------------------------------------------------------------
+   使用规则（来自 Apple HIG / WWDC25）：
+   1. 只有功能层用玻璃：顶栏 / 搜索 / 分段筛选 / 浮动操作 / 弹层 / 侧栏。
+   2. 内容层（站点卡片、表格行、表单）用实色面 + 细线 + 阴影，绝不叠玻璃。
+   3. 玻璃上方的控件只用填充/活力色，不能再套一层玻璃。
+   4. 同心圆角：内元素半径 = 外半径 − 内边距（用 --lg-r 与 --lg-pad 推导）。
+   ============================================================ */
+
+:root {
+  --lg-r: 24px;
+  --lg-pad: 8px;
+  --lg-blur: 18px;
+
+  --lg-fill: rgba(255, 255, 255, 0.46);
+  --lg-fill-strong: rgba(255, 255, 255, 0.62);
+  --lg-inset: rgba(120, 128, 145, 0.12);
+
+  --lg-rim-strong: rgba(255, 255, 255, 0.92);
+  --lg-rim-soft: rgba(255, 255, 255, 0.18);
+  --lg-sheen: rgba(255, 255, 255, 0.55);
+
+  --lg-edge: rgba(12, 18, 30, 0.07);
+  --lg-shadow-1: 0 22px 60px -32px rgba(12, 18, 30, 0.34), 0 5px 20px -12px rgba(12, 18, 30, 0.16);
+  --lg-shadow-2: 0 30px 76px -36px rgba(12, 18, 30, 0.4), 0 8px 28px -16px rgba(12, 18, 30, 0.2);
+}
+
+:root[data-theme='dark'] {
+  --lg-fill: rgba(26, 28, 34, 0.30);
+  --lg-fill-strong: rgba(30, 32, 38, 0.52);
+  --lg-inset: rgba(255, 255, 255, 0.06);
+
+  --lg-rim-strong: rgba(255, 255, 255, 0.62);
+  --lg-rim-soft: rgba(255, 255, 255, 0.10);
+  --lg-sheen: rgba(255, 255, 255, 0.16);
+
+  --lg-edge: rgba(255, 255, 255, 0.06);
+  --lg-shadow-1: 0 26px 70px -34px rgba(0, 0, 0, 0.55), 0 6px 24px -14px rgba(0, 0, 0, 0.32);
+  --lg-shadow-2: 0 34px 86px -38px rgba(0, 0, 0, 0.62), 0 10px 32px -18px rgba(0, 0, 0, 0.38);
+}
+
+/* ── 材质本体 ───────────────────────────────────────────── */
+
+.lg {
+  position: relative;
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--lg-fill) 82%, #ffffff 18%) 0%,
+      var(--lg-fill) 42%,
+      color-mix(in oklab, var(--lg-fill) 94%, #000000 6%) 100%);
+  border: 0;
+  border-radius: var(--lg-r);
+  box-shadow:
+    inset 0 1px 0 var(--lg-rim-strong),
+    inset 0 -12px 18px -20px rgba(0, 0, 0, 0.35),
+    0 0 0 1px var(--lg-edge),
+    var(--lg-shadow-1);
+  backdrop-filter: blur(var(--lg-blur)) saturate(175%);
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(175%);
+  transition:
+    background-color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard),
+    transform 420ms cubic-bezier(0.2, 1.3, 0.36, 1);
+}
+
+/* 镜面描边：环境光在厚边上折出的一圈 —— 顶边最亮、向下衰减、底边回一点微光 */
+.lg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    var(--lg-rim-strong) 0%,
+    color-mix(in oklab, var(--lg-rim-strong) 46%, transparent) 14%,
+    color-mix(in oklab, var(--lg-rim-strong) 12%, transparent) 46%,
+    color-mix(in oklab, var(--lg-rim-strong) 20%, transparent) 78%,
+    color-mix(in oklab, var(--lg-rim-strong) 62%, transparent) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 内容从玻璃底下滚过时（顶栏）：加深阴影 + 提亮材质，保证可读性 */
+.lg.is-elevated {
+  background: var(--lg-fill-strong);
+  box-shadow:
+    inset 0 1px 0 var(--lg-rim-strong),
+    inset 0 -1px 1px var(--lg-rim-soft),
+    var(--lg-shadow-2);
+}
+
+/* 玻璃内部控件：只用填充，不再叠材质 */
+.lg-inset {
+  background: var(--lg-inset);
+  box-shadow: inset 0 1px 2px rgba(10, 14, 24, 0.06);
+}
+
+/* ── 环境层：光圈 + 粒子（由 AmbientField 画在 0.5x canvas 上） ── */
+
+.ambient-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+:root[data-theme='light'] .ambient-particles {
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+}
+
+/* ── 顶部栏 ─────────────────────────────────────────────── */
+
+.topbar-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: -32px -24px 18px;
+  padding: 14px 24px 10px;
+  pointer-events: none;
+}
+
+.topbar-shell > * {
+  pointer-events: auto;
+}
+
+/* 顶部护栏：滚动态时把内容区在顶端渐隐，导航栏区域永远干净。
+   起点在视口最顶端（被栏体和状态区遮住），所以看不到任何横向硬边。 */
+.top-scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 148px;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 240ms var(--ease-standard);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--bg) 97%, transparent) 0%,
+    color-mix(in oklab, var(--bg) 92%, transparent) 38%,
+    color-mix(in oklab, var(--bg) 62%, transparent) 66%,
+    color-mix(in oklab, var(--bg) 22%, transparent) 86%,
+    transparent 100%
+  );
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
+}
+
+.top-scrim.is-on {
+  opacity: 1;
+}
+
+.tag-filter-bar {
+  position: relative;
+  z-index: 35;
+}
+
+.topbar.lg {
+  --lg-r: 26px;
+  --lg-pad: 8px;
+  margin-bottom: 0;
+  padding: 8px 10px 8px 14px;
+  gap: 12px;
+}
+
+.brand {
+  padding-left: 2px;
+}
+
+.search input {
+  height: 40px;
+  padding: 0 40px 0 36px;
+  border: 0;
+  border-radius: calc(var(--lg-r) - var(--lg-pad));
+  background: var(--lg-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 70%, transparent);
+  font-size: var(--fs-secondary);
+}
+
+:root[data-theme='light'] .search input {
+  background: color-mix(in oklab, var(--bg-solid) 70%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 72%, transparent);
+}
+
+.search input:focus {
+  background: color-mix(in oklab, var(--bg-solid) 78%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 0 3.5px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.search-kbd {
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--bg-solid) 65%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+/* 顶栏内的图标按钮：玻璃上的控件 → 只给填充 */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--text-muted);
+  transition: background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard), transform 90ms ease-out;
+}
+
+.icon-btn:hover {
+  background: var(--lg-inset);
+  color: var(--text);
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+/* ── 分段筛选：玻璃容器 + 滑动指示块 ───────────────────── */
+
+.tag-filter-bar.lg {
+  --lg-r: 9999px;
+  --lg-pad: 4px;
+  box-shadow:
+    inset 0 1px 0 var(--lg-rim-strong),
+    0 0 0 1px var(--lg-edge),
+    0 14px 34px -22px rgba(12, 18, 30, 0.3);
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  padding: var(--lg-pad);
+  margin: 0 0 26px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tag-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tag-indicator {
+  position: absolute;
+  top: var(--lg-pad);
+  left: 0;
+  height: calc(100% - var(--lg-pad) * 2);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--bg-solid) 92%, var(--accent) 8%),
+    color-mix(in oklab, var(--bg-solid) 82%, var(--accent) 18%)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 6px 14px -8px rgba(12, 18, 30, 0.4);
+  transition: transform 400ms cubic-bezier(0.3, 1.1, 0.32, 1), width 400ms cubic-bezier(0.3, 1.1, 0.32, 1);
+  pointer-events: none;
+}
+
+:root[data-theme='dark'] .tag-indicator {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, #ffffff 16%, transparent),
+    color-mix(in oklab, #ffffff 9%, transparent)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 6px 14px -8px rgba(0, 0, 0, 0.6);
+}
+
+.tag-indicator.no-anim {
+  transition: none;
+}
+
+.tag-pill {
+  position: relative;
+  z-index: 1;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+  transition: color 220ms var(--ease-standard);
+}
+
+.tag-pill:hover {
+  color: var(--text);
+}
+
+.tag-pill.tag-pill-active,
+:root[data-theme='dark'] .tag-pill.tag-pill-active {
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── 卡片：轻量玻璃面 ────────────────────────────────────
+   静止态用半透明面 + 上亮边 + 内底暗边做出「一片玻璃」的读感，
+   真折射留给悬停（见 lib/liquidGlass.ts 的 card lens）。 */
+
+.card {
+  background: color-mix(in oklab, var(--bg-solid) 42%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.7);
+  -webkit-backdrop-filter: blur(14px) saturate(1.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05),
+    0 8px 22px -16px rgba(12, 18, 30, 0.35);
+}
+
+.card:hover {
+  /* 悬浮：不是变不透明，而是更像玻璃——透光更多、上缘更亮、离地更高 */
+  background: color-mix(in oklab, var(--bg-solid) 30%, transparent);
+  border-color: color-mix(in oklab, var(--control-border) 85%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 18px 38px -18px rgba(12, 18, 30, 0.45);
+}
+
+/* 交互时的一道光扫过表面：不依赖背景有内容，也能读出「材质被点亮」 */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: -40% -60%;
+  border-radius: inherit;
+  background: linear-gradient(
+    104deg,
+    transparent 38%,
+    color-mix(in oklab, #ffffff 26%, transparent) 50%,
+    transparent 62%
+  );
+  opacity: 0;
+  transform: translate3d(-60%, 0, 0);
+  transition: opacity 320ms ease, transform 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.card:hover::after,
+.card:focus-visible::after {
+  opacity: 1;
+  transform: translate3d(60%, 0, 0);
+}
+
+:root[data-theme='dark'] .card {
+  background: color-mix(in oklab, var(--bg-solid) 52%, transparent);
+  border-color: color-mix(in oklab, var(--border) 80%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 10px 26px -18px rgba(0, 0, 0, 0.85);
+}
+
+:root[data-theme='dark'] .card::after {
+  background: linear-gradient(
+    104deg,
+    transparent 38%,
+    color-mix(in oklab, #ffffff 14%, transparent) 50%,
+    transparent 62%
+  );
+}
+
+:root[data-theme='dark'] .card:hover {
+  background: color-mix(in oklab, var(--bg-solid) 38%, #ffffff 4%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 18px 38px -20px rgba(0, 0, 0, 0.9);
+}
+
+/* 大库性能模式：不上 backdrop 模糊，但保留玻璃面的色阶与描边。
+   投影收成一层——1.7k 张卡片时双层阴影会吃掉滚动帧率。 */
+.shell.perf .card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: color-mix(in oklab, var(--bg-solid) 76%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 1px 2px rgba(12, 18, 30, 0.06);
+}
+
+:root[data-theme='dark'] .shell.perf .card {
+  background: color-mix(in oklab, var(--bg-solid) 62%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'] .shell.perf .card {
+  background: color-mix(in oklab, var(--bg-solid) 62%, transparent);
+}
+
+/* 分组容器：内容层，只做分组不做材质 */
+.group-head {
+  border-radius: calc(var(--radius-card) - 6px);
+}
+
+.group-head:hover {
+  background: var(--hover-fill);
+}
+
+/* ── 按钮：玻璃上的控件 ───────────────────────────────── */
+
+.btn {
+  border-radius: 12px;
+  background: var(--lg-inset);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 85%, transparent);
+  transition: background-color var(--dur-fast) var(--ease-standard),
+    transform 90ms cubic-bezier(0.3, 0.8, 0.3, 1), box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+.btn:hover {
+  background: color-mix(in oklab, var(--lg-inset) 70%, var(--text) 8%);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  color: #fff;
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--accent) 92%, #ffffff 8%),
+      color-mix(in oklab, var(--accent) 84%, #000000 16%));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 8px 20px -10px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+.btn-primary:hover {
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--accent) 88%, #ffffff 12%),
+      color-mix(in oklab, var(--accent) 80%, #000000 20%));
+}
+
+.btn-danger {
+  background: rgba(255, 59, 48, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 59, 48, 0.28);
+}
+
+/* ── 弹层：玻璃 sheet ─────────────────────────────────── */
+
+.modal.lg {
+  --lg-r: 26px;
+  border-radius: var(--lg-r);
+}
+
+.modal-backdrop {
+  background: color-mix(in oklab, #0b0d12 42%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── 后台：侧栏与顶栏是功能层，表格是内容层 ───────────── */
+
+/* 侧栏从「贴边的灰条」改成浮起来的玻璃面板，背后是环境光 */
+.admin-layout {
+  grid-template-columns: 244px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding: 12px;
+}
+
+.admin-main {
+  padding: 12px 8px 88px;
+}
+
+.admin-side.lg {
+  --lg-r: 20px;
+  padding: 10px;
+  background: var(--lg-fill);
+  border-right: 0;
+  position: sticky;
+  top: 12px;
+  height: calc(100vh - 24px);
+  overflow: auto;
+}
+
+.admin-header.lg {
+  --lg-r: 20px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+}
+
+.admin-side .side-item {
+  border-radius: 12px;
+  transition: background-color var(--dur-fast) var(--ease-standard), transform 90ms ease-out;
+}
+
+.admin-side .side-item:active {
+  transform: scale(0.985);
+}
+
+.admin-side .side-item.is-active {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+
+.admin-table-wrap {
+  background: var(--bg-solid);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--hover-fill);
+}
+
+.bulk-bar {
+  border-radius: 14px;
+  background: var(--bg-solid);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px -24px rgba(12, 18, 30, 0.4);
+}
+
+/* 徽标：在浅色面上会「化掉」，补一圈细边把它框住 */
+.badge,
+.count-chip,
+.table-tag,
+.admin-item-group {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 88%, transparent);
+}
+
+/* ── 登录 ─────────────────────────────────────────────── */
+
+.auth-card.lg {
+  --lg-r: 28px;
+  padding: 28px;
+}
+
+/* ── 降级 ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-transparency: reduce) {
+  .lg,
+  .lg.is-elevated {
+    background: var(--bg-solid) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .lg::before {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .lg {
+    box-shadow:
+      inset 0 0 0 1.5px var(--text),
+      var(--lg-shadow-1);
+  }
+
+  .lg::before {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg,
+  .tag-indicator,
+  .btn,
+  .icon-btn {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 移动端：顶栏变成两行，搜索独占一行 */
+@media (max-width: 720px) {
+  .topbar-shell {
+    margin: -20px -16px 14px;
+    padding: 10px 16px 8px;
+  }
+
+  .topbar.lg {
+    flex-wrap: wrap;
+    padding: 8px;
+    row-gap: 8px;
+  }
+
+  .search {
+    order: 3;
+    flex: 1 0 100%;
+  }
+
+  .tag-filter-bar.lg {
+    max-width: 100%;
+  }
+}

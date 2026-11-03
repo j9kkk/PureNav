@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import type { SessionUser } from '../types';
+import { AmbientField } from '../components/AmbientField';
 
 interface Props {
   needsSetup: boolean;
@@ -36,8 +37,10 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
   };
 
   return (
-    <div className="auth-wrap">
-      <form className="auth-card pn-enter" onSubmit={submit}>
+    <>
+      <AmbientField />
+      <div className="auth-wrap">
+        <form className="auth-card pn-enter lg" data-lg="lens" data-lg-blur="22" data-lg-amp="10" onSubmit={submit}>
         <h1>{needsSetup ? '初始化 PureNav' : '登录后台'}</h1>
         <p className="sub">{needsSetup ? '首次启动，请创建管理员账号。' : '仅管理员可以编辑导航内容。'}</p>
 
@@ -92,6 +95,7 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
           </button>
         </div>
       </form>
-    </div>
+      </div>
+    </>
   );
 }

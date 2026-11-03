@@ -30,6 +30,7 @@ import {
   IconTrash,
   IconUser,
 } from '../components/icons';
+import { AmbientField } from '../components/AmbientField';
 
 interface Props {
   user: SessionUser;
@@ -562,8 +563,10 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   };
 
   return (
-    <div className="admin-layout">
-      <aside className="admin-side">
+    <>
+      <AmbientField animate={items.length <= 200} />
+      <div className="admin-layout">
+      <aside className="admin-side lg" data-lg="lens" data-lg-blur="20" data-lg-amp="8" data-lg-band="18">
         <div className="brand" style={{ marginBottom: 14, padding: '0 8px' }}>
           <span className="brand-mark">P</span>
           <span className="brand-title">PureNav</span>
@@ -658,7 +661,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       <main className="admin-main">
         {panel === 'settings' ? (
           <>
-            <div className="admin-header">
+            <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
               <h1>站点设置</h1>
             </div>
             <SettingsPage
@@ -674,14 +677,14 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
           </>
         ) : panel === 'account' ? (
           <>
-            <div className="admin-header">
+            <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
               <h1>账户与日志</h1>
             </div>
             <AccountPage />
           </>
         ) : (
           <>
-        <div className="admin-header">
+        <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
           <div className="admin-title-wrap">
             {activeBreadcrumbs.length > 0 ? (
               <nav className="admin-breadcrumb" aria-label="分组层级">
@@ -977,7 +980,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
 
       {form && (
         <div className="modal-backdrop" onClick={() => setForm(null)}>
-          <div className="modal pn-enter" onClick={(event) => event.stopPropagation()}>
+          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()}>
             <h3>{form.id ? '编辑站点' : '添加站点'}</h3>
 
             <div className="field">
@@ -1099,7 +1102,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
 
       {groupDialog && (
         <div className="modal-backdrop" onClick={() => setGroupDialog(null)}>
-          <div className="modal pn-enter" onClick={(event) => event.stopPropagation()}>
+          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()}>
             <h3>{groupDialog.id ? '编辑分组' : '新建分组'}</h3>
             <div className="field">
               <label htmlFor="g-name">分组名</label>
@@ -1169,6 +1172,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       )}
 
       {toast && <div className="toast">{toast}</div>}
-    </div>
+      </div>
+    </>
   );
 }

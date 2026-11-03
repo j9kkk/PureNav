@@ -4,6 +4,7 @@ import { NavPage } from './pages/NavPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminPage } from './pages/AdminPage';
 import { applyTheme } from './lib/theme';
+import { refreshLiquidGlass } from './lib/liquidGlass';
 
 type Route = { name: 'home' } | { name: 'login' } | { name: 'admin' };
 
@@ -32,6 +33,12 @@ export function App() {
   useEffect(() => {
     applyTheme(undefined);
   }, []);
+
+  // 玻璃滤镜跟元素尺寸绑定：路由 / 主题 / 内容变化后都要重新量一次
+  useEffect(() => {
+    const id = requestAnimationFrame(() => refreshLiquidGlass());
+    return () => cancelAnimationFrame(id);
+  });
 
   const navigate = (next: Route) => {
     const path = next.name === 'home' ? '/' : `/${next.name}`;

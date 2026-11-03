@@ -39,7 +39,7 @@
   /* Text: 三级全部 ≥4.5:1 */
   --text: #1d1d1f;
   --text-muted: #56565c;
-  --text-dim: #6e6e73;
+  --text-dim: #5c5c62;
 
   /* Status */
   --positive: #1d7a3e;
@@ -209,21 +209,26 @@ p {
 }
 
 /* ---------- Ambient field ----------
-   单色系极淡环境光（品牌 wallpaper），为毛玻璃提供层次；静态、无循环动画。 */
+   环境光：玻璃要有东西可折射才像玻璃。低饱和冷色三团，静态无循环动画；
+   亮度只够让边缘弯折可见，不抢内容。 */
 .ambient-aurora {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(1100px 720px at 14% -10%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 62%), /* taste-skill-ignore: 品牌环境光，为毛玻璃提供层次 */
-    radial-gradient(900px 640px at 92% 106%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 58%); /* taste-skill-ignore: 同上 */
+    radial-gradient(1100px 720px at 14% -12%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 64%),
+    radial-gradient(820px 560px at 88% 4%, color-mix(in oklab, #7b61ff 12%, transparent), transparent 62%),
+    radial-gradient(900px 640px at 92% 106%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 60%);
 }
 
 :root[data-theme='dark'] .ambient-aurora {
   background:
-    radial-gradient(1100px 720px at 14% -10%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 62%), /* taste-skill-ignore: 品牌环境光 */
-    radial-gradient(900px 640px at 92% 106%, color-mix(in oklab, var(--accent) 5%, transparent), transparent 58%); /* taste-skill-ignore: 同上 */
+    radial-gradient(1100px 720px at 14% -12%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 64%),
+    radial-gradient(820px 560px at 88% 2%, color-mix(in oklab, #7b61ff 15%, transparent), transparent 60%),
+    radial-gradient(760px 380px at 50% -6%, color-mix(in oklab, #9db4ff 13%, transparent), transparent 72%),
+    radial-gradient(1200px 900px at 50% 30%, rgba(255, 255, 255, 0.05), transparent 70%),
+    radial-gradient(900px 640px at 92% 106%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 58%);
 }
 
 .shell {
