@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { --accent:#0071e3; --line:#e3e3e8; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:28px; background:#f5f5f7; font-family:-apple-system,"SF Pro Text",sans-serif; color:#1d1d1f; }
+  h1 { margin:0 0 4px; font-size:17px; font-weight:700; letter-spacing:-0.01em; }
+  p.sub { margin:0 0 22px; font-size:12px; color:#56565c; }
+  .row { display:flex; gap:28px; align-items:flex-start; }
+  .col { width:236px; }
+  .cap { font-size:12px; font-weight:600; margin:0 0 2px; }
+  .note { font-size:11px; color:#56565c; margin:0 0 12px; line-height:1.45; }
+  .tile { width:30px; height:30px; border-radius:8px; background:var(--accent); color:#fff;
+          display:grid; place-items:center; box-shadow: inset 0 0.5px 0 rgba(255,255,255,.35), 0 1px 2px rgba(10,20,40,.16); }
+  /* 放大 8 倍只用 transform，不改变真实渲染尺寸 */
+  .zoom { width:240px; height:240px; display:grid; place-items:center; }
+  .zoom > * { transform: scale(8); transform-origin: center; }
+  .fav { display:flex; gap:10px; align-items:center; margin-top:14px; }
+  .favbox { width:16px; height:16px; border-radius:3.5px; overflow:hidden; }
+  .favbox.big { width:32px; height:32px; border-radius:7px; }
+  .mono { font-size:11px; color:#56565c; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>PureNav 标识替换 · 前 / 后</h1>
+<p class="sub">同一枚 30px 图标块，放大 8 倍看真实渲染；下方是 favicon 16px 与 32px 的真实尺寸。</p>
+
+<div class="row">
+  <div class="col">
+    <p class="cap">替换前</p>
+    <p class="note">字形 18px · 墨迹占块宽 33% · 路径中心左偏 0.95 单位</p>
+    <div class="zoom"><div class="tile">
+      <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+        <path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div></div>
+    <div class="fav">
+      <svg class="favbox" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#0071e3"/><path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="favbox big" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#0071e3"/><path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="mono">rx 9 · 无 45° 起笔</span>
+    </div>
+  </div>
+
+  <div class="col">
+    <p class="cap">替换后（03 路径 P）</p>
+    <p class="note">字形 24px · 墨迹占块宽 45% · 墨迹包围盒居中 16/16</p>
+    <div class="zoom"><div class="tile">
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+        <path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div></div>
+    <div class="fav">
+      <svg class="favbox" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0071e3"/><path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="favbox big" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0071e3"/><path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="mono">rx 7 · 45° 起笔 + 开口碗口</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

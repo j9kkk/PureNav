@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=420, height=560, initial-scale=1">
+<title>c-bookmark-layers · 方向卡</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 420px;
+    height: 560px;
+    max-width: 420px;
+    max-height: 560px;
+    overflow: hidden;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1D1D1F;
+    -webkit-font-smoothing: antialiased;
+  }
+  .canvas {
+    width: 420px;
+    height: 560px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid #E3E3E8;
+    padding-bottom: 10px;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #1D1D1F;
+    letter-spacing: -0.01em;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: #86868B;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .card-light {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+  .card-dark {
+    background: #1C1C1E;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+  .hero-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 104px;
+  }
+  .hero-tile svg {
+    width: 96px;
+    height: 96px;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(0,113,227,0.15));
+  }
+  .card-dark .hero-tile svg {
+    filter: drop-shadow(0 4px 12px rgba(10,132,255,0.25));
+  }
+  .sub-row {
+    width: 100%;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #EEEEF0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+  }
+  .card-dark .sub-row {
+    border-top-color: rgba(255,255,255,0.1);
+  }
+  .sub-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-item svg {
+    display: block;
+  }
+  .sub-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #86868B;
+    letter-spacing: 0.02em;
+  }
+  .card-dark .sub-label {
+    color: #98989D;
+  }
+  .zoom-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .zoom-preview {
+    width: 60px;
+    height: 60px;
+    background: #2C2C2E;
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .zoom-preview svg {
+    width: 60px;
+    height: 60px;
+    display: block;
+  }
+  .notes-panel {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .desc-line {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #1D1D1F;
+    letter-spacing: -0.005em;
+  }
+  .lose-line {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #C93400;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    padding-top: 6px;
+    border-top: 1px dashed #EBEBED;
+    font-weight: 500;
+  }
+  .lose-tag {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #FFF0EB;
+    color: #C93400;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="header">
+      <h1 class="title">堆叠书签</h1>
+      <span class="badge">抽象几何 · c-bookmark-layers</span>
+    </div>
+
+    <div class="showcase">
+      <!-- 浅色大图与真实尺寸 -->
+      <div class="card-light">
+        <div class="hero-tile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+</svg>
+        </div>
+        <div class="sub-row">
+          <div class="sub-item">
+            <div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+              <svg width="30" height="30" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">30px 导航</span>
+          </div>
+          <div class="sub-item">
+            <div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+              <svg width="20" height="20" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">20px 真实</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 深色变体与 3x 检视 -->
+      <div class="card-dark">
+        <div class="hero-tile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+</svg>
+        </div>
+        <div class="sub-row">
+          <div class="zoom-box">
+            <div class="zoom-preview">
+              <svg width="60" height="60" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">20px 的 3× 检视</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 说明卡片 -->
+    <div class="notes-panel">
+      <div class="desc-line">前置经典燕尾书签卡，右上错位浮出数据厚度层。</div>
+      <div class="desc-line">双层均超2.4单位厚度，小尺寸下层级分明绝不黏连。</div>
+      <div class="lose-line">
+        <span class="lose-tag">可能输在哪</span>
+        <span>层叠隐喻依赖辨识度，缩至极小时易被看作折角卡。</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

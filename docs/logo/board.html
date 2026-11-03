@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1640, initial-scale=1.0">
+<title>PureNav · 标识方案对比</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html {
+    background: #F5F5F7;
+    width: 1640px;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    width: 1640px;
+    margin: 0;
+    padding: 32px 30px 48px;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1D1D1F;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 顶部标题区 */
+  .page-header {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #1D1D1F;
+    letter-spacing: -0.02em;
+  }
+  .page-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: #56565C;
+    letter-spacing: -0.01em;
+  }
+
+  /* 主体一：7 列横向对比区 */
+  .columns-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 212px);
+    gap: 16px;
+    width: 1580px;
+    align-items: stretch;
+  }
+
+  .col-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 212px;
+  }
+
+  .col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 26px;
+    padding: 0 2px;
+  }
+  .col-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1D1D1F;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .col-badge {
+    font-size: 11px;
+    font-weight: 500;
+    background: #EBEBED;
+    color: #56565C;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    line-height: 16px;
+    flex-shrink: 0;
+  }
+  .col-badge.is-baseline {
+    background: #E5E5EA;
+    color: #1D1D1F;
+    font-weight: 600;
+  }
+
+  .tile-light-card {
+    width: 212px;
+    height: 116px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+  .tile-light-card svg {
+    width: 96px;
+    height: 96px;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(0, 113, 227, 0.16));
+  }
+
+  .scales-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    height: 38px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+  }
+  .scale-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scale-box-30 {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .scale-box-30 svg {
+    width: 30px;
+    height: 30px;
+    display: block;
+  }
+  .scale-box-20 {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .scale-box-20 svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  .scale-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #56565C;
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+  }
+
+  .tile-dark-card {
+    width: 212px;
+    height: 116px;
+    background: #1C1C1E;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  }
+  .tile-dark-card svg {
+    width: 96px;
+    height: 96px;
+    display: block;
+    filter: drop-shadow(0 4px 12px rgba(10, 132, 255, 0.28));
+  }
+
+  .info-card {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+    padding: 12px 13px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 154px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+  .idea-text {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #1D1D1F;
+    letter-spacing: -0.01em;
+    min-height: 54px;
+  }
+  .lose-text {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #56565C;
+    border-top: 1px dashed #EBEBED;
+    padding-top: 8px;
+    min-height: 52px;
+  }
+  .lose-prefix {
+    color: #D70015;
+    font-weight: 600;
+  }
+
+  /* 主体二：20px 真相表区 */
+  .section-truth {
+    margin-top: 32px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    padding: 22px 24px;
+    width: 1580px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+  .section-truth-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #EEEEF0;
+    margin-bottom: 20px;
+  }
+  .section-truth-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1D1D1F;
+    letter-spacing: -0.015em;
+  }
+  .section-truth-subtitle {
+    font-size: 12px;
+    color: #56565C;
+  }
+  .truth-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 16px;
+  }
+  .truth-col {
+    background: #FAFAFC;
+    border: 1px solid #EAEAEA;
+    border-radius: 12px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .truth-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1D1D1F;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .truth-1x-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 44px;
+    justify-content: center;
+  }
+  .truth-real-20 {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .truth-real-20 svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  .truth-tag-1x {
+    font-size: 10px;
+    font-weight: 500;
+    color: #86868B;
+  }
+  .truth-zoom-container {
+    width: 136px;
+    height: 136px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .truth-zoom-target {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(6);
+    transform-origin: center center;
+  }
+  .truth-zoom-target svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  .truth-tag-6x {
+    font-size: 10px;
+    font-weight: 500;
+    color: #86868B;
+    margin-top: -4px;
+  }
+  .verdict-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    line-height: 14px;
+  }
+  .verdict-pass {
+    background: #EAF7EE;
+    color: #1B8738;
+  }
+  .verdict-warn {
+    background: #FFF3D6;
+    color: #9A5B00;
+  }
+  .verdict-fail {
+    background: #FEECEB;
+    color: #D70015;
+  }
+
+  /* 主体三：约束核验小表 */
+  .section-audit {
+    margin-top: 32px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    padding: 22px 24px;
+    width: 1580px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+  .section-audit-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #EEEEF0;
+    margin-bottom: 16px;
+  }
+  .section-audit-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1D1D1F;
+    letter-spacing: -0.015em;
+  }
+  .section-audit-subtitle {
+    font-size: 12px;
+    color: #56565C;
+  }
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .audit-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: #F5F5F7;
+    color: #56565C;
+    font-weight: 600;
+    border-bottom: 1px solid #E3E3E8;
+  }
+  .audit-table th:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+  }
+  .audit-table th:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+  .audit-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #EEEEF0;
+    color: #1D1D1F;
+    vertical-align: middle;
+  }
+  .audit-table tr:last-child td {
+    border-bottom: none;
+  }
+  .audit-scheme {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .audit-icon-preview {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .audit-icon-preview svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+  }
+  .audit-scheme-name {
+    font-weight: 600;
+  }
+  .audit-scheme-slug {
+    font-size: 11px;
+    color: #86868B;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .badge-fill {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #EBEBED;
+    color: #56565C;
+    border-radius: 4px;
+  }
+  .stroke-sub {
+    font-size: 11px;
+    color: #86868B;
+    margin-left: 4px;
+  }
+
+  /* 底部说明 */
+  .page-footer {
+    margin-top: 28px;
+    text-align: center;
+    font-size: 12px;
+    color: #86868B;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 顶部标题区 -->
+  <header class="page-header">
+    <h1 class="page-title">PureNav · 标识方案对比</h1>
+    <p class="page-subtitle">6 个方向，同一套约束：32 单格 / 描边 ≥ 2.4 / 20px 可读 / 深浅色一双</p>
+  </header>
+
+  <!-- 主体一：7 列横排对比 -->
+  <main class="columns-grid">
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">01 航线收束</span>
+        <span class="col-badge">功能</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">自网格左下起笔转折向上，收束至指向目的地的导航箭头。隐喻从海量书签入口走入，经纯净筛选直达目标站点。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>转折与箭头为不对称构图，偏向单侧可能损失居中仪式感。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">02 极简罗盘</span>
+        <span class="col-badge">功能</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">两段对称折线沿东北航向对峙，以最简笔画构建指北磁针。中心留白切断闭合，赋予静态罗盘极速与聚焦的导航动势。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>对角斜向构图较抽象，缺乏刻度环可能被误认为抽象几何。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">03 路径 P</span>
+        <span class="col-badge">字根</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">竖笔化为直达航线，顶端 45° 锐角带出 go 动势。圆头碗口开放透气，20px 下仍一眼识别为字母 P。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>箭头偏向探索动线，弱化了纯工具的书签感。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">04 开放 N</span>
+        <span class="col-badge">字根</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">双柱锚定网格卡片，斜笔开放 3.4 单位透光断口。取 Nav 导航之意，比 P 更直指多列网关的连接语义。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>首字母非 P，对强调品牌全称 Pure 略显间接。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">05 网格网关</span>
+        <span class="col-badge">抽象</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">取意主栏与双卡片网格，纯几何抽象重构导航界面。三块厚实矩形告别碎点，20px下中缝呼吸自如清晰。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>布局偏写实卡片秩序，未加动效前缺乏动态张力。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">06 堆叠书签</span>
+        <span class="col-badge">抽象</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">前置经典燕尾书签卡，右上错位浮出数据厚度层。双层均超2.4单位厚度，小尺寸下层级分明绝不黏连。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>层叠隐喻依赖辨识度，缩至极小时易被看作折角卡。</p>
+      </div>
+    </div>
+
+    <div class="col-card">
+      <div class="col-header">
+        <span class="col-title">07 现网基线</span>
+        <span class="col-badge is-baseline">基线</span>
+      </div>
+
+      <div class="tile-light-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="scales-row">
+        <div class="scale-item">
+          <div class="scale-box-30">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+              <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">30px</span>
+        </div>
+        <div class="scale-item">
+          <div class="scale-box-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="scale-label">20px 真实</span>
+        </div>
+      </div>
+
+      <div class="tile-dark-card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96" fill="none">
+          <rect width="32" height="32" rx="9" fill="#0A84FF"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="info-card">
+        <p class="idea-text">一条路线收成字母 P：竖笔是路径，碗口在回到竖笔前停住（开口 1.6 单位），表示“这条路还没走完”。</p>
+        <p class="lose-text"><span class="lose-prefix">输在 </span>对照基准；未融入导航动势，20px 下开口极细微，易被误判为常规闭合 P。</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 主体二：20px 真相表区 -->
+  <section class="section-truth">
+    <div class="section-truth-header">
+      <h2 class="section-truth-title">20px 真相表（1:1 真实尺寸 vs 6× 放大显微检视）</h2>
+      <span class="section-truth-subtitle">严格检验 20px 极限视认下的转折糊化、中缝粘连与形态辨识度，不作人为平滑美化</span>
+    </div>
+
+    <div class="truth-grid">
+
+      <div class="truth-col">
+        <span class="truth-name">01 航线收束</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-pass">可读</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">02 极简罗盘</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-warn">临界</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">03 路径 P</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-pass">可读</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">04 开放 N</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-pass">可读</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">05 网格网关</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-pass">可读</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">06 堆叠书签</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-fail">糊</span>
+      </div>
+
+      <div class="truth-col">
+        <span class="truth-name">07 现网基线</span>
+        
+        <div class="truth-1x-row">
+          <div class="truth-real-20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="truth-tag-1x">20px 真实 (1:1)</span>
+        </div>
+
+        <div class="truth-zoom-container">
+          <div class="truth-zoom-target">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+              <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <span class="truth-tag-6x">6× 显微放大</span>
+
+        <span class="verdict-badge verdict-warn">临界</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 主体三：约束核验小表 -->
+  <section class="section-audit">
+    <div class="section-audit-header">
+      <h2 class="section-audit-title">约束核验表</h2>
+      <span class="section-audit-subtitle">真实代码取值：描边取最大 stroke-width，圆角取背景 rect 的 rx，杜绝主观猜测</span>
+    </div>
+
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th style="width: 220px;">方案</th>
+          <th style="width: 100px;">类型</th>
+          <th style="width: 180px;">描边宽度</th>
+          <th style="width: 120px;">Tile 圆角</th>
+          <th style="width: 120px;">20px 是否可读</th>
+          <th>核验依据与细节特征</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 9.5 22.5 V 15.5 C 9.5 11.5 12.5 8.5 16.5 8.5 H 22 M 17.5 4.5 L 22.5 8.5 L 17.5 12.5" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">01 航线收束</div>
+                <div class="audit-scheme-slug">a-route</div>
+              </div>
+            </div>
+          </td>
+          <td>功能</td>
+          <td><code>2.8 px</code></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-pass">可读</span></td>
+          <td>2.8 描边扎实，90° 转折与右出箭头在 20px 轮廓清晰辨识</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">02 极简罗盘</div>
+                <div class="audit-scheme-slug">a-compass</div>
+              </div>
+            </div>
+          </td>
+          <td>功能</td>
+          <td><code>2.6 px</code></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-warn">临界</span></td>
+          <td>中心斜向断口极小，20px 下易被看作抽象几何碎片缺乏罗盘语义</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">03 路径 P</div>
+                <div class="audit-scheme-slug">b-p-arrow</div>
+              </div>
+            </div>
+          </td>
+          <td>字根</td>
+          <td><code>2.6 px</code></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-pass">可读</span></td>
+          <td>左侧竖干与圆弧碗口清晰，45° 尖角引导辨识度高</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M9.8 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M22.2 7.8 V24.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M9.8 7.8 L16.2 16.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">04 开放 N</div>
+                <div class="audit-scheme-slug">b-n-open</div>
+              </div>
+            </div>
+          </td>
+          <td>字根</td>
+          <td><code>2.6 px</code></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-pass">可读</span></td>
+          <td>双柱跨度大，斜线透光断口宽达 6 个单位，小尺寸绝不粘连</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">05 网格网关</div>
+                <div class="audit-scheme-slug">c-grid-n</div>
+              </div>
+            </div>
+          </td>
+          <td>抽象</td>
+          <td><span class="badge-fill">纯填充</span> <span class="stroke-sub">(间隙 2.5)</span></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-pass">可读</span></td>
+          <td>纯几何实心块，中缝间距 2.5 单位在 20px 仍保持清晰透气</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M12.5 7.5 H22.1 A2.4 2.4 0 0 1 24.5 9.9 V18.5 A1 1 0 0 1 23.5 19.5 H22.7 A1 1 0 0 1 21.7 18.5 V11.5 A1.2 1.2 0 0 0 20.5 10.3 H12.5 A1 1 0 0 1 11.5 9.3 V8.5 A1 1 0 0 1 12.5 7.5 Z" fill="#FFFFFF"/>
+  <path d="M7.5 15.2 A2.4 2.4 0 0 1 9.9 12.8 H16.8 A2.4 2.4 0 0 1 19.2 15.2 V24.5 L13.35 21.6 L7.5 24.5 Z" fill="#FFFFFF"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">06 堆叠书签</div>
+                <div class="audit-scheme-slug">c-bookmark-layers</div>
+              </div>
+            </div>
+          </td>
+          <td>抽象</td>
+          <td><span class="badge-fill">纯填充</span> <span class="stroke-sub">(厚度 2.8)</span></td>
+          <td><code>rx 7</code></td>
+          <td><span class="verdict-badge verdict-fail">糊</span></td>
+          <td>前后双层书签间隙仅 1.2 单位，20px 下粘连成异形块，层叠感丧失</td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="audit-scheme">
+              <div class="audit-icon-preview">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" fill="none">
+                  <rect width="32" height="32" rx="9" fill="#0071E3"/>
+<path d="M11.4 24.2V9.9a0.2 0.2 0 0 1 0.2-0.2h4.1a5.05 5.05 0 0 1 0 10.1" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="audit-scheme-name">07 现网基线</div>
+                <div class="audit-scheme-slug">baseline</div>
+              </div>
+            </div>
+          </td>
+          <td>基线</td>
+          <td><code>2.6 px</code></td>
+          <td><code>rx 9</code></td>
+          <td><span class="verdict-badge verdict-warn">临界</span></td>
+          <td>碗口开口仅 1.6 单位，20px 极限下开口模糊近闭合，基线圆角为 rx 9</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 底部说明 -->
+  <footer class="page-footer">
+    方向卡源文件：docs/logo/candidates/*.html；截图 shots/*.png
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=420, height=560, initial-scale=1.0">
+<title>极简罗盘 · a-compass</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    width: 420px;
+    height: 560px;
+    overflow: hidden;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #1D1D1F;
+  }
+  .card-container {
+    width: 420px;
+    height: 560px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #1D1D1F;
+    letter-spacing: -0.015em;
+  }
+  .section-hero {
+    width: 100%;
+    height: 114px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .section-hero svg {
+    filter: drop-shadow(0 4px 12px rgba(0, 113, 227, 0.18));
+  }
+  .section-scales {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    height: 36px;
+  }
+  .scale-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .scale-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #56565C;
+    font-feature-settings: "tnum";
+  }
+  .section-dark {
+    width: 100%;
+    height: 114px;
+    background: #1C1C1E;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .section-dark svg {
+    filter: drop-shadow(0 4px 14px rgba(10, 132, 255, 0.25));
+  }
+  .section-zoom {
+    width: 100%;
+    height: 64px;
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+  }
+  .zoom-box {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zoom-target {
+    width: 20px;
+    height: 20px;
+    transform: scale(3);
+    transform-origin: center center;
+  }
+  .zoom-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .zoom-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1D1D1F;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .zoom-subtitle {
+    font-size: 11px;
+    font-weight: 400;
+    color: #56565C;
+  }
+  .badge-scale {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #EBEBED;
+    color: #56565C;
+    border-radius: 9999px;
+  }
+  .rationale {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #1D1D1F;
+    letter-spacing: -0.01em;
+  }
+  .why-lose {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #5C5C62;
+    border-top: 1px solid #EEEEF0;
+    padding-top: 6px;
+  }
+  .why-lose-tag {
+    color: #D70015;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="card-container">
+  <div class="header">极简罗盘 · a-compass</div>
+  
+  <div class="section-hero">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+  </div>
+
+  <div class="section-scales">
+    <div class="scale-item">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      <span class="scale-label">30px</span>
+    </div>
+    <div class="scale-item">
+      <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      <span class="scale-label">20px</span>
+    </div>
+  </div>
+
+  <div class="section-dark">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+  </div>
+
+  <div class="section-zoom">
+    <div class="zoom-box">
+      <div class="zoom-target">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M 15 10.5 L 24 8 L 21.5 17 M 10.5 15 L 8 24 L 17 21.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      </div>
+    </div>
+    <div class="zoom-meta">
+      <div class="zoom-title">20px 微规格检视 <span class="badge-scale">3×</span></div>
+      <div class="zoom-subtitle">测试物理像素网格对齐与视认度</div>
+    </div>
+  </div>
+
+  <div class="rationale">
+    <div>两段对称折线沿东北航向对峙，以最简笔画构建指北磁针。</div>
+    <div>中心留白切断闭合，赋予静态罗盘极速与聚焦的导航动势。</div>
+  </div>
+
+  <div class="why-lose">
+    <span class="why-lose-tag">可能输在哪：</span>对角斜向构图较抽象，缺乏刻度环可能被误认为抽象几何。
+  </div>
+</div>
+</body>
+</html>

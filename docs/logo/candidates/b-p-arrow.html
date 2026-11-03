@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>方向一 · 路径 P · PureNav 方向卡</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 420px;
+    height: 560px;
+    overflow: hidden;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", sans-serif;
+    color: #1D1D1F;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card-container {
+    width: 420px;
+    height: 560px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 22px;
+  }
+  .header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #1D1D1F;
+  }
+  .header .badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: #86868B;
+    background: #EBEBED;
+    padding: 2px 7px;
+    border-radius: 9999px;
+  }
+  
+  /* Light Section */
+  .preview-light {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .hero-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    padding-left: 12px;
+    border-left: 1px solid #EEEEF0;
+  }
+  .size-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100px;
+  }
+  .size-label {
+    font-size: 11px;
+    color: #86868B;
+    font-weight: 500;
+  }
+
+  /* Dark Section */
+  .preview-dark {
+    background: #1C1C1E;
+    border-radius: 16px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .dark-hero-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .dark-hero-label {
+    font-size: 11px;
+    color: #8E8E93;
+    font-weight: 500;
+  }
+  .zoom-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding-left: 12px;
+    border-left: 1px solid #2C2C2E;
+  }
+  .zoom-frame {
+    width: 68px;
+    height: 68px;
+    background: #2C2C2E;
+    border: 1px dashed #3A3A3C;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zoom-label {
+    font-size: 11px;
+    color: #8E8E93;
+    font-weight: 500;
+  }
+
+  /* Rationale & Critique */
+  .notes {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .line-desc {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #1D1D1F;
+    letter-spacing: -0.005em;
+  }
+  .line-critique {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #E03E3E;
+    background: #FFF1F0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-top: 2px;
+    border: 1px solid #FFD0CC;
+  }
+</style>
+</head>
+<body>
+<div class="card-container">
+  <div class="header">
+    <h1>方向一 · 路径 P</h1>
+    <span class="badge">b-p-arrow</span>
+  </div>
+
+  <div class="preview-light">
+    <div class="hero-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      <span class="size-label">96px 浅色</span>
+    </div>
+    <div class="sub-box">
+      <div class="size-item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+        <span class="size-label">30px 顶栏</span>
+      </div>
+      <div class="size-item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+        <span class="size-label">20px 真实</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-dark">
+    <div class="dark-hero-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="96" height="96">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      <span class="dark-hero-label">96px 深色 (#0A84FF)</span>
+    </div>
+    <div class="zoom-box">
+      <div class="zoom-frame">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="60" height="60">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <path d="M7.4 11.8 L12.0 7.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.0 7.2 V24.4" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12.0 7.2 H16.6 C20.6 7.2 22.8 9.6 22.8 13.4 C22.8 17.2 20.6 19.6 16.6 19.6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      </div>
+      <span class="zoom-label">20px 3× 检视</span>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="line-desc">竖笔化为直达航线，顶端 45° 锐角带出 go 动势。</div>
+    <div class="line-desc">圆头碗口开放透气，20px 下仍一眼识别为字母 P。</div>
+    <div class="line-critique">可能输在：箭头偏向探索动线，弱化了纯工具的书签感。</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=420, height=560, initial-scale=1">
+<title>c-grid-n · 方向卡</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 420px;
+    height: 560px;
+    max-width: 420px;
+    max-height: 560px;
+    overflow: hidden;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1D1D1F;
+    -webkit-font-smoothing: antialiased;
+  }
+  .canvas {
+    width: 420px;
+    height: 560px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid #E3E3E8;
+    padding-bottom: 10px;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #1D1D1F;
+    letter-spacing: -0.01em;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: #86868B;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .card-light {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+  .card-dark {
+    background: #1C1C1E;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+  .hero-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 104px;
+  }
+  .hero-tile svg {
+    width: 96px;
+    height: 96px;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(0,113,227,0.15));
+  }
+  .card-dark .hero-tile svg {
+    filter: drop-shadow(0 4px 12px rgba(10,132,255,0.25));
+  }
+  .sub-row {
+    width: 100%;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #EEEEF0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+  }
+  .card-dark .sub-row {
+    border-top-color: rgba(255,255,255,0.1);
+  }
+  .sub-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-item svg {
+    display: block;
+  }
+  .sub-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #86868B;
+    letter-spacing: 0.02em;
+  }
+  .card-dark .sub-label {
+    color: #98989D;
+  }
+  .zoom-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .zoom-preview {
+    width: 60px;
+    height: 60px;
+    background: #2C2C2E;
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .zoom-preview svg {
+    width: 60px;
+    height: 60px;
+    display: block;
+  }
+  .notes-panel {
+    background: #FFFFFF;
+    border: 1px solid #E3E3E8;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .desc-line {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #1D1D1F;
+    letter-spacing: -0.005em;
+  }
+  .lose-line {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #C93400;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    padding-top: 6px;
+    border-top: 1px dashed #EBEBED;
+    font-weight: 500;
+  }
+  .lose-tag {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #FFF0EB;
+    color: #C93400;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="header">
+      <h1 class="title">网格网关</h1>
+      <span class="badge">抽象几何 · c-grid-n</span>
+    </div>
+
+    <div class="showcase">
+      <!-- 浅色大图与真实尺寸 -->
+      <div class="card-light">
+        <div class="hero-tile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+</svg>
+        </div>
+        <div class="sub-row">
+          <div class="sub-item">
+            <div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+              <svg width="30" height="30" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">30px 导航</span>
+          </div>
+          <div class="sub-item">
+            <div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+              <svg width="20" height="20" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0071E3"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">20px 真实</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 深色变体与 3x 检视 -->
+      <div class="card-dark">
+        <div class="hero-tile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+</svg>
+        </div>
+        <div class="sub-row">
+          <div class="zoom-box">
+            <div class="zoom-preview">
+              <svg width="60" height="60" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <rect x="7.5" y="7.5" width="6.8" height="17" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="7.5" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+  <rect x="16.8" y="17.3" width="7.7" height="7.2" rx="2.4" fill="#FFFFFF"/>
+</svg>
+            </div>
+            <span class="sub-label">20px 的 3× 检视</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 说明卡片 -->
+    <div class="notes-panel">
+      <div class="desc-line">取意主栏与双卡片网格，纯几何抽象重构导航界面。</div>
+      <div class="desc-line">三块厚实矩形告别碎点，20px下中缝呼吸自如清晰。</div>
+      <div class="lose-line">
+        <span class="lose-tag">可能输在哪</span>
+        <span>布局偏写实卡片秩序，未加动效前缺乏动态张力。</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
