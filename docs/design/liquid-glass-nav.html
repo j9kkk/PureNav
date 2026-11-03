@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Liquid Glass Nav · 最小实现</title>
+<style>
+  :root {
+    --glyph: #fff;
+    --fill: rgba(255, 255, 255, 0.07);
+    --fill-a: 1;
+    --shadow-k: 1;
+    --accent: 212 100% 56%;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    background: #07080c;
+    color: var(--glyph);
+    font: 400 14px/1.4 -apple-system, "SF Pro Text", system-ui, "PingFang SC", sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 演示用的“内容层”：真实项目里换成页面内容，取样换成背后那一层 */
+  #bg { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+  .hint {
+    position: fixed; left: 24px; top: 22px;
+    margin: 0; font-size: 12px; letter-spacing: .02em;
+    color: rgba(255, 255, 255, .55);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+    pointer-events: none;
+    transition: color .4s ease;
+  }
+
+  /* 演示用的内容：玻璃要浮在真实内容之上，文字才是折射/可读性的试金石 */
+  .content {
+    position: fixed;
+    left: 50%;
+    bottom: 128px;
+    width: min(560px, 78vw);
+    transform: translateX(-50%);
+    pointer-events: none;
+    text-align: center;
+    transition: color .5s ease;
+  }
+
+  .content h2 {
+    margin: 0 0 8px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    color: rgba(255, 255, 255, .92);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, .35);
+  }
+
+  .content p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, .62);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, .35);
+  }
+
+  /* 按 G：铺一层细网格，用来肉眼检查材质边缘有没有真的弯折背景 */
+
+  /* ── 功能层：唯一使用 Liquid Glass 的元素 ─────────────────────────── */
+  .nav {
+    position: fixed;
+    left: 50%;
+    bottom: 34px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    --nav-pad: 8px;
+    --nav-r: 36px;
+    padding: var(--nav-pad);
+    border-radius: var(--nav-r);
+    background: color-mix(in srgb, var(--fill) calc(var(--fill-a) * 100%), transparent);
+    color: var(--glyph);
+
+    /* 阴影强度随背后内容复杂度自适应（--shadow-k 由取样结果驱动） */
+    box-shadow:
+      0 18px 40px -12px rgba(2, 6, 18, calc(0.58 * var(--shadow-k))),
+      0 6px 14px -6px rgba(2, 6, 18, calc(0.46 * var(--shadow-k))),
+      inset 0 1px 0 rgba(255, 255, 255, .55),
+      inset 0 -1px 1px rgba(255, 255, 255, .16);
+
+    /* 按下 90ms 内到位，抬起用带回弹的曲线（不是同一段动画） */
+    transition:
+      background .5s ease,
+      box-shadow .5s ease,
+      transform .42s cubic-bezier(.2, 1.3, .36, 1);
+
+    /* 按压时高光从触点扩散出去 */
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 镜面高光描边：材质边缘把环境光“折”出来的一圈，不是普通 border */
+  .nav::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      152deg,
+      rgba(255, 255, 255, .90) 0%,
+      rgba(255, 255, 255, .22) 18%,
+      rgba(255, 255, 255, 0) 46%,
+      rgba(255, 255, 255, .08) 70%,
+      rgba(255, 255, 255, .62) 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: calc(var(--fill-a) * .95);
+    pointer-events: none;
+  }
+
+  /* 触点辉光：按下时从指尖位置向内发光并扩散 */
+  .nav::after {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    border-radius: inherit;
+    background: radial-gradient(
+      110px 110px at var(--gx, 50%) var(--gy, 50%),
+      rgba(255, 255, 255, .50),
+      rgba(255, 255, 255, 0) 68%
+    );
+    mix-blend-mode: screen;
+    opacity: 0;
+    transition: opacity .5s ease;
+    pointer-events: none;
+  }
+
+  .nav.is-pressing::after {
+    opacity: 1;
+    transition-duration: .05s;
+  }
+
+  /* 材质的凝胶弹性：按下立刻压扁（90ms），抬起沿回弹曲线复位 */
+  .nav.is-pressing {
+    transform: translateX(-50%) scale(.978, .94);
+    transition:
+      transform .09s cubic-bezier(.3, .8, .3, 1),
+      background .2s ease,
+      box-shadow .2s ease;
+  }
+
+  /* 选中块：单独一层，切换时横向滑动 + 轻微拉伸，而不是原地换色 */
+  .indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: calc(var(--nav-r) - var(--nav-pad));
+    background:
+      linear-gradient(180deg,
+        hsl(var(--accent) / .58),
+        hsl(var(--accent) / .38));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .42),
+      0 4px 12px -4px hsl(var(--accent) / .55);
+    transform: translate3d(0, 0, 0);
+    transition: transform .4s cubic-bezier(.3, 1.1, .32, 1);
+    will-change: transform;
+    pointer-events: none;
+    opacity: var(--fill-a);
+  }
+
+  /* ── 内容：玻璃上方的元素只用填充/活力色，不再叠玻璃 ──────────────── */
+  .item {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: calc(var(--nav-r) - var(--nav-pad)); /* 与容器同心：36 - 8 = 28 */
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition:
+      background .22s ease,
+      transform .18s cubic-bezier(.2, .9, .2, 1),
+      color .22s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .item .glyph {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .18s cubic-bezier(.2, .9, .2, 1);
+  }
+
+  .item:hover { background: color-mix(in srgb, var(--glyph) 10%, transparent); }
+  .item:active { transform: scale(.94); }
+
+  /* 选中态只改字形颜色：着色的那块由 .indicator 负责（它才是会滑动的东西） */
+  .item[aria-current="page"] {
+    color: #fff;
+  }
+
+  .item:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .85);
+    background: color-mix(in srgb, var(--glyph) 12%, transparent);
+  }
+
+  /* 材质盖在亮内容上 → 明暗翻转：材质变浅、字形变深、阴影加重 */
+  .nav.is-over-bright {
+    --fill: rgba(255, 255, 255, .52);
+    --glyph: #0a0c11;
+    --shadow-k: 1.35;
+  }
+
+  /* ── 无障碍降级 ───────────────────────────────────────────────────── */
+  @media (prefers-reduced-transparency: reduce) {
+    .nav {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background: rgba(26, 28, 36, .95) !important;
+      color: #fff;
+    }
+    .nav::before { opacity: .35; }
+  }
+
+  @media (prefers-contrast: more) {
+    .nav {
+      background: rgba(10, 12, 17, .92);
+      color: #fff;
+      box-shadow: 0 0 0 1.5px #fff, 0 10px 30px -10px rgba(0, 0, 0, .8);
+    }
+    .nav::before { display: none; }
+    .item[aria-current="page"] { background: #fff; color: #000; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav, .item, .item .glyph, .nav::after, .indicator { transition: none !important; }
+    .nav.is-pressing { transform: translateX(-50%); }
+  }
+</style>
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <p class="hint">Liquid Glass · 最小实现 — 按 <b>G</b> 显示折射网格；背后亮度变化时文字/阴影自动翻转</p>
+
+  <div class="content" aria-hidden="true">
+    <h2>液态玻璃浮在内容之上</h2>
+    <p>导航层与内容层分离：文字从材质背后穿过，边缘被折射弯折，中间保持清晰。<br />
+       按下时高光从触点扩散，材质整体轻微回弹。</p>
+  </div>
+
+  <nav class="nav" id="nav" role="navigation" aria-label="主导航">
+    <span class="indicator" aria-hidden="true"></span>
+    <button class="item" aria-label="首页" aria-current="page">
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />
+      </svg>
+    </button>
+    <button class="item" aria-label="发现">
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.2" />
+        <path d="M15.2 8.8l-2 4.4-4.4 2 2-4.4z" />
+      </svg>
+    </button>
+    <button class="item" aria-label="收藏">
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5.6l1.9 3.9 4.3.6-3.1 3 .7 4.3-3.8-2-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
+      </svg>
+    </button>
+    <button class="item" aria-label="设置">
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.1" />
+        <path d="M12 4.2v2.2M12 17.6v2.2M4.2 12h2.2M17.6 12h2.2M6.5 6.5l1.6 1.6M15.9 15.9l1.6 1.6M17.5 6.5l-1.6 1.6M8.1 15.9l-1.6 1.6" />
+      </svg>
+    </button>
+  </nav>
+
+  <svg id="lg-defs" width="0" height="0" aria-hidden="true" style="position:absolute"></svg>
+
+<script type="module">
+/* ════════════════════════════════════════════════════════════════════
+   1. 折射层：给元素生成一张「位移贴图」，喂给 feDisplacementMap。
+      材质边缘按圆角矩形的距离场把背景像素往外推 → 内容在边缘被弯折。
+   ════════════════════════════════════════════════════════════════════ */
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function roundedRectSDF(x, y, w, h, r) {
+  const px = Math.abs(x - w / 2) - (w / 2 - r);
+  const py = Math.abs(y - h / 2) - (h / 2 - r);
+  const ax = Math.max(px, 0), ay = Math.max(py, 0);
+  return Math.hypot(ax, ay) + Math.min(Math.max(px, py), 0) - r;
+}
+
+/* R/G 通道编码水平/垂直位移，128 = 不动；只在边缘 band 内非零 */
+function displacementMap(w, h, radius, band) {
+  const c = document.createElement("canvas");
+  c.width = Math.max(2, Math.round(w));
+  c.height = Math.max(2, Math.round(h));
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(c.width, c.height);
+  const d = img.data;
+
+  const field = new Float32Array(c.width * c.height);
+  for (let y = 0; y < c.height; y++)
+    for (let x = 0; x < c.width; x++)
+      field[y * c.width + x] = roundedRectSDF(x + 0.5, y + 0.5, c.width, c.height, radius);
+
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      const i = (y * c.width + x) * 4;
+      const depth = -field[y * c.width + x]; // 距离边缘往内的深度
+      let dx = 0, dy = 0;
+
+      if (depth >= 0 && depth < band) {
+        // 距离场梯度 = 外法线
+        let nx = field[y * c.width + Math.min(x + 1, c.width - 1)] -
+                 field[y * c.width + Math.max(x - 1, 0)];
+        let ny = field[Math.min(y + 1, c.height - 1) * c.width + x] -
+                 field[Math.max(y - 1, 0) * c.width + x];
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len; ny /= len;
+
+        const t = 1 - depth / band;   // 0 在band内沿，1 在轮廓上
+        const k = t * t;              // 越靠边缘弯折越强
+        // 朝内取样：边缘把内侧内容压缩放大，且永远不会采到元素外的空白
+        dx = -nx * k;
+        dy = -ny * k;
+      }
+
+      d[i] = 128 + 127 * dx;
+      d[i + 1] = 128 + 127 * dy;
+      d[i + 2] = 128;
+      d[i + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+  return { url: c.toDataURL(), width: c.width, height: c.height };
+}
+
+let uid = 0;
+
+/* 一个元素 → 一个独立 filter（feImage 必须与元素像素尺寸一致） */
+function buildLens(el, { band = 20, amp = 12, blur = 7, saturate = 1.7, brightness = 1.03 } = {}) {
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  const radius = Math.min(parseFloat(getComputedStyle(el).borderRadius) || h / 2, h / 2);
+  const { url, width, height } = displacementMap(w, h, radius, band, amp);
+
+  const id = `lg-${++uid}`;
+  const filter = document.createElementNS(SVGNS, "filter");
+  filter.setAttribute("id", id);
+  filter.setAttribute("x", "0");
+  filter.setAttribute("y", "0");
+  filter.setAttribute("width", "1");
+  filter.setAttribute("height", "1");
+  filter.setAttribute("color-interpolation-filters", "sRGB");
+
+  const feImage = document.createElementNS(SVGNS, "feImage");
+  feImage.setAttribute("href", url);
+  feImage.setAttribute("x", "0");
+  feImage.setAttribute("y", "0");
+  feImage.setAttribute("width", width);
+  feImage.setAttribute("height", height);
+  feImage.setAttribute("preserveAspectRatio", "none");
+  feImage.setAttribute("result", "map");
+
+  const feDisp = document.createElementNS(SVGNS, "feDisplacementMap");
+  feDisp.setAttribute("in", "SourceGraphic");
+  feDisp.setAttribute("in2", "map");
+  feDisp.setAttribute("scale", String(amp * 2));
+  feDisp.setAttribute("xChannelSelector", "R");
+  feDisp.setAttribute("yChannelSelector", "G");
+
+  filter.append(feImage, feDisp);
+  document.getElementById("lg-defs").append(filter);
+
+  // Chromium/Edge 支持 backdrop-filter 里引用 SVG 滤镜；Safari 目前只能退回纯模糊
+  const supportsLens =
+    CSS.supports("backdrop-filter", `url(#${id})`) ||
+    CSS.supports("-webkit-backdrop-filter", `url(#${id})`);
+
+  el.style.backdropFilter = supportsLens
+    ? `url(#${id}) blur(${blur}px) saturate(${saturate}) brightness(${brightness})`
+    : `blur(${blur}px) saturate(${saturate}) brightness(${brightness})`;
+  el.style.webkitBackdropFilter = `blur(${blur}px) saturate(${saturate}) brightness(${brightness})`;
+
+  return { id, feDisp, amp, supportsLens, radius, w, h, filter };
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   2. 内容层：一块会漂移的彩色背景，只为让「自适应」有东西可采样
+   ════════════════════════════════════════════════════════════════════ */
+const bg = document.getElementById("bg");
+const ctx = bg.getContext("2d", { alpha: false });
+const blobs = [
+  { x: .18, y: .28, r: .42, hue: 208, a: .95 },
+  { x: .74, y: .22, r: .38, hue: 288, a: .85 },
+  { x: .62, y: .78, r: .46, hue: 190, a: .90 },
+  { x: .28, y: .86, r: .30, hue: 330, a: .70 },
+];
+let vw = 0, vh = 0;
+let showGrid = false; // G 键：网格探针，用来肉眼验证折射
+// 背景是慢速漂移的大面积渐变：按 0.4 倍分辨率渲染再由 CSS 拉伸，肉眼看不出差别，
+// 但每帧填充量降到 1/6 —— 这是之前只有 15fps、所有动效都发卡的主因。
+const RS = 0.4;
+
+function resize() {
+  vw = innerWidth; vh = innerHeight;
+  bg.width = Math.max(2, Math.round(vw * RS));
+  bg.height = Math.max(2, Math.round(vh * RS));
+}
+
+function paint(t) {
+  ctx.setTransform(RS, 0, 0, RS, 0, 0);
+  ctx.fillStyle = "#06070b";
+  ctx.fillRect(0, 0, vw, vh);
+
+  for (let i = 0; i < blobs.length; i++) {
+    const b = blobs[i];
+    const cx = (b.x + 0.06 * Math.sin(t / 5200 + i * 1.7)) * vw;
+    const cy = (b.y + 0.05 * Math.cos(t / 6100 + i * 2.1)) * vh;
+    const rad = b.r * Math.max(vw, vh) * (0.94 + 0.06 * Math.sin(t / 7000 + i));
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, `hsl(${b.hue} 92% 62% / ${b.a})`);
+    g.addColorStop(0.55, `hsl(${b.hue} 88% 46% / ${b.a * 0.45})`);
+    g.addColorStop(1, `hsl(${b.hue} 80% 30% / 0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, vw, vh);
+  }
+
+  if (showGrid) {
+    // 32px 粗网格：细网格在 7px 模糊下看不出来，粗格子才能看出边缘压缩
+    ctx.strokeStyle = "rgba(255,255,255,.55)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let x = 0; x < vw; x += 32) { ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, vh); }
+    for (let y = 0; y < vh; y += 32) { ctx.moveTo(0, y + .5); ctx.lineTo(vw, y + .5); }
+    ctx.stroke();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   3. 自适应：采样玻璃背后那一层的亮度 → 翻转材质明暗、加/减阴影
+   ════════════════════════════════════════════════════════════════════ */
+const nav = document.getElementById("nav");
+let luma = 0.2;
+
+function sampleLuma() {
+  const r = nav.getBoundingClientRect();
+  const x = Math.max(0, Math.round(r.left * RS));
+  const y = Math.max(0, Math.round(r.top * RS));
+  const w = Math.min(bg.width - x, Math.round(r.width * RS));
+  const h = Math.min(bg.height - y, Math.round(r.height * RS));
+  if (w <= 0 || h <= 0) return;
+  const { data } = ctx.getImageData(x, y, w, h);
+  let sum = 0, n = 0;
+  for (let i = 0; i < data.length; i += 4 * 17) { // 稀疏采样
+    sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+    n++;
+  }
+  luma = n ? sum / n : luma;
+  nav.classList.toggle("is-over-bright", luma > 0.56);
+  return luma;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   4. 入场：用「调制折射」materialize，而不是淡入
+   ════════════════════════════════════════════════════════════════════ */
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+function materialize(lens) {
+  if (reduceMotion.matches) {
+    lens.feDisp.setAttribute("scale", String(lens.amp * 2));
+    nav.style.setProperty("--fill-a", "1");
+    return;
+  }
+  const t0 = performance.now(), dur = 620;
+  lens.feDisp.setAttribute("scale", "0");
+  nav.style.setProperty("--fill-a", "0");
+
+  (function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    lens.feDisp.setAttribute("scale", String(lens.amp * 2 * e));
+    nav.style.setProperty("--fill-a", e.toFixed(3));
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   5. 交互：触点辉光 + 凝胶弹性 + 切换选中项
+   ════════════════════════════════════════════════════════════════════ */
+let pressing = false;
+
+/* 按下立刻压扁；抬起由 pointerup/cancel 驱动，不再用定时器，
+   否则手指早就离开、材质还卡在按下的形状里，回弹就成了「迟到的跳变」 */
+function pressStart(e) {
+  if (e.button !== undefined && e.button !== 0) return;
+  const r = nav.getBoundingClientRect();
+  nav.style.setProperty("--gx", `${((e.clientX - r.left) / r.width) * 100}%`);
+  nav.style.setProperty("--gy", `${((e.clientY - r.top) / r.height) * 100}%`);
+  pressing = true;
+  nav.classList.add("is-pressing");
+}
+
+function pressEnd() {
+  if (!pressing) return;
+  pressing = false;
+  nav.classList.remove("is-pressing");
+}
+
+nav.addEventListener("pointerdown", pressStart);
+addEventListener("pointerup", pressEnd);
+addEventListener("pointercancel", pressEnd);
+addEventListener("blur", pressEnd);
+
+/* 选中块位置：只用布局坐标（offsetLeft/Top），不受按压缩放影响 */
+const indicator = nav.querySelector(".indicator");
+
+function placeIndicator(animate = true) {
+  const btn = nav.querySelector('.item[aria-current="page"]') || nav.querySelector(".item");
+  if (!btn) return;
+  if (!animate) indicator.style.transition = "none";
+  indicator.style.width = `${btn.offsetWidth}px`;
+  indicator.style.height = `${btn.offsetHeight}px`;
+  indicator.style.transform = `translate3d(${btn.offsetLeft}px, ${btn.offsetTop}px, 0)`;
+  if (!animate) {
+    void indicator.offsetWidth; // 强制落地，避免关掉过渡后不生效
+    indicator.style.transition = "";
+  }
+}
+
+// 折射自检：G 键 = 粗网格 + 低模糊，把边缘弯折放大到肉眼可见
+addEventListener("keydown", (e) => {
+  if (e.key !== "g" && e.key !== "G") return;
+  showGrid = !showGrid;
+  lens.filter?.remove();
+  lens = buildLens(nav, showGrid ? { band: 20, amp: 12, blur: 2 } : undefined);
+  lens.feDisp.setAttribute("scale", String(lens.amp * 2)); // 自检不做入场动画
+  nav.style.setProperty("--fill-a", "1");
+  paint(performance.now());
+});
+
+nav.addEventListener("click", (e) => {
+  const btn = e.target.closest(".item");
+  if (!btn) return;
+  nav.querySelectorAll(".item").forEach((b) => b.removeAttribute("aria-current"));
+  btn.setAttribute("aria-current", "page");
+  placeIndicator(true); // 选中块滑过去
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   6. 启动
+   ════════════════════════════════════════════════════════════════════ */
+resize();
+let lens = buildLens(nav);
+materialize(lens);
+sampleLuma();
+placeIndicator(false);
+
+let lastPaint = 0, lastSample = 0;
+function loop(t) {
+  // 背景是慢漂移的大渐变，25fps 足够，把主线程让给交互
+  if (t - lastPaint > 40) { paint(t); lastPaint = t; }
+  if (t - lastSample > 250) { sampleLuma(); lastSample = t; }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+addEventListener("resize", () => {
+  resize();
+  lens.filter?.remove(); // 尺寸变了要重建位移贴图，旧的 filter 必须一起回收
+  lens = buildLens(nav);
+  placeIndicator(false);
+  sampleLuma();
+});
+
+// 调试/自检钩子
+window.__glass = {
+  get luma() { return luma; },
+  get filter() { return nav.style.backdropFilter; },
+  get lensScale() { return lens.feDisp.getAttribute("scale"); },
+  get supportsLens() { return lens.supportsLens; },
+  get overBright() { return nav.classList.contains("is-over-bright"); },
+  // 现场调参：__glass.rebuild({ band: 14, amp: 7, blur: 10 })
+  rebuild(opts) {
+    lens.filter?.remove();
+    lens = buildLens(nav, opts);
+    materialize(lens);
+  },
+};
+</script>
+</body>
+</html>
