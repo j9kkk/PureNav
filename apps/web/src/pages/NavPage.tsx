@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
@@ -92,7 +92,7 @@ interface LanInfo {
   choice: 'lan' | 'public' | null;
 }
 
-function ItemCard({
+const ItemCard = memo(function ItemCard({
   item,
   index,
   lan,
@@ -238,7 +238,7 @@ function ItemCard({
       )}
     </a>
   );
-}
+});
 
 interface NavEntry {
   group: PublicGroup;
@@ -254,7 +254,7 @@ interface RenderNode {
   totalCount: number;
 }
 
-function GroupSection({
+const GroupSection = memo(function GroupSection({
   node,
   lanMap,
   onToggleLan,
@@ -267,7 +267,7 @@ function GroupSection({
   lanMap: Map<string, LanInfo>;
   onToggleLan: (id: string, choice: 'lan' | 'public') => void;
   layout: ReturnType<typeof layoutAttributes>;
-  /** 每个分组（含子分组）独立判定折叠态：用户点击 > 分组默认设置 */
+  /** 已用 useCallback 钉住引用：只在折叠集合变化时换新，卡片重渲染由 ItemCard 的 memo 兜住 */
   isCollapsed: (groupId: string, defaultCollapsed: boolean) => boolean;
   onToggleCollapse: (id: string) => void;
   selectedId: string | null;
@@ -365,7 +365,7 @@ function GroupSection({
       </div>
     </section>
   );
-}
+});
 
 export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [config, setConfig] = useState<PublicConfig | null>(() => readSnapshot());
@@ -507,7 +507,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     };
   }, [authenticated, config?.version]);
 
-  const onToggleLan = (id: string, choice: 'lan' | 'public') => {
+  const onToggleLan = useCallback((id: string, choice: 'lan' | 'public') => {
     writeLanChoice(id, choice);
     setLanMap((current) => {
       const next = new Map(current);
@@ -515,7 +515,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
       if (entry) next.set(id, { ...entry, choice });
       return next;
     });
-  };
+  }, []);
 
   const isFiltering = !!query.trim() || !!activeTag;
 
@@ -567,10 +567,13 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const perfMode = totalItems > 120;
 
   // A group starts collapsed if the site says so; the user's clicks override that.
-  const isCollapsed = (groupId: string, defaultCollapsed: boolean): boolean =>
-    collapsedIds.has(groupId) ? true : defaultCollapsed && !expandedIds.has(groupId);
+  const isCollapsed = useCallback(
+    (groupId: string, defaultCollapsed: boolean): boolean =>
+      collapsedIds.has(groupId) ? true : defaultCollapsed && !expandedIds.has(groupId),
+    [collapsedIds, expandedIds],
+  );
 
-  const toggleCollapse = (groupId: string) => {
+  const toggleCollapse = useCallback((groupId: string) => {
     const group = groups.find((entry) => entry.group.id === groupId)?.group;
     if (!group) return;
     const currentlyCollapsed = isCollapsed(groupId, group.collapsed);
@@ -589,7 +592,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
         return next;
       });
     }
-  };
+  }, [groups, isCollapsed]);
 
   // Keyboard navigation walks the flattened list of cards that are actually rendered,
   // so collapsed groups and filtered-out items are skipped automatically.

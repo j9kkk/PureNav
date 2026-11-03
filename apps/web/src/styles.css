@@ -222,6 +222,20 @@ p {
   animation: pn-fade var(--dur-base) var(--ease-standard) both;
 }
 
+/* 弹层退出过渡：useDelayedUnmount 在关闭后保留 DOM 一个周期并标 data-exit。
+   退场曲线取反向入场（standard 曲线天然对称使用），时长 = 入场档，与 useDelayedUnmount 的计时一致 */
+.modal-backdrop[data-exit='true'] {
+  animation: pn-fade var(--dur-base) var(--ease-standard) reverse both;
+}
+
+.modal-backdrop[data-exit='true'] .modal {
+  animation: pn-rise var(--dur-base) var(--ease-standard) reverse both;
+}
+
+.dropdown-menu[data-exit='true'] {
+  animation: pn-fade var(--dur-fast) var(--ease-standard) reverse both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -518,6 +532,10 @@ p {
 .group {
   position: relative;
   margin-bottom: 36px;
+  /* 视口外的分组不参与布局/绘制：1733 张卡片规模下，首屏与折叠操作都因此变快。
+     contain-intrinsic-size 用 auto，浏览器渲染过一次后会记住真实高度，滚动条不跳。 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 
 .group:has(.card:hover),
@@ -1626,11 +1644,11 @@ p {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--bg-solid);
-}
-
-:root[data-theme='dark'] .table th {
-  background: var(--bg-solid);
+  /* 表头是内容层的一部分，不该是一块实心黑：取卡片面的同族半透明 + 模糊，
+     sticky 时依然挡得住下面滚过的行。 */
+  background: color-mix(in oklab, var(--bg-solid) 62%, transparent);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
 }
 
 .table td {
@@ -1656,10 +1674,6 @@ p {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   overflow: visible;
-}
-
-:root[data-theme='dark'] .admin-table {
-  background: var(--bg-solid);
 }
 
 .admin-table th:first-child,
@@ -2760,6 +2774,37 @@ input[type='checkbox'] {
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+
+/* 侧栏分组树 Accordion：同 .group-body 的 grid-rows 过渡规范。
+   折叠时立即 overflow: hidden + visibility: hidden（0s 立即生效，同步移出焦点序）；
+   展开时 visibility 用 0s step-end 延迟到高度到位后再切回 visible，避免过程中露出溢出内容 */
+.tree-nav-children-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows var(--dur-slow) var(--ease-entrance),
+    opacity var(--dur-base) var(--ease-standard),
+    visibility 0s step-end allow-discrete;
+}
+
+.tree-nav-children-wrap[data-collapsed='true'] {
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows var(--dur-slow) var(--ease-entrance),
+    opacity var(--dur-base) var(--ease-standard),
+    visibility 0s 0s allow-discrete;
+}
+
+.tree-nav-children-inner {
+  min-height: 0;
 }
 
 .tree-nav-count {

@@ -550,7 +550,9 @@
 }
 
 .admin-main {
-  padding: 12px 8px 88px;
+  /* 顶部内边距归零：顶栏自己 sticky 在 12px，与左侧栏（同为 sticky 12px）落在同一条线上。
+     原来这里是 12px，导致右列整体比左列低 12px —— 就是「左右两列顶部没对齐」。 */
+  padding: 0 8px 88px;
 }
 
 .admin-side.lg {
@@ -566,11 +568,24 @@
 
 .admin-header.lg {
   --lg-r: 20px;
+  /* 这是一条又宽又矮的玻璃条：默认那道镜面描边在这里会变成一条扎眼的白线，
+     所以单独压一档，并把填充的高光渐变拉平（顶亮→底面之间不再有硬转折）。 */
+  --lg-rim-strong: rgba(255, 255, 255, 0.22);
   padding: 8px 12px;
   margin-bottom: 16px;
   position: sticky;
   top: 12px;
   z-index: 20;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--lg-fill-cur) 96%, #ffffff 4%) 0%,
+    var(--lg-fill-cur) 62%,
+    var(--lg-fill-cur) 100%
+  );
+}
+
+:root:not([data-theme='dark']) .admin-header.lg {
+  --lg-rim-strong: rgba(255, 255, 255, 0.6);
 }
 
 .admin-side .side-item {

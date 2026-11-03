@@ -14,6 +14,7 @@ import {
 } from '../lib/bookmarkParser';
 import { SettingsPage } from './SettingsPage';
 import { AccountPage } from './AccountPage';
+import { useDelayedUnmount } from '../lib/useDelayedUnmount';
 import { getItemPalette } from '../lib/color';
 import { useIconImage } from '../lib/iconImage';
 import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
@@ -244,6 +245,10 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
+  // 弹层退出过渡：关闭后保留 DOM 一个动画周期再卸载（data-exit 播退场）
+  const formMount = useDelayedUnmount(form, 240);
+  const groupDialogMount = useDelayedUnmount(groupDialog, 240);
+  const bookmarkMount = useDelayedUnmount(pendingBookmarkFolders, 240);
   const bookmarkInputRef = useRef<HTMLInputElement>(null);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -333,8 +338,32 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     }
   };
 
+  // 只换筛选条件时不必重拉整棵树：分组数据只在增删改之后才变。
+  // 之前每次点目录都会同时请求 groups + items，树大的实例上白白多花一轮。
+  const loadItemsOnly = async () => {
+    setError('');
+    try {
+      const itemResult = await api.items(activeGroup ?? undefined, {
+        page: pageIndex,
+        pageSize,
+        q: search || undefined,
+      });
+      setItems(itemResult.items);
+      setServerTotal(itemResult.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败');
+    }
+  };
+
+  const firstLoad = useRef(true);
   useEffect(() => {
-    void load();
+    // 首次进来两样都要；之后筛选条件变化只重拉列表。
+    if (firstLoad.current) {
+      firstLoad.current = false;
+      void load();
+      return;
+    }
+    void loadItemsOnly();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroup, pageIndex, pageSize, search]);
 
@@ -979,9 +1008,11 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         )}
       </main>
 
-      {form && (
-        <div className="modal-backdrop" onClick={() => setForm(null)}>
-          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()}>
+      {formMount.held && formMount.held && (() => {
+        const form = formMount.held;
+        return (
+        <div className="modal-backdrop" data-exit={formMount.closing || undefined} onClick={() => setForm(null)}>
+          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()} inert={formMount.closing || undefined}>
             <h3>{form.id ? '编辑站点' : '添加站点'}</h3>
 
             <div className="field">
@@ -1099,11 +1130,14 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      {groupDialog && (
-        <div className="modal-backdrop" onClick={() => setGroupDialog(null)}>
-          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()}>
+      {groupDialogMount.held && (() => {
+        const groupDialog = groupDialogMount.held;
+        return (
+        <div className="modal-backdrop" data-exit={groupDialogMount.closing || undefined} onClick={() => setGroupDialog(null)}>
+          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()} inert={groupDialogMount.closing || undefined}>
             <h3>{groupDialog.id ? '编辑分组' : '新建分组'}</h3>
             <div className="field">
               <label htmlFor="g-name">分组名</label>
@@ -1162,11 +1196,13 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      {pendingBookmarkFolders && (
+      {bookmarkMount.held && (
         <BookmarkImportModal
-          initialFolders={pendingBookmarkFolders}
+          initialFolders={bookmarkMount.held}
+          exiting={bookmarkMount.closing}
           onClose={() => setPendingBookmarkFolders(null)}
           onImport={handleImportSelectedBookmarks}
         />
