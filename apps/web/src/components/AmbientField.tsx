@@ -30,7 +30,6 @@ type Dot = {
   left: string;
   top: string;
   size: number;
-  blur: number;
   opacity: number;
   dur: number;
   delay: number;
@@ -39,13 +38,12 @@ type Dot = {
 
 function makeDots(count: number): Dot[] {
   return Array.from({ length: count }, (_, i) => {
-    const size = 1.4 + Math.random() * 2.6;
+    const size = 2 + Math.random() * 3.2;
     return {
       key: i,
       left: `${(Math.random() * 100).toFixed(2)}%`,
       top: `${(Math.random() * 100).toFixed(2)}%`,
       size,
-      blur: size > 2.6 ? 1.2 : 0,
       opacity: 0.28 + Math.random() * 0.42,
       dur: 22 + Math.random() * 26,
       delay: -Math.random() * 48,
@@ -114,7 +112,6 @@ export function AmbientField({ count = 48 }: { count?: number }) {
               width: d.size,
               height: d.size,
               opacity: d.opacity,
-              filter: d.blur ? `blur(${d.blur}px)` : undefined,
               animationDuration: `${d.dur}s`,
               animationDelay: `${d.delay}s`,
               ['--dot-drift' as string]: `${d.drift}px`,

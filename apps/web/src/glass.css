@@ -123,10 +123,57 @@
   overflow: hidden;
   pointer-events: none;
   --dot: rgba(255, 255, 255, 0.9);
+  --dot-blur: 0.6px;
+}
+
+/* ── 环境层 ─────────────────────────────────────────────── */
+
+/* 光圈：0.5x canvas，只在种子/尺寸变化时画一帧，静止不耗 rAF */
+.ambient-bokeh {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 粒子：DOM 小圆点 + CSS 合成动画。只走合成线程，卡片再多也不重绘。
+   深色下是白色星点；浅色下不出现离散粒子 —— 浅底上的小点只有两种归宿：
+   够暗像污点，够亮就等于没有。浅色的“生命感”改由光圈缓慢漂移承担。 */
+.ambient-dots {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  --dot: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme='light'] .ambient-dots {
-  --dot: rgba(38, 46, 66, 0.75);
+  display: none;
+}
+
+:root[data-theme='light'] body:has(.ambient-dots) .ambient-bokeh {
+  animation: bokeh-drift 48s ease-in-out infinite alternate;
+}
+
+@keyframes bokeh-drift {
+  0% {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.06) translate3d(-1.2%, 0.8%, 0);
+  }
+  100% {
+    transform: scale(1.03) translate3d(1.4%, -1%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='light'] body:has(.ambient-dots) .ambient-bokeh {
+    animation: none;
+  }
 }
 
 .ambient-dots i {
@@ -134,6 +181,7 @@
   display: block;
   border-radius: 50%;
   background: var(--dot);
+  filter: blur(0.6px);
   animation-name: dot-rise;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
@@ -178,30 +226,9 @@
   pointer-events: auto;
 }
 
-/* 卷边（scroll edge effect）：内容在栏底附近渐隐。
-   关键点：这块在栏体“之下”（z-index:-1），不参与栏体自己的背景采样，
-   所以玻璃材质照旧能折射真实内容；同时把目录连接线一类高频细节糊掉。 */
-.topbar-shell::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% - 10px);
-  height: 56px;
-  z-index: -1;
-  pointer-events: none;
-  opacity: var(--lg-elev, 0);
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--bg) 86%, transparent) 0%,
-    color-mix(in oklab, var(--bg) 50%, transparent) 44%,
-    transparent 100%
-  );
-  backdrop-filter: blur(10px) saturate(1.05);
-  -webkit-backdrop-filter: blur(10px) saturate(1.05);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 26%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 26%, transparent 100%);
-}
+/* 卷边已移除：任何“栏下一条渐变底色”都会被看成黑带。
+   栏体材质自己负责化开背后的内容——只需把顶栏的模糊调足（见 NavPage 的
+   data-lg-blur），不再额外叠一层遮罩。 */
 
 .tag-filter-bar {
   position: relative;
@@ -209,7 +236,7 @@
 }
 
 .topbar.lg {
-  --lg-r: 26px;
+  --lg-r: calc(var(--radius-card) + 4px); /* = 20px，sheet 档；跟随站点半径设置 */
   --lg-pad: 8px;
   margin-bottom: 0;
   padding: 8px 10px 8px 14px;
@@ -254,7 +281,7 @@
 .icon-btn {
   width: 34px;
   height: 34px;
-  border-radius: 11px;
+  border-radius: var(--radius-inner);
   color: var(--text-muted);
   transition: background-color var(--dur-fast) var(--ease-standard),
     color var(--dur-fast) var(--ease-standard), transform 90ms ease-out;
@@ -444,9 +471,14 @@
   background: color-mix(in oklab, var(--bg-solid) 62%, transparent);
 }
 
-/* 分组容器：内容层，只做分组不做材质 */
+/* 分组容器：内容层，只做分组不做材质。
+   外 12（inner 档），内边距 4 → 内部折叠按钮 8（control 档），保持同心。 */
 .group-head {
-  border-radius: calc(var(--radius-card) - 6px);
+  border-radius: var(--radius-inner);
+}
+
+.group-head .group-toggle-btn {
+  border-radius: var(--radius-control);
 }
 
 .group-head:hover {
