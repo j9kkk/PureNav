@@ -16,6 +16,7 @@ import {
   IconSun,
 } from '../components/icons';
 import { AmbientField } from '../components/AmbientField';
+import { BrandMark } from '../components/BrandMark';
 import {
   applyTheme,
   layoutAttributes,
@@ -688,9 +689,9 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
       <AmbientField count={totalVisible <= 200 ? 52 : 40} />
       <div className={perfMode ? 'shell perf' : 'shell'}>
         <div className="topbar-shell">
-          <header className="topbar lg" data-lg="lens" data-lg-elevate data-lg-amp="14" data-lg-blur="12" data-lg-band="24">
+          <header className="topbar lg" data-lg="lens" data-lg-elevate data-lg-amp="14" data-lg-blur="22" data-lg-band="24">
             <div className="brand">
-              <span className="brand-mark">P</span>
+              <span className="brand-mark"><BrandMark /></span>
               <h1 className="brand-title">{config?.site.identity.title ?? 'PureNav'}</h1>
               <span className="brand-clock" title={clock.full}>
                 <span className="brand-clock-date">{clock.date}</span>

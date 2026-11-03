@@ -31,6 +31,7 @@ import {
   IconUser,
 } from '../components/icons';
 import { AmbientField } from '../components/AmbientField';
+import { BrandMark } from '../components/BrandMark';
 
 interface Props {
   user: SessionUser;
@@ -568,7 +569,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
       <div className="admin-layout">
       <aside className="admin-side lg" data-lg="lens" data-lg-blur="20" data-lg-amp="8" data-lg-band="18">
         <div className="brand" style={{ marginBottom: 14, padding: '0 8px' }}>
-          <span className="brand-mark">P</span>
+          <span className="brand-mark"><BrandMark /></span>
           <span className="brand-title">PureNav</span>
           <span className="count-chip">后台</span>
         </div>
