@@ -5,11 +5,13 @@ import { IconBookmark, IconFolder, IconSearch } from './icons';
 
 interface Props {
   initialFolders: ParsedBookmarkFolder[];
+  /** 关闭后保留的退出周期：父层 useDelayedUnmount 控制，true 期间播退场动画 */
+  exiting?: boolean;
   onClose: () => void;
   onImport: (selectedFolders: ParsedBookmarkFolder[], mode: 'merge' | 'replace') => Promise<void>;
 }
 
-export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props) {
+export function BookmarkImportModal({ initialFolders, exiting, onClose, onImport }: Props) {
   const [folders, setFolders] = useState<ParsedBookmarkFolder[]>(initialFolders);
   const [filterQuery, setFilterQuery] = useState('');
   const [activeFolderId, setActiveFolderId] = useState<string>(() => initialFolders[0]?.id || '');
@@ -121,8 +123,8 @@ export function BookmarkImportModal({ initialFolders, onClose, onImport }: Props
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide-stage pn-enter" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" data-exit={exiting || undefined} onClick={onClose}>
+      <div className="modal modal-wide-stage pn-enter" onClick={(e) => e.stopPropagation()} inert={exiting || undefined}>
         {/* Top Header */}
         <div className="bm-stage-header">
           <div className="bm-stage-header-info">

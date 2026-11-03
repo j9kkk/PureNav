@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AdminGroupDto } from '../api';
 import { buildGroupTree, type DropMode, type GroupNode } from '../lib/groupTree';
+import { useDelayedUnmount } from '../lib/useDelayedUnmount';
 import { ITEM_DRAG_TYPE } from './SortableList';
 import { IconChevronRight, IconFolder, IconGrip } from './icons';
 
@@ -103,6 +104,8 @@ export function GroupTreeNav({
   // 站点行拖入时的目标分组（与分组自身的拖动状态分开，避免两条拖拽通道互相干扰）
   const [itemDropGroupId, setItemDropGroupId] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<MenuState | null>(null);
+  // 菜单退出过渡：关闭后保留 DOM 一个 pn-fade 周期（150ms）再卸载
+  const menuMount = useDelayedUnmount(openMenu, 150);
 
   // 点击外部、页面滚动、调整窗口或按下 Escape 键时关闭浮动菜单
   useEffect(() => {
@@ -300,7 +303,15 @@ export function GroupTreeNav({
               </div>
             )}
           </div>
-          {hasChildren && isOpen && <div className="tree-nav-children">{renderNodes(node.children)}</div>}
+          {/* Accordion：始终挂载，用 grid-rows 过渡展开/收起（同 .group-body 规范），
+              收起态 visibility: hidden 同步移出 Tab 焦点序 */}
+          {hasChildren && (
+            <div className="tree-nav-children-wrap" data-collapsed={!isOpen}>
+              <div className="tree-nav-children-inner">
+                <div className="tree-nav-children">{renderNodes(node.children)}</div>
+              </div>
+            </div>
+          )}
         </div>
       );
     });
@@ -308,13 +319,15 @@ export function GroupTreeNav({
   return (
     <>
       <div className="tree-nav">{renderNodes(buildGroupTree(groups))}</div>
-      {openMenu && typeof document !== 'undefined'
+      {menuMount.held && typeof document !== 'undefined'
         ? createPortal(
             <div
               className="dropdown-menu tree-nav-dropdown pn-fade"
-              style={calculateMenuStyle(openMenu.anchor, openMenu.isContext)}
+              data-exit={menuMount.closing || undefined}
+              style={calculateMenuStyle(menuMount.held.anchor, menuMount.held.isContext)}
               onClick={(e) => e.stopPropagation()}
               role="menu"
+              inert={menuMount.closing || undefined}
             >
               {onCreateChild && (
                 <button
@@ -322,7 +335,7 @@ export function GroupTreeNav({
                   className="dropdown-item"
                   role="menuitem"
                   onClick={() => {
-                    const target = openMenu.group;
+                    const target = menuMount.held!.group;
                     setOpenMenu(null);
                     onCreateChild(target);
                   }}
@@ -336,7 +349,7 @@ export function GroupTreeNav({
                   className="dropdown-item"
                   role="menuitem"
                   onClick={() => {
-                    const target = openMenu.group;
+                    const target = menuMount.held!.group;
                     setOpenMenu(null);
                     onEdit(target);
                   }}
@@ -352,7 +365,7 @@ export function GroupTreeNav({
                     className="dropdown-item dropdown-item-danger"
                     role="menuitem"
                     onClick={() => {
-                      const target = openMenu.group;
+                      const target = menuMount.held!.group;
                       setOpenMenu(null);
                       onDelete(target);
                     }}
