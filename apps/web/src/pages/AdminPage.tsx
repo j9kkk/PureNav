@@ -564,7 +564,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
 
   return (
     <>
-      <AmbientField animate={items.length <= 200} />
+      <AmbientField count={items.length <= 200 ? 52 : 40} />
       <div className="admin-layout">
       <aside className="admin-side lg" data-lg="lens" data-lg-blur="20" data-lg-amp="8" data-lg-band="18">
         <div className="brand" style={{ marginBottom: 14, padding: '0 8px' }}>

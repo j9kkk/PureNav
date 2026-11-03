@@ -11,5 +11,5 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// 材质要在首屏渲染之后再量尺寸建滤镜
-requestAnimationFrame(() => initLiquidGlass());
+// 直接建：内部自带「首帧后再量一次」，不能依赖 rAF —— 后台标签的 rAF 是停的
+initLiquidGlass();

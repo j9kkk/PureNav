@@ -685,9 +685,8 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   return (
     <>
-      <AmbientField animate={totalVisible <= 200} />
+      <AmbientField count={totalVisible <= 200 ? 52 : 40} />
       <div className={perfMode ? 'shell perf' : 'shell'}>
-        <div className="top-scrim" aria-hidden="true" />
         <div className="topbar-shell">
           <header className="topbar lg" data-lg="lens" data-lg-elevate data-lg-amp="14" data-lg-blur="12" data-lg-band="24">
             <div className="brand">

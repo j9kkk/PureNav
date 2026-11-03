@@ -234,16 +234,17 @@ export function refreshLiquidGlass(): void {
   syncElevation();
 }
 
-/** 内容滚到玻璃下方时加深材质（顶栏读得清） */
+/** 抬升系数：0（贴顶，无阴影）→ 1（内容已滚到玻璃底下） */
+const ELEVATE_DISTANCE = 96;
+
+/** 把滚动位置写成连续系数交给 CSS 插值，阴影/填充/卷边都跟着渐变，不做类和值跳切 */
 function syncElevation(): void {
-  const elevated = window.scrollY > 6;
-  document.querySelectorAll<HTMLElement>('.top-scrim').forEach((el) => {
-    el.classList.toggle('is-on', elevated);
-  });
-  document.querySelectorAll<HTMLElement>('[data-lg-elevate]').forEach((el) => {
-    el.classList.toggle('is-elevated', elevated);
-    // 顶栏下面那条「卷边」渐隐，避免内容硬切在玻璃底边
-    el.closest('.topbar-shell')?.classList.toggle('has-scrolled', elevated);
+  const progress = Math.min(1, Math.max(0, window.scrollY / ELEVATE_DISTANCE));
+  const hosts = document.querySelectorAll<HTMLElement>('[data-lg-elevate]');
+  hosts.forEach((el) => {
+    const shell = el.closest<HTMLElement>('.topbar-shell') ?? el;
+    shell.style.setProperty('--lg-elev', progress.toFixed(3));
+    el.classList.toggle('is-elevated', progress > 0.02);
   });
 }
 
@@ -342,6 +343,15 @@ export function initLiquidGlass(): void {
 
   refreshLiquidGlass();
   bindCardLens();
+  syncElevation();
+
+  // 数据/路由晚到时补建：首帧之后、加载完成、标签重新可见各再量一次
+  window.setTimeout(refreshLiquidGlass, 120);
+  window.setTimeout(refreshLiquidGlass, 600);
+  window.addEventListener('load', refreshLiquidGlass, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshLiquidGlass();
+  });
 
   window.addEventListener(
     'resize',

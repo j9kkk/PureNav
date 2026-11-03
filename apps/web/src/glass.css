@@ -22,6 +22,9 @@
   --lg-sheen: rgba(255, 255, 255, 0.55);
 
   --lg-edge: rgba(12, 18, 30, 0.07);
+  --lg-sh-rgb: 12 18 30;
+  --lg-sh-rest: 0.30;
+  --lg-sh-lift: 0.34;
   --lg-shadow-1: 0 22px 60px -32px rgba(12, 18, 30, 0.34), 0 5px 20px -12px rgba(12, 18, 30, 0.16);
   --lg-shadow-2: 0 30px 76px -36px rgba(12, 18, 30, 0.4), 0 8px 28px -16px rgba(12, 18, 30, 0.2);
 }
@@ -36,6 +39,9 @@
   --lg-sheen: rgba(255, 255, 255, 0.16);
 
   --lg-edge: rgba(255, 255, 255, 0.06);
+  --lg-sh-rgb: 0 0 0;
+  --lg-sh-rest: 0.34;
+  --lg-sh-lift: 0.40;
   --lg-shadow-1: 0 26px 70px -34px rgba(0, 0, 0, 0.55), 0 6px 24px -14px rgba(0, 0, 0, 0.32);
   --lg-shadow-2: 0 34px 86px -38px rgba(0, 0, 0, 0.62), 0 10px 32px -18px rgba(0, 0, 0, 0.38);
 }
@@ -43,25 +49,29 @@
 /* ── 材质本体 ───────────────────────────────────────────── */
 
 .lg {
+  /* 抬升系数：0 = 静止，1 = 内容已滚到玻璃底下。由 liquidGlass.ts 按滚动位置写入，
+     渐变靠它插值 —— 阴影和填充都是连续变化，没有任何“到点直接加上去”的跳变。 */
+  /* 抬升系数由外层（.topbar-shell）用 --lg-elev 注入；这里不声明默认值，
+     否则会覆盖继承值 */
+  --lg-fill-cur: color-mix(in oklab, var(--lg-fill-strong) calc(var(--lg-elev, 0) * 100%), var(--lg-fill));
+
   position: relative;
   background:
     linear-gradient(180deg,
-      color-mix(in oklab, var(--lg-fill) 82%, #ffffff 18%) 0%,
-      var(--lg-fill) 42%,
-      color-mix(in oklab, var(--lg-fill) 94%, #000000 6%) 100%);
+      color-mix(in oklab, var(--lg-fill-cur) 82%, #ffffff 18%) 0%,
+      var(--lg-fill-cur) 42%,
+      color-mix(in oklab, var(--lg-fill-cur) 94%, #000000 6%) 100%);
   border: 0;
   border-radius: var(--lg-r);
   box-shadow:
     inset 0 1px 0 var(--lg-rim-strong),
-    inset 0 -12px 18px -20px rgba(0, 0, 0, 0.35),
+    inset 0 -12px 18px -20px rgb(0 0 0 / calc(0.18 + 0.10 * var(--lg-elev, 0))),
     0 0 0 1px var(--lg-edge),
-    var(--lg-shadow-1);
+    0 8px 22px -14px rgb(var(--lg-sh-rgb) / calc(var(--lg-sh-rest) * (1 - 0.35 * var(--lg-elev, 0)))),
+    0 22px 62px -32px rgb(var(--lg-sh-rgb) / calc(var(--lg-sh-lift) * var(--lg-elev, 0)));
   backdrop-filter: blur(var(--lg-blur)) saturate(175%);
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(175%);
-  transition:
-    background-color var(--dur-base) var(--ease-standard),
-    box-shadow var(--dur-base) var(--ease-standard),
-    transform 420ms cubic-bezier(0.2, 1.3, 0.36, 1);
+  transition: transform 420ms cubic-bezier(0.2, 1.3, 0.36, 1);
 }
 
 /* 镜面描边：环境光在厚边上折出的一圈 —— 顶边最亮、向下衰减、底边回一点微光 */
@@ -87,36 +97,70 @@
   z-index: 1;
 }
 
-/* 内容从玻璃底下滚过时（顶栏）：加深阴影 + 提亮材质，保证可读性 */
-.lg.is-elevated {
-  background: var(--lg-fill-strong);
-  box-shadow:
-    inset 0 1px 0 var(--lg-rim-strong),
-    inset 0 -1px 1px var(--lg-rim-soft),
-    var(--lg-shadow-2);
-}
-
 /* 玻璃内部控件：只用填充，不再叠材质 */
 .lg-inset {
   background: var(--lg-inset);
   box-shadow: inset 0 1px 2px rgba(10, 14, 24, 0.06);
 }
 
-/* ── 环境层：光圈 + 粒子（由 AmbientField 画在 0.5x canvas 上） ── */
+/* ── 环境层 ─────────────────────────────────────────────── */
 
-.ambient-particles {
+/* 光圈：0.5x canvas，只在种子/尺寸变化时画一帧，静止不耗 rAF */
+.ambient-bokeh {
   position: fixed;
   inset: 0;
   z-index: 1;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  opacity: 0.95;
 }
 
-:root[data-theme='light'] .ambient-particles {
-  opacity: 0.55;
-  mix-blend-mode: multiply;
+/* 粒子：DOM 小圆点 + CSS 合成动画。只走合成线程，卡片再多也不重绘 */
+.ambient-dots {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  --dot: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme='light'] .ambient-dots {
+  --dot: rgba(38, 46, 66, 0.75);
+}
+
+.ambient-dots i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  background: var(--dot);
+  animation-name: dot-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes dot-rise {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dot-drift, 0px), -118vh, 0);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-dots i {
+    animation: none;
+  }
 }
 
 /* ── 顶部栏 ─────────────────────────────────────────────── */
@@ -134,34 +178,29 @@
   pointer-events: auto;
 }
 
-/* 顶部护栏：滚动态时把内容区在顶端渐隐，导航栏区域永远干净。
-   起点在视口最顶端（被栏体和状态区遮住），所以看不到任何横向硬边。 */
-.top-scrim {
-  position: fixed;
-  top: 0;
+/* 卷边（scroll edge effect）：内容在栏底附近渐隐。
+   关键点：这块在栏体“之下”（z-index:-1），不参与栏体自己的背景采样，
+   所以玻璃材质照旧能折射真实内容；同时把目录连接线一类高频细节糊掉。 */
+.topbar-shell::after {
+  content: '';
+  position: absolute;
   left: 0;
   right: 0;
-  height: 148px;
-  z-index: 30;
+  top: calc(100% - 10px);
+  height: 56px;
+  z-index: -1;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 240ms var(--ease-standard);
+  opacity: var(--lg-elev, 0);
   background: linear-gradient(
-    to bottom,
-    color-mix(in oklab, var(--bg) 97%, transparent) 0%,
-    color-mix(in oklab, var(--bg) 92%, transparent) 38%,
-    color-mix(in oklab, var(--bg) 62%, transparent) 66%,
-    color-mix(in oklab, var(--bg) 22%, transparent) 86%,
+    180deg,
+    color-mix(in oklab, var(--bg) 86%, transparent) 0%,
+    color-mix(in oklab, var(--bg) 50%, transparent) 44%,
     transparent 100%
   );
   backdrop-filter: blur(10px) saturate(1.05);
   -webkit-backdrop-filter: blur(10px) saturate(1.05);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
-}
-
-.top-scrim.is-on {
-  opacity: 1;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 26%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 26%, transparent 100%);
 }
 
 .tag-filter-bar {
