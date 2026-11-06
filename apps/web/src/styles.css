@@ -61,6 +61,15 @@
   --shadow: var(--shadow-soft);
   --glass-blur: blur(24px) saturate(170%);
 
+  /* ---------- 透镜材质（与曝光无关的一层）----------
+     厚度由「双缘」表达：内上缘亮线 + 内下缘弱线；外缘一圈极淡暗线收边。
+     色差只在圆角边缘出现，取自页面环境光的蓝紫，属于光学现象而非装饰色。 */
+  --lens-rim-top: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --lens-rim-bottom: inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  --lens-edge: 0 0 0 1px rgba(12, 18, 30, 0.08);
+  --lens-prism-top: inset 0 1px 2px 0 rgba(80, 110, 255, 0.16);
+  --lens-prism-bottom: inset 0 -1px 2px 0 rgba(180, 80, 255, 0.1);
+
   /* Type ramp */
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
@@ -75,19 +84,22 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #000000;
-  --bg-subtle: #161618;
-  --bg-elevated: rgba(28, 28, 30, 0.78);
-  --bg-solid: #1c1c1e;
-  --border: #2c2c2e;
-  --rule: #232325;
-  --control-border: #3a3a3c;
+  /* 曝光层：暗场不是反色，是另一套纸。地面取 #0A0D14 —— 纯黑会让白字起眩光，
+     也没有可被玻璃折射的基质；冷中性灰保住「无彩账簿」的骨架。 */
+  --bg: #0a0d14;
+  --bg-subtle: #12151d;
+  --bg-elevated: rgba(22, 28, 44, 0.72);
+  --bg-solid: #12151d;
+  --border: #29313f;
+  --rule: #202634;
+  --control-border: #333c4e;
   --hover-fill: rgba(255, 255, 255, 0.06);
   --active-fill: rgba(255, 255, 255, 0.1);
 
-  --text: #f5f5f7;
-  --text-muted: #b6b6bc;
-  --text-dim: #909095;
+  /* 三级墨按暗场底实测：16.65:1 / 7.58:1 / 5.39:1 */
+  --text: #e8eef6;
+  --text-muted: #94a3b8;
+  --text-dim: #79889e;
 
   --accent: #0a84ff;
   /* 深色下 #0a84ff + 白只有 3.65:1，填充压深一档到 4.91:1；指示/焦点环仍用 --accent */
@@ -102,6 +114,13 @@
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 22px rgba(0, 0, 0, 0.4);
   --shadow-strong: 0 2px 8px rgba(0, 0, 0, 0.5), 0 18px 44px rgba(0, 0, 0, 0.55);
   --glass-blur: blur(24px) saturate(180%);
+
+  /* 暗场下厚度靠高光而不是色散：上缘亮线压到 0.22，下缘几乎只剩一点反光 */
+  --lens-rim-top: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --lens-rim-bottom: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  --lens-edge: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --lens-prism-top: inset 0 1px 2px 0 rgba(255, 255, 255, 0);
+  --lens-prism-bottom: inset 0 -1px 2px 0 rgba(255, 255, 255, 0);
 }
 
 * {
@@ -283,9 +302,12 @@ p {
 /* ---------- Nav topbar ---------- */
 
 .topbar {
-  display: flex;
+  /* 三栏定轴：两侧栏按内容自适应，中列吃掉全部余宽，搜索在中列里居中并封顶。
+     这样品牌与动作组各自的宽度变化只会改变「搜索两侧留白」，两侧永远等宽 ——
+     既不会出现单侧大片空洞，也不会把图标推着走。 */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -294,7 +316,6 @@ p {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -323,35 +344,39 @@ p {
   text-overflow: ellipsis;
 }
 
-.brand-clock {
+/* 时钟：最弱一级信息，纯文字。玻璃栏里不再套第二层玻璃。 */
+.topbar-clock {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex: none;
-  margin-left: 4px;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  padding: 0;
+  border: 0;
+  background: none;
   font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
-  box-shadow: var(--specular-top);
   white-space: nowrap;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.brand-clock-date {
+.topbar-clock-date {
   color: var(--text-dim);
 }
 
-.brand-clock-time {
+.topbar-clock-time {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-muted);
+}
+
+.topbar-clock-sep {
+  width: 1px;
+  height: 16px;
+  flex: none;
+  margin: 0 8px 0 12px;
+  background: var(--rule);
 }
 
 /* Tag filter bar：Apple 分段控件 */
@@ -420,19 +445,20 @@ p {
 /* Spotlight 搜索 */
 .search {
   position: relative;
-  flex: 0 1 420px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  min-width: 0;
   cursor: text;
 }
 
 .search input {
   width: 100%;
-  height: 38px;
-  padding: 0 42px 0 38px;
-  border-radius: var(--radius-pill);
+  height: 36px;
+  padding: 0 40px 0 36px;
+  border-radius: var(--radius-inner);
   border: 1px solid var(--border);
   background: var(--bg-elevated);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text);
   font: inherit;
   font-size: var(--fs-secondary);
@@ -487,28 +513,22 @@ p {
   width: 36px;
   height: 36px;
   flex: none;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-inner);
   display: grid;
   place-items: center;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  /* 玻璃栏内的控件只用填充，不叠第二层玻璃：无边框、无底色、无 backdrop-filter。 */
+  border: 0;
+  background: none;
   color: var(--text-muted);
   transition: transform var(--dur-fast) var(--ease-spring),
     background-color var(--dur-fast) var(--ease-standard),
-    color var(--dur-fast) var(--ease-standard),
-    border-color var(--dur-fast) var(--ease-standard);
+    color var(--dur-fast) var(--ease-standard);
 }
 
 .icon-btn:hover {
   transform: translateY(-1px);
-  background: var(--bg-solid);
+  background: var(--lg-inset);
   color: var(--text);
-}
-
-:root[data-theme='dark'] .icon-btn:hover {
-  background: var(--active-fill);
 }
 
 .icon-btn:active {
@@ -524,7 +544,6 @@ p {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex: 1 1 0;
 }
 
 /* ---------- Groups ---------- */
@@ -1432,7 +1451,11 @@ p {
 
 /* ---------- Admin shell ---------- */
 
+/* 内容层要明确站在环境层（光圈/粒子 z=0）之上：
+   后台的 .admin-layout 原本没有定位，粒子会飘到数据表格上，读成坏点。 */
 .admin-layout {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 232px 1fr;
   min-height: 100vh;
@@ -1670,7 +1693,9 @@ p {
 }
 
 .admin-table {
-  background: var(--bg-elevated);
+  /* 内容层是实色面（DESIGN.md）：暗场的地面现在有环境光与粒子，
+     半透明会让光点穿到数据表里，读成坏点。 */
+  background: var(--bg-solid);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   overflow: visible;
@@ -3517,15 +3542,15 @@ input[type='checkbox'] {
 /* ---------- Responsive ---------- */
 
 @media (max-width: 900px) {
-  /* 平板宽度收掉时钟，给标题与搜索留位 */
-  .brand-clock {
+  /* 平板宽度收掉时钟，把宽度让给搜索 */
+  .topbar-clock,
+  .topbar-clock-sep {
     display: none;
   }
 }
 
 @media (max-width: 640px) {
   .topbar {
-    display: grid;
     grid-template-columns: 1fr auto;
     grid-template-areas:
       'brand actions'
@@ -3536,9 +3561,6 @@ input[type='checkbox'] {
   .brand {
     grid-area: brand;
   }
-  .brand-clock {
-    display: none;
-  }
   .spacer {
     display: none;
   }
@@ -3548,7 +3570,6 @@ input[type='checkbox'] {
   .search {
     grid-area: search;
     width: 100%;
-    flex: none;
   }
 }
 

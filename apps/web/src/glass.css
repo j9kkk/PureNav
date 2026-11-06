@@ -64,9 +64,13 @@
   border: 0;
   border-radius: var(--lg-r);
   box-shadow:
-    inset 0 1px 0 var(--lg-rim-strong),
-    inset 0 -12px 18px -20px rgb(0 0 0 / calc(0.18 + 0.10 * var(--lg-elev, 0))),
-    0 0 0 1px var(--lg-edge),
+    /* 透镜厚度：内上缘亮线 + 内下缘弱线 + 圆角处的极轻色差 */
+    var(--lens-rim-top),
+    var(--lens-rim-bottom),
+    var(--lens-prism-top),
+    var(--lens-prism-bottom),
+    inset 0 -12px 18px -20px rgb(0 0 0 / calc(0.16 + 0.10 * var(--lg-elev, 0))),
+    var(--lens-edge),
     0 8px 22px -14px rgb(var(--lg-sh-rgb) / calc(var(--lg-sh-rest) * (1 - 0.35 * var(--lg-elev, 0)))),
     0 22px 62px -32px rgb(var(--lg-sh-rgb) / calc(var(--lg-sh-lift) * var(--lg-elev, 0)));
   backdrop-filter: blur(var(--lg-blur)) saturate(175%);
@@ -109,7 +113,7 @@
 .ambient-bokeh {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -119,7 +123,7 @@
 .ambient-dots {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
   --dot: rgba(255, 255, 255, 0.9);
@@ -132,7 +136,7 @@
 .ambient-bokeh {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -144,7 +148,7 @@
 .ambient-dots {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
   --dot: rgba(255, 255, 255, 0.9);
@@ -239,8 +243,9 @@
   --lg-r: calc(var(--radius-card) + 4px); /* = 20px，sheet 档；跟随站点半径设置 */
   --lg-pad: 8px;
   margin-bottom: 0;
-  padding: 8px 10px 8px 14px;
-  gap: 12px;
+  /* 左右内边距必须相等：三栏定轴的搜索中心才落在栏宽正中 */
+  padding: 8px 10px;
+  gap: 16px;
 }
 
 .brand {
@@ -248,7 +253,7 @@
 }
 
 .search input {
-  height: 40px;
+  height: 36px;
   padding: 0 40px 0 36px;
   border: 0;
   border-radius: calc(var(--lg-r) - var(--lg-pad));
@@ -259,9 +264,20 @@
   font-size: var(--fs-secondary);
 }
 
+/* 暗场下槽边界要靠一层透亮描边，深底+深边会糊成一片 */
+:root[data-theme='dark'] .search input {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
 :root[data-theme='light'] .search input {
-  background: color-mix(in oklab, var(--bg-solid) 70%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 72%, transparent);
+  /* 玻璃上的控件只用填充表达层次：更实的白 + 一圈 control 级描边 + 一丝内凹 */
+  background: color-mix(in oklab, var(--bg-solid) 78%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--control-border) 58%, transparent),
+    inset 0 1px 2px rgba(12, 18, 30, 0.05);
 }
 
 .search input:focus {
@@ -277,24 +293,15 @@
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 }
 
-/* 顶栏内的图标按钮：玻璃上的控件 → 只给填充 */
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-inner);
+/* 暗场下键帽用透亮而不是压暗：深底 + 更深的键帽会读成一块脏灰 */
+:root[data-theme='dark'] .search-kbd {
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
-  transition: background-color var(--dur-fast) var(--ease-standard),
-    color var(--dur-fast) var(--ease-standard), transform 90ms ease-out;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
-.icon-btn:hover {
-  background: var(--lg-inset);
-  color: var(--text);
-}
-
-.icon-btn:active {
-  transform: scale(0.94);
-}
+/* 顶栏内的图标按钮：几何与材质由 styles.css 的 .icon-btn 统一定义，
+   玻璃上只给 --lg-inset 级填充（见 .icon-btn:hover），这里不再覆盖。 */
 
 /* ── 分段筛选：玻璃容器 + 滑动指示块 ───────────────────── */
 

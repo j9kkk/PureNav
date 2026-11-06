@@ -8,11 +8,11 @@ import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
 import { useIconImage } from '../lib/iconImage';
 import {
   IconArrowUpRight,
+  IconGear,
   IconGrid,
-  IconListRows,
+  IconListDots,
   IconMoon,
   IconSearch,
-  IconSliders,
   IconSun,
 } from '../components/icons';
 import { AmbientField } from '../components/AmbientField';
@@ -696,10 +696,6 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             <div className="brand">
               <span className="brand-mark"><BrandMark /></span>
               <h1 className="brand-title">{config?.site.identity.title ?? 'PureNav'}</h1>
-              <span className="brand-clock" title={clock.full}>
-                <span className="brand-clock-date">{clock.date}</span>
-                <span className="brand-clock-time">{clock.time}</span>
-              </span>
             </div>
             <div className="search" onClick={() => searchRef.current?.focus()}>
               <span className="search-icon">
@@ -709,7 +705,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
                 ref={searchRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索站点或敲 /"
+                placeholder="搜索站点"
                 aria-label="搜索站点"
               />
               {!query && <kbd className="search-kbd">/</kbd>}
@@ -721,14 +717,19 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
                 aria-label={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
                 title={layout.view === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
               >
-                {layout.view === 'grid' ? <IconListRows size={16} /> : <IconGrid size={16} />}
+                {layout.view === 'grid' ? <IconListDots size={16} /> : <IconGrid size={16} />}
               </button>
               <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
                 {themeMode === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
               </button>
               <button className="icon-btn" onClick={authenticated ? onAdmin : onLogin} aria-label="管理后台" title="管理后台">
-                <IconSliders size={16} />
+                <IconGear size={16} />
               </button>
+              <span className="topbar-clock-sep" aria-hidden="true" />
+              <span className="topbar-clock" title={clock.full}>
+                <span className="topbar-clock-date">{clock.date}</span>
+                <span className="topbar-clock-time">{clock.time}</span>
+              </span>
             </div>
           </header>
         </div>

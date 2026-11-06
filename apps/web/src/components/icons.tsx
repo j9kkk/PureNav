@@ -45,6 +45,28 @@ export function IconListRows({ size = 16 }: IconProps) {
   );
 }
 
+/** 列表视图：带行首圆点，和三横线（汉堡）区分开 */
+export function IconListDots({ size = 16 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M5.5 3.5h8M5.5 8h8M5.5 12.5h8" />
+      <circle cx="2.6" cy="3.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="2.6" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="2.6" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** 管理后台：齿轮。线框齿（与其它图标同为描边族），中心留孔，齿根相连不读成太阳。 */
+export function IconGear({ size = 16 }: IconProps) {
+  return (
+    <svg {...svgProps(size)} strokeWidth="1.3" strokeLinejoin="round">
+      <path d="M14.87 6.66 L14.87 9.34 L12.73 9.27 L12.24 10.45 L13.8 11.91 L11.91 13.8 L10.45 12.24 L9.27 12.73 L9.34 14.87 L6.66 14.87 L6.73 12.73 L5.55 12.24 L4.09 13.8 L2.2 11.91 L3.76 10.45 L3.27 9.27 L1.13 9.34 L1.13 6.66 L3.27 6.73 L3.76 5.55 L2.2 4.09 L4.09 2.2 L5.55 3.76 L6.73 3.27 L6.66 1.13 L9.34 1.13 L9.27 3.27 L10.45 3.76 L11.91 2.2 L13.8 4.09 L12.24 5.55 L12.73 6.73 Z" />
+      <circle cx="8" cy="8" r="2.1" />
+    </svg>
+  );
+}
+
 export function IconSun({ size = 16 }: IconProps) {
   return (
     <svg {...svgProps(size)}>
