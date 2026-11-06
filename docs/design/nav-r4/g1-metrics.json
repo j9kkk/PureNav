@@ -1,0 +1,56 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 2
+  },
+  "metrics": {
+    "barHeight": {
+      "collapsed": 52,
+      "expanded": 52,
+      "equal": true
+    },
+    "iconX": {
+      "btnView": {
+        "collapsed": 1048,
+        "expanded": 1048,
+        "shiftPx": 0
+      },
+      "btnTheme": {
+        "collapsed": 1092,
+        "expanded": 1092,
+        "shiftPx": 0
+      },
+      "btnAdmin": {
+        "collapsed": 1136,
+        "expanded": 1136,
+        "shiftPx": 0
+      }
+    },
+    "searchWidth": {
+      "collapsedTrigger": 220,
+      "expandedLayer": 520,
+      "growthPx": 300
+    },
+    "searchRightEdgeClearance": {
+      "expandedRightX": 928,
+      "firstActionBtnX": 1048,
+      "clearancePx": 120
+    },
+    "focusManagement": {
+      "expandedActiveTag": "input",
+      "expandedActiveId": "searchInput",
+      "postEscActiveTag": "button",
+      "postEscActiveId": "searchTrigger",
+      "focusRestored": true
+    }
+  },
+  "computedStyle": {
+    "topbarBoxShadow": "rgba(255, 255, 255, 0.95) 0px 1.5px 0px 0px inset, rgba(255, 255, 255, 0.35) 0px -1px 0px 0px inset, rgba(12, 18, 30, 0.08) 0px 0px 0px 1px, rgba(255, 255, 255, 0.45) 0px 0px 0px 1px inset, rgba(80, 110, 255, 0.16) 0px 1px 2px 0px inset, rgba(180, 80, 255, 0.1) 0px -1px 2px 0px inset, rgba(12, 18, 30, 0.14) 0px -12px 24px -16px inset, rgba(12, 18, 30, 0.22) 0px 20px 48px -24px, rgba(12, 18, 30, 0.08) 0px 4px 12px -6px",
+    "topbarBackdropFilter": "blur(24px) saturate(1.8)",
+    "topbarBorderRadius": "20px",
+    "triggerBorderRadius": "12px",
+    "radiiInAllowedSet": true,
+    "noNestedGlass": true
+  }
+}

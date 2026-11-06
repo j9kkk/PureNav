@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PureNav 视觉重构：G1「透镜玻璃·浅色」高保真原型</title>
+<style>
+  /* ===== 令牌：严格继承 DESIGN.md 与 styles.css ===== */
+  :root {
+    --radius-nested: 4px;
+    --radius-xs: 6px;
+    --radius-control: 8px;
+    --radius-inner: 12px;
+    --radius-card: 16px;
+    --radius-sheet: 20px;
+    --radius-pill: 9999px;
+
+    --accent: #0071e3;
+    --accent-fill: #0071e3;
+    --accent-ink: #0066cc;
+
+    --bg: #f5f5f7;
+    --bg-subtle: #ebebed;
+    --bg-elevated: rgba(255,255,255,0.82);
+    --bg-solid: #ffffff;
+    --border: #e3e3e8;
+    --rule: #eeeef0;
+    --control-border: #c9c9ce;
+    --hover-fill: rgba(0,0,0,0.05);
+    --active-fill: rgba(0,0,0,0.09);
+
+    --text: #1d1d1f;
+    --text-muted: #56565c;
+    --text-dim: #5c5c62;
+
+    --specular-top: inset 0 0.5px 0 0 rgba(255,255,255,0.85);
+    --shadow-soft: 0 1px 2px rgba(0,0,0,0.03), 0 4px 14px rgba(0,0,0,0.04);
+    --glass-blur: blur(24px) saturate(170%);
+
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text','SF Pro Display','PingFang SC','Hiragino Sans GB',sans-serif;
+    --fs-caption2: 11px; --fs-caption: 12px; --fs-secondary: 13px;
+    --fs-body: 14px; --fs-callout: 15px; --fs-heading: 17px; --fs-title: 22px;
+
+    --dur-fast: 150ms; --dur-base: 240ms; --dur-slow: 380ms;
+    --ease-standard: cubic-bezier(0.2,0,0,1);
+    --ease-spring: cubic-bezier(0.16,1,0.3,1);
+
+    /* G1 透镜玻璃（Lens Glass）专项令牌 */
+    --lg-r: 20px;
+    --lg-pad: 8px;
+    --lg-fill: rgba(255,255,255,0.48);
+    --lg-fill-strong: rgba(255,255,255,0.65);
+    
+    /* 双缘高光 + 折射环 + 极克制边缘色差 (浅色) */
+    --lens-rim-inner-top: 0 1.5px 0 0 rgba(255,255,255,0.95);
+    --lens-rim-inner-bot: 0 -1px 0 0 rgba(255,255,255,0.35);
+    --lens-edge-outer: 0 0 0 1px rgba(12,18,30,0.08);
+    --lens-refract-ring: inset 0 0 0 1px rgba(255,255,255,0.45);
+    --lens-prism-chroma: inset 0 1px 2px 0 rgba(80,110,255,0.16), inset 0 -1px 2px 0 rgba(180,80,255,0.10);
+    --lens-volume-shadow: inset 0 -12px 24px -16px rgba(12,18,30,0.14);
+    --lens-drop-shadow: 0 20px 48px -24px rgba(12,18,30,0.22), 0 4px 12px -6px rgba(12,18,30,0.08);
+  }
+
+  /* 深色主题令牌 */
+  html[data-theme="dark"] {
+    --bg: #000000;
+    --bg-subtle: #1c1c1e;
+    --bg-elevated: rgba(36,36,38,0.75);
+    --bg-solid: #1c1c1e;
+    --border: #2c2c2e;
+    --rule: #242426;
+    --control-border: #3a3a3c;
+    --hover-fill: rgba(255,255,255,0.08);
+    --active-fill: rgba(255,255,255,0.14);
+
+    --text: #f5f5f7;
+    --text-muted: #8e8e93;
+    --text-dim: #636366;
+
+    --specular-top: inset 0 0.5px 0 0 rgba(255,255,255,0.15);
+    --shadow-soft: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.4);
+
+    --accent: #0a84ff;
+    --accent-fill: #0a6fd8;
+    --accent-ink: #0a84ff;
+
+    --lg-fill: rgba(28,28,32,0.68);
+    --lg-fill-strong: rgba(44,44,48,0.82);
+
+    --lens-rim-inner-top: 0 1.5px 0 0 rgba(255,255,255,0.32);
+    --lens-rim-inner-bot: 0 -1px 0 0 rgba(255,255,255,0.08);
+    --lens-edge-outer: 0 0 0 1px rgba(255,255,255,0.12);
+    --lens-refract-ring: inset 0 0 0 1px rgba(255,255,255,0.10);
+    --lens-prism-chroma: inset 0 1px 2px 0 rgba(100,140,255,0.22), inset 0 -1px 2px 0 rgba(180,90,255,0.14);
+    --lens-volume-shadow: inset 0 -12px 24px -16px rgba(0,0,0,0.65);
+    --lens-drop-shadow: 0 24px 60px -28px rgba(0,0,0,0.85), 0 6px 16px -8px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: var(--fs-body);
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* 环境光层（Bokeh） */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(46vw 46vw at 12% 2%, rgba(14,132,255,0.34), transparent 70%),
+      radial-gradient(38vw 38vw at 82% 6%, rgba(123,97,255,0.26), transparent 70%),
+      radial-gradient(50vw 50vw at 62% 62%, rgba(46,167,255,0.16), transparent 70%),
+      radial-gradient(40vw 40vw at 18% 84%, rgba(143,107,255,0.13), transparent 70%),
+      linear-gradient(180deg, #eef0fb 0%, #f5f5f7 46%, #f7f5fb 100%);
+  }
+
+  html[data-theme="dark"] .ambient {
+    background:
+      radial-gradient(46vw 46vw at 12% 2%, rgba(10,132,255,0.20), transparent 70%),
+      radial-gradient(38vw 38vw at 82% 6%, rgba(123,97,255,0.16), transparent 70%),
+      radial-gradient(50vw 50vw at 62% 62%, rgba(46,167,255,0.10), transparent 70%),
+      radial-gradient(40vw 40vw at 18% 84%, rgba(143,107,255,0.08), transparent 70%),
+      linear-gradient(180deg, #090a10 0%, #000000 46%, #050508 100%);
+  }
+
+  .shell {
+    position: relative; z-index: 1;
+    max-width: 1240px; margin: 0 auto;
+    padding: 32px 24px 88px;
+  }
+
+  /* ===== 顶栏 Shell ===== */
+  .topbar-shell {
+    position: sticky; top: 0; z-index: 40;
+    margin: -32px -24px 12px;
+    padding: 16px 24px 8px;
+    pointer-events: none;
+  }
+  .topbar-shell > * { pointer-events: auto; }
+
+  /* ===== G1 透镜玻璃顶栏（Lens Glass Topbar） =====
+     结构继承方案 A 定轴三栏：
+     - 栏高恒定 52px (8 + 36 + 8)
+     - 品牌区固定 256px
+     - 动作区固定 256px
+     - 搜索区占中间轴，内部用覆盖展开层，按钮坐标绝对 0 偏移
+     - 材质：透镜双缘高光 + 边缘棱镜色差 + 折射环
+  */
+  .topbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 52px;
+    padding: 8px 12px;
+    border-radius: var(--lg-r);
+    
+    /* 透镜渐变：上部迎光强反射，中部通透，下部边缘轻微凝聚光折射 */
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--lg-fill) 80%, #ffffff 20%) 0%,
+      var(--lg-fill) 45%,
+      color-mix(in oklab, var(--lg-fill) 92%, #000000 8%) 100%);
+    
+    /* 透镜多层光学投影栈：
+       1. 内缘顶边 1px 亮高光
+       2. 内缘底边微弱聚光
+       3. 外缘 1px 极淡暗线（物理厚度）
+       4. 内折射环 (1px 极淡白色半透)
+       5. 极克制边缘色差 (0.5px 极弱蓝紫偏移)
+       6. 体积暗腔深度
+       7. 弥散落地阴影
+    */
+    box-shadow:
+      inset var(--lens-rim-inner-top),
+      inset var(--lens-rim-inner-bot),
+      var(--lens-edge-outer),
+      var(--lens-refract-ring),
+      var(--lens-prism-chroma),
+      var(--lens-volume-shadow),
+      var(--lens-drop-shadow);
+      
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  /* 栏内严禁二次叠玻璃 */
+  .topbar * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* 栏 1：品牌区（固定宽 256px） */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 256px;
+    width: 256px;
+    min-width: 0;
+    user-select: none;
+  }
+
+  .brand-mark {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-control); /* 8px */
+    background: var(--accent-fill);
+    color: #ffffff;
+    display: grid;
+    place-items: center;
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(10,20,40,0.16);
+  }
+
+  .brand-title {
+    font-size: var(--fs-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 栏 2：搜索区（中间定轴区，flex: 1 1 0）
+     关键设计：
+     - 中间容器永远占据剩余空间，但收起态触发器贴左/居中展示（约 220px 宽）
+     - 展开态绝对定位向右“液滴拉伸”展开（覆盖动作区），栏宽、动作区元素位置在 DOM 流中毫发无损！
+  */
+  .search-area {
+    position: relative;
+    flex: 1 1 0;
+    height: 36px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 触发器定轴 */
+  }
+
+  /* 收起态触发器按钮（真 button，宽度贴合内容 220px） */
+  .search-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 220px;
+    height: 36px;
+    padding: 0 10px 0 12px;
+    border: 0;
+    border-radius: var(--radius-inner); /* 12px */
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--text-dim);
+    font: inherit;
+    font-size: var(--fs-secondary);
+    cursor: pointer;
+    text-align: left;
+    outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.95),
+      inset 0 0 0 1px color-mix(in oklab, var(--control-border) 45%, transparent),
+      0 1px 2px rgba(12,18,30,0.03);
+    transition:
+      background-color var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-fast) var(--ease-standard),
+      color var(--dur-fast) var(--ease-standard),
+      transform 90ms ease-out;
+  }
+
+  html[data-theme="dark"] .search-trigger {
+    background: rgba(255,255,255,0.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      inset 0 0 0 1px rgba(255,255,255,0.12),
+      0 1px 3px rgba(0,0,0,0.4);
+    color: var(--text-muted);
+  }
+
+  .search-trigger:hover {
+    background: var(--bg-solid);
+    color: var(--text);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,1),
+      inset 0 0 0 1px color-mix(in oklab, var(--control-border) 80%, transparent),
+      0 2px 6px rgba(0,0,0,0.06);
+  }
+
+  .search-trigger:focus-visible {
+    box-shadow:
+      inset 0 0 0 1px var(--accent),
+      0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+
+  .search-trigger-ic {
+    flex: none;
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+  }
+
+  .search-trigger-text {
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-trigger-kbd {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    font-size: var(--fs-caption2);
+    font-weight: 500;
+    color: var(--text-dim);
+    border-radius: var(--radius-xs); /* 6px */
+    background: color-mix(in oklab, var(--bg-subtle) 80%, var(--bg-solid));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
+  }
+
+  html[data-theme="dark"] .search-trigger-kbd {
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+    color: var(--text-muted);
+  }
+
+  /* 显式筛选提示态（有查询词且收起时展示） */
+  .search-trigger.is-filtered {
+    width: auto;
+    max-width: 280px;
+    background: color-mix(in oklab, var(--accent) 8%, var(--bg-solid));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.9),
+      inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent),
+      0 2px 8px -2px color-mix(in oklab, var(--accent) 25%, transparent);
+    color: var(--accent-ink);
+  }
+  html[data-theme="dark"] .search-trigger.is-filtered {
+    background: color-mix(in oklab, var(--accent) 18%, rgba(30,30,32,0.9));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.2),
+      inset 0 0 0 1px color-mix(in oklab, var(--accent) 60%, transparent);
+    color: var(--text);
+  }
+  .filter-clear-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--text-dim) 16%, transparent);
+    color: inherit;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    margin-left: 2px;
+  }
+  .filter-clear-btn:hover {
+    background: color-mix(in oklab, var(--text-dim) 32%, transparent);
+  }
+
+  /* 展开态搜索层：绝对定位从触发器原点往右弹簧膨胀（液滴拉伸）
+     - 关键性能与布局：不改变 DOM 流几何，动作区不会被物理挤压
+     - 展开最大宽度 520px，在 1440 屏下距右边缘保留充裕空档
+  */
+  .search-expand-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 36px;
+    width: 220px;
+    border-radius: var(--radius-inner); /* 12px */
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.96) translateZ(0);
+    transform-origin: left center;
+    transition:
+      width var(--dur-base) var(--ease-spring),
+      opacity var(--dur-fast) var(--ease-standard),
+      transform var(--dur-base) var(--ease-spring),
+      box-shadow var(--dur-base) var(--ease-spring);
+  }
+
+  /* 展开激活态 */
+  .search-area.is-expanded .search-expand-layer {
+    pointer-events: auto;
+    opacity: 1;
+    width: min(520px, calc(100% + 180px)); /* 向右拉伸至 520px */
+    transform: scale(1) translateZ(0);
+    box-shadow:
+      0 12px 32px -8px rgba(12,18,30,0.18),
+      0 4px 12px -4px rgba(12,18,30,0.08);
+  }
+
+  /* 收起态触发器在展开时平滑隐退 */
+  .search-area.is-expanded .search-trigger {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.98);
+  }
+
+  .search-input-wrap {
+    position: relative;
+    width: 100%;
+    height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 68px 0 36px;
+    border: 0;
+    border-radius: var(--radius-inner); /* 12px */
+    background: #ffffff;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--fs-secondary);
+    outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,1),
+      inset 0 0 0 1px color-mix(in oklab, var(--control-border) 70%, transparent);
+    transition: box-shadow var(--dur-fast) var(--ease-standard);
+  }
+
+  html[data-theme="dark"] .search-input {
+    background: #1c1c1e;
+    color: var(--text);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      inset 0 0 0 1px rgba(255,255,255,0.14);
+  }
+
+  .search-area.is-expanded .search-input:focus {
+    box-shadow:
+      inset 0 0 0 1px var(--accent),
+      0 0 0 3.5px color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+
+  .search-input-ic {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    display: inline-flex;
+    pointer-events: none;
+  }
+
+  .search-input-actions {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .search-clear-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--hover-fill);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .search-clear-btn:hover {
+    background: var(--active-fill);
+    color: var(--text);
+  }
+  .search-clear-btn.is-visible {
+    display: inline-flex;
+  }
+
+  .search-esc-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    padding: 0 5px;
+    font-size: var(--fs-caption2);
+    font-weight: 500;
+    color: var(--text-dim);
+    border-radius: var(--radius-xs); /* 6px */
+    background: color-mix(in oklab, var(--bg-subtle) 80%, var(--bg-solid));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
+    user-select: none;
+    cursor: pointer;
+  }
+  html[data-theme="dark"] .search-esc-kbd {
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+    color: var(--text-muted);
+  }
+
+  /* 栏 3：动作区（固定 256px，按钮靠左与定轴搜索平滑相衔，时钟靠右）
+     展开搜索时，动作区整体软渐隐 (opacity: 0.25)，但 DOM 几何位置绝对 0 偏移！
+  */
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex: 0 0 256px;
+    width: 256px;
+    transition: opacity var(--dur-base) var(--ease-standard);
+  }
+
+  .topbar.search-open .topbar-actions {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  /* 图标按钮：纯图标无白瓷砖，高 36 圆角 12 */
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border: none;
+    border-radius: var(--radius-inner); /* 12px */
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background-color var(--dur-fast) var(--ease-standard),
+                color var(--dur-fast) var(--ease-standard),
+                transform 90ms ease-out;
+  }
+
+  .icon-btn:hover {
+    background: var(--hover-fill);
+    color: var(--text);
+  }
+
+  .icon-btn:active {
+    background: var(--active-fill);
+    transform: scale(0.96);
+  }
+
+  .icon-btn svg {
+    display: block;
+  }
+
+  /* 分隔微线 */
+  .action-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--rule);
+    flex: none;
+    margin-left: auto;
+    margin-right: 2px;
+  }
+
+  /* 时钟降级：纯文字，弱层级 caption / tabular-nums，无背景无边框 */
+  .topbar-clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-caption);
+    font-weight: 400;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .topbar-clock-time {
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* ===== 标签筛选条（跟随透镜语言微调：双缘微高光 + 胶囊） ===== */
+  .tag-filter-bar {
+    position: relative;
+    z-index: 35;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 24px;
+    border-radius: var(--radius-pill);
+    background: var(--lg-fill);
+    box-shadow:
+      inset var(--lens-rim-inner-top),
+      inset var(--lens-rim-inner-bot),
+      var(--lens-edge-outer),
+      var(--lens-prism-chroma),
+      0 12px 28px -18px rgba(12,18,30,0.25);
+    backdrop-filter: blur(16px) saturate(175%);
+    -webkit-backdrop-filter: blur(16px) saturate(175%);
+  }
+
+  .tag-pill {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 12px;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-secondary);
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border-radius: var(--radius-pill);
+    transition: color var(--dur-fast) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard);
+  }
+
+  .tag-pill:hover {
+    color: var(--text);
+  }
+
+  .tag-pill.is-active {
+    color: var(--text);
+    font-weight: 600;
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--bg-solid) 92%, var(--accent) 8%),
+      color-mix(in oklab, var(--bg-solid) 82%, var(--accent) 18%));
+    box-shadow: 0 1px 0 rgba(255,255,255,0.95) inset, 0 6px 14px -8px rgba(12,18,30,0.35);
+  }
+
+  html[data-theme="dark"] .tag-pill.is-active {
+    background: rgba(255,255,255,0.16);
+    color: #ffffff;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.2) inset, 0 4px 12px -4px rgba(0,0,0,0.6);
+  }
+
+  .tag-count {
+    font-size: var(--fs-caption2);
+    font-weight: 500;
+    opacity: 0.65;
+  }
+
+  /* ===== 内容层（实色面 + 发丝线，绝不上玻璃） ===== */
+  .group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: var(--fs-heading);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .group-count {
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    min-height: 84px;
+    background: var(--bg-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card); /* 16px */
+    box-shadow: var(--shadow-soft);
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+  }
+  .card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+  .card-ic {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: var(--radius-control); /* 8px */
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-callout);
+    font-weight: 600;
+    color: #ffffff;
+    background: linear-gradient(160deg,#5b8def,#3457d5);
+  }
+  .card-ic.v2 { background: linear-gradient(160deg,#f0a34a,#d8672a); }
+  .card-ic.v3 { background: linear-gradient(160deg,#4bbf9a,#1f8a68); }
+  .card-ic.v4 { background: linear-gradient(160deg,#9b8cf0,#6b4fd8); }
+  .card-body { min-width: 0; }
+  .card-title {
+    font-size: var(--fs-callout);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-url {
+    font-size: var(--fs-secondary);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 提示条（供测试切换各种状态） */
+  .demo-toolbar {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius-pill);
+    color: #fff;
+    font-size: var(--fs-caption);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .demo-btn {
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-caption);
+  }
+  .demo-btn:hover { background: rgba(255,255,255,0.3); }
+
+  /* ===== 响应式适配 ===== */
+  @media (max-width: 900px) {
+    .brand { flex: 0 0 160px; width: 160px; }
+    .topbar-actions { flex: 0 0 160px; width: 160px; }
+    .topbar-clock-date { display: none; }
+    .search-trigger { width: 180px; }
+  }
+
+  @media (max-width: 640px) {
+    .shell { padding: 16px 16px 64px; }
+    .topbar-shell { margin: -16px -16px 12px; padding: 12px 16px 8px; }
+    .topbar { gap: 8px; padding: 8px; }
+    .brand { flex: 0 0 auto; width: auto; }
+    .brand-title { display: none; } /* 仅保留品牌图标 */
+    .topbar-actions { flex: 0 0 auto; width: auto; gap: 4px; }
+    .topbar-clock, .action-sep { display: none; }
+    .search-trigger { width: 140px; }
+    .search-area.is-expanded .search-expand-layer {
+      width: calc(100vw - 32px - 16px);
+      left: calc(-1 * (30px + 8px)); /* 展开时向左借位覆盖品牌与动作区 */
+    }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"></div>
+
+<div class="shell">
+  <div class="topbar-shell">
+    <header class="topbar" id="mainTopbar">
+      <!-- 栏 1：品牌区 -->
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+            <path d="M10 26V13.5C10 9.4 13.4 6 17.5 6C21.6 6 25 9.4 25 13.5C25 17.6 21.6 21 17.5 21H10"
+                  stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <h1 class="brand-title">PureNav</h1>
+      </div>
+
+      <!-- 栏 2：搜索区（定轴 + 液态展开覆盖层） -->
+      <div class="search-area" id="searchArea">
+        <!-- 默认收起态触发器 -->
+        <button class="search-trigger" id="searchTrigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="searchExpandLayer" title="搜索站点 (快捷键 / 或 ⌘K)">
+          <span class="search-trigger-ic" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+            </svg>
+          </span>
+          <span class="search-trigger-text" id="searchTriggerText">搜索站点</span>
+          <kbd class="search-trigger-kbd">/</kbd>
+        </button>
+
+        <!-- 动画展开层（覆盖式，不引起任何动作区回流） -->
+        <div class="search-expand-layer" id="searchExpandLayer">
+          <div class="search-input-wrap">
+            <span class="search-input-ic" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+              </svg>
+            </span>
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索站点..." aria-label="搜索站点" autocomplete="off" />
+            <div class="search-input-actions">
+              <button type="button" class="search-clear-btn" id="searchClearBtn" aria-label="清空输入" title="清空">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+              <kbd class="search-esc-kbd" id="searchEscKbd" title="点击或按 Esc 收起">Esc</kbd>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 栏 3：动作区（固定宽 256px，绝对不产生 1px 位移） -->
+      <div class="topbar-actions" id="topbarActions">
+        <button class="icon-btn" id="btnViewToggle" title="切换为列表视图" aria-label="切换为列表视图">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          </svg>
+        </button>
+
+        <button class="icon-btn" id="btnThemeToggle" title="切换暗色/浅色主题" aria-label="切换暗色/浅色主题">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>
+          </svg>
+        </button>
+
+        <button class="icon-btn" id="btnAdmin" title="管理后台" aria-label="管理后台">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+
+        <div class="action-sep" aria-hidden="true"></div>
+
+        <!-- 时钟（最弱一级纯文本） -->
+        <span class="topbar-clock" id="topbarClock" aria-label="当前时间">
+          <span class="topbar-clock-date">11月6日 周五</span>
+          <span class="topbar-clock-time">13:51</span>
+        </span>
+      </div>
+    </header>
+  </div>
+
+  <!-- 标签筛选条（G1 透镜微调） -->
+  <div class="tag-filter-bar">
+    <button class="tag-pill is-active">全部 <span class="tag-count">12</span></button>
+    <button class="tag-pill">VPN <span class="tag-count">1</span></button>
+    <button class="tag-pill">开发 <span class="tag-count">6</span></button>
+    <button class="tag-pill">设计 <span class="tag-count">3</span></button>
+    <button class="tag-pill">运维 <span class="tag-count">2</span></button>
+  </div>
+
+  <h2 class="group-title">常用 <span class="group-count">6</span></h2>
+  <div class="grid">
+    <a class="card" href="#github"><span class="card-ic">G</span><div class="card-body"><div class="card-title">GitHub</div><div class="card-url">github.com</div></div></a>
+    <a class="card" href="#figma"><span class="card-ic v2">F</span><div class="card-body"><div class="card-title">Figma</div><div class="card-url">figma.com</div></div></a>
+    <a class="card" href="#notion"><span class="card-ic v3">N</span><div class="card-body"><div class="card-title">Notion</div><div class="card-url">notion.so</div></div></a>
+    <a class="card" href="#vercel"><span class="card-ic v4">V</span><div class="card-body"><div class="card-title">Vercel</div><div class="card-url">vercel.com</div></div></a>
+    <a class="card" href="#linear"><span class="card-ic">L</span><div class="card-body"><div class="card-title">Linear</div><div class="card-url">linear.app</div></div></a>
+    <a class="card" href="#stripe"><span class="card-ic v2">S</span><div class="card-body"><div class="card-title">Stripe Docs</div><div class="card-url">docs.stripe.com</div></div></a>
+  </div>
+
+  <h2 class="group-title">开发 <span class="group-count">6</span></h2>
+  <div class="grid">
+    <a class="card" href="#mdn"><span class="card-ic v3">M</span><div class="card-body"><div class="card-title">MDN</div><div class="card-url">developer.mozilla.org</div></div></a>
+    <a class="card" href="#react"><span class="card-ic v4">R</span><div class="card-body"><div class="card-title">React</div><div class="card-url">react.dev</div></div></a>
+    <a class="card" href="#tailwind"><span class="card-ic">T</span><div class="card-body"><div class="card-title">Tailwind</div><div class="card-url">tailwindcss.com</div></div></a>
+    <a class="card" href="#vite"><span class="card-ic v2">V</span><div class="card-body"><div class="card-title">Vite</div><div class="card-url">vite.dev</div></div></a>
+    <a class="card" href="#sqlite"><span class="card-ic v3">S</span><div class="card-body"><div class="card-title">SQLite</div><div class="card-url">sqlite.org</div></div></a>
+    <a class="card" href="#docker"><span class="card-ic v4">D</span><div class="card-body"><div class="card-title">Docker</div><div class="card-url">docs.docker.com</div></div></a>
+  </div>
+</div>
+
+<!-- 快速演示工具条（非截图元素，可在截图中保留或隐藏） -->
+<div class="demo-toolbar" id="demoToolbar" aria-label="演示控制">
+  <button class="demo-btn" id="demoToggleExpand">展开/收起</button>
+  <button class="demo-btn" id="demoSetFilter">模拟有查询收起</button>
+  <button class="demo-btn" id="demoTheme">切暗色</button>
+</div>
+
+<script>
+  (function() {
+    const topbar = document.getElementById('mainTopbar');
+    const searchArea = document.getElementById('searchArea');
+    const trigger = document.getElementById('searchTrigger');
+    const triggerText = document.getElementById('searchTriggerText');
+    const input = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('searchClearBtn');
+    const escKbd = document.getElementById('searchEscKbd');
+    const themeBtn = document.getElementById('btnThemeToggle');
+    const demoToolbar = document.getElementById('demoToolbar');
+
+    let currentQuery = '';
+
+    function updateTriggerUI() {
+      if (currentQuery.trim().length > 0) {
+        trigger.classList.add('is-filtered');
+        triggerText.innerHTML = '筛选中: <strong>' + escapeHTML(currentQuery) + '</strong>';
+        // 若没有清空小按钮则补上
+        if (!trigger.querySelector('.filter-clear-btn')) {
+          const btn = document.createElement('button');
+          btn.className = 'filter-clear-btn';
+          btn.setAttribute('aria-label', '清除筛选');
+          btn.setAttribute('title', '清除筛选');
+          btn.innerHTML = '&times;';
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            currentQuery = '';
+            input.value = '';
+            clearBtn.classList.remove('is-visible');
+            updateTriggerUI();
+          });
+          trigger.appendChild(btn);
+        }
+      } else {
+        trigger.classList.remove('is-filtered');
+        triggerText.textContent = '搜索站点';
+        const btn = trigger.querySelector('.filter-clear-btn');
+        if (btn) btn.remove();
+      }
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // 展开
+    function expandSearch() {
+      if (searchArea.classList.contains('is-expanded')) return;
+      searchArea.classList.add('is-expanded');
+      topbar.classList.add('search-open');
+      trigger.setAttribute('aria-expanded', 'true');
+      
+      // 同一帧/下一微任务 focus
+      requestAnimationFrame(() => {
+        input.focus();
+        if (input.value) {
+          input.select();
+        }
+      });
+    }
+
+    // 收起
+    function collapseSearch() {
+      if (!searchArea.classList.contains('is-expanded')) return;
+      currentQuery = input.value;
+      searchArea.classList.remove('is-expanded');
+      topbar.classList.remove('search-open');
+      trigger.setAttribute('aria-expanded', 'false');
+      updateTriggerUI();
+      // 焦点平滑回到触发器
+      trigger.focus();
+    }
+
+    // 事件绑定
+    trigger.addEventListener('click', expandSearch);
+    escKbd.addEventListener('click', collapseSearch);
+
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      currentQuery = '';
+      clearBtn.classList.remove('is-visible');
+      input.focus();
+    });
+
+    input.addEventListener('input', () => {
+      currentQuery = input.value;
+      if (input.value.length > 0) {
+        clearBtn.classList.add('is-visible');
+      } else {
+        clearBtn.classList.remove('is-visible');
+      }
+    });
+
+    // 快捷键系统
+    window.addEventListener('keydown', (e) => {
+      // ⌘K 或 单击 / 唤起
+      if ((e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) && document.activeElement !== input) {
+        e.preventDefault();
+        expandSearch();
+      } else if (e.key === 'Escape' && searchArea.classList.contains('is-expanded')) {
+        e.preventDefault();
+        collapseSearch();
+      }
+    });
+
+    // 暗色切换
+    function toggleDark() {
+      const html = document.documentElement;
+      if (html.getAttribute('data-theme') === 'dark') {
+        html.removeAttribute('data-theme');
+      } else {
+        html.setAttribute('data-theme', 'dark');
+      }
+    }
+    themeBtn.addEventListener('click', toggleDark);
+
+    // 演示按钮
+    document.getElementById('demoToggleExpand').addEventListener('click', () => {
+      if (searchArea.classList.contains('is-expanded')) {
+        collapseSearch();
+      } else {
+        expandSearch();
+      }
+    });
+    document.getElementById('demoSetFilter').addEventListener('click', () => {
+      currentQuery = 'GitHub';
+      input.value = 'GitHub';
+      collapseSearch();
+    });
+    document.getElementById('demoTheme').addEventListener('click', toggleDark);
+
+    // 暴露全局 API 供自动化测试调用
+    window.PureNavDemo = {
+      expandSearch,
+      collapseSearch,
+      setFilter: (text) => {
+        currentQuery = text;
+        input.value = text;
+        collapseSearch();
+      },
+      setDark: (val) => {
+        if (val) document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+      },
+      hideDemoToolbar: () => { demoToolbar.style.display = 'none'; },
+      showDemoToolbar: () => { demoToolbar.style.display = 'flex'; }
+    };
+  })();
+</script>
+</body>
+</html>

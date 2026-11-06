@@ -1,0 +1,119 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "topbar": {
+    "x": 124,
+    "y": 16,
+    "w": 1192,
+    "h": 52,
+    "borderRadius": "20px",
+    "fontSize": "14px",
+    "height": "52px"
+  },
+  "brand": {
+    "x": 136,
+    "y": 27,
+    "w": 256,
+    "h": 30,
+    "borderRadius": "0px",
+    "fontSize": "14px",
+    "height": "30px"
+  },
+  "mark": {
+    "x": 136,
+    "y": 27,
+    "w": 30,
+    "h": 30,
+    "borderRadius": "8px",
+    "fontSize": "14px",
+    "height": "30px"
+  },
+  "clock": {
+    "x": 1192.2,
+    "y": 33,
+    "w": 111.8,
+    "h": 18,
+    "borderRadius": "0px",
+    "fontSize": "12px",
+    "height": "18px"
+  },
+  "search": {
+    "x": 408,
+    "y": 24,
+    "w": 624,
+    "h": 36,
+    "borderRadius": "0px",
+    "fontSize": "14px",
+    "height": "36px"
+  },
+  "searchInput": {
+    "x": 408,
+    "y": 24,
+    "w": 624,
+    "h": 36,
+    "borderRadius": "12px",
+    "fontSize": "13px",
+    "height": "36px"
+  },
+  "iconButtons": [
+    {
+      "x": 1048,
+      "y": 24,
+      "w": 36,
+      "h": 36,
+      "borderRadius": "12px",
+      "fontSize": "13.3333px",
+      "height": "36px"
+    },
+    {
+      "x": 1092,
+      "y": 24,
+      "w": 36,
+      "h": 36,
+      "borderRadius": "12px",
+      "fontSize": "13.3333px",
+      "height": "36px"
+    },
+    {
+      "x": 1136,
+      "y": 24,
+      "w": 36,
+      "h": 36,
+      "borderRadius": "12px",
+      "fontSize": "13.3333px",
+      "height": "36px"
+    }
+  ],
+  "tagbar": {
+    "x": 124,
+    "y": 88,
+    "w": 333.7,
+    "h": 36,
+    "borderRadius": "9999px",
+    "fontSize": "14px",
+    "height": "36px"
+  },
+  "gapSearchToIcons": 16,
+  "searchCenterPct": 50,
+  "heights": {
+    "searchInput": 36,
+    "iconBtn1": 36,
+    "iconBtn2": 36,
+    "iconBtn3": 36
+  },
+  "radii": {
+    "topbar": "20px",
+    "brandMark": "8px",
+    "searchInput": "12px",
+    "iconBtn1": "12px",
+    "iconBtn2": "12px",
+    "iconBtn3": "12px",
+    "clock": "0px",
+    "tagbar": "9999px"
+  },
+  "controlsHeightUniqueCount": 1,
+  "stackedGlassViolationCount": 0,
+  "stackedGlassViolations": []
+}
