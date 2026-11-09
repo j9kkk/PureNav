@@ -7,29 +7,26 @@ import { useEffect, useRef, useState } from 'react';
  * 打开（null → 非空）立即透传，无延迟。
  */
 export function useDelayedUnmount<T>(value: T | null, durationMs: number): { held: T | null; closing: boolean } {
-  const [state, setState] = useState<{ held: T | null; closing: boolean }>({ held: value, closing: false });
-  const prevRef = useRef(value);
-  const timerRef = useRef<number | undefined>(undefined);
+  const [, setTick] = useState(0);
+  const prevRef = useRef<T | null>(value);
+  if (value !== null) {
+    prevRef.current = value;
+  }
+
+  const isOpen = value !== null;
 
   useEffect(() => {
-    if (value !== null) {
-      window.clearTimeout(timerRef.current);
-      prevRef.current = value;
-      setState({ held: value, closing: false });
-      return;
-    }
-    const prev = prevRef.current;
-    if (prev === null) {
-      setState({ held: null, closing: false });
-      return;
-    }
-    setState({ held: prev, closing: true });
-    timerRef.current = window.setTimeout(() => {
+    if (isOpen) return;
+    if (prevRef.current === null) return;
+    const timer = window.setTimeout(() => {
       prevRef.current = null;
-      setState({ held: null, closing: false });
+      setTick((n) => n + 1);
     }, durationMs);
-    return () => window.clearTimeout(timerRef.current);
-  }, [value, durationMs]);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, durationMs]);
 
-  return state;
+  if (value !== null) {
+    return { held: value, closing: false };
+  }
+  return { held: prevRef.current, closing: prevRef.current !== null };
 }

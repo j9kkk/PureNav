@@ -439,21 +439,6 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   }, []);
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (event.key === 'Escape' && document.activeElement === searchRef.current) {
-        setQuery('');
-        searchRef.current?.blur();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  useEffect(() => {
     const identity = config?.site.identity;
     document.title = identity?.title ?? 'PureNav';
   }, [config?.site.identity]);
@@ -627,6 +612,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       const tag = document.activeElement?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 

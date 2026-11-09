@@ -60,6 +60,7 @@ export function TagInput({ id, value, onChange, availableTags = [], placeholder 
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       if (isOpen && highlightIdx >= 0 && highlightIdx < suggestions.length) {

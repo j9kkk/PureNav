@@ -557,7 +557,9 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     if (!form) return;
     try {
       const asset = await api.uploadIcon(file);
-      setForm({ ...form, iconType: 'asset', iconAssetId: asset.assetId, iconPreview: asset.url });
+      setForm((prev) =>
+        prev ? { ...prev, iconType: 'asset', iconAssetId: asset.assetId, iconPreview: asset.url } : prev,
+      );
       flash('图标已上传');
     } catch (err) {
       setError(err instanceof Error ? err.message : '上传失败');
@@ -1008,7 +1010,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         )}
       </main>
 
-      {formMount.held && formMount.held && (() => {
+      {formMount.held && (() => {
         const form = formMount.held;
         return (
         <div className="modal-backdrop" data-exit={formMount.closing || undefined} onClick={() => setForm(null)}>
@@ -1148,6 +1150,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
                 maxLength={40}
                 onChange={(event) => setGroupDialog({ ...groupDialog, name: event.target.value })}
                 onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   if (event.key === 'Enter') void createGroup();
                 }}
               />

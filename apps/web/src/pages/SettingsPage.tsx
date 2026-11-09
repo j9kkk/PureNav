@@ -50,8 +50,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
     setBusy(true);
     setError('');
     try {
-      const next = await api.updateSettings(patch);
-      setSettings(next);
+      await api.updateSettings(patch);
       flash('已保存');
       // The front page caches its theme, so refresh the shell it reads from.
       onChanged();
