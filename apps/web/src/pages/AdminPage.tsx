@@ -687,7 +687,10 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         </nav>
 
         <div className="spacer" />
-        <div className="side-user">{user.username}</div>
+        <div className="side-user">
+          <span className="side-user-name">{user.username}</span>
+          <span className="side-version num">v{__APP_VERSION__}</span>
+        </div>
       </aside>
 
       <main className="admin-main">

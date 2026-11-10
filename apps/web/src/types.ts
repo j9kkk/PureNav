@@ -1,3 +1,7 @@
+declare global {
+  const __APP_VERSION__: string;
+}
+
 export interface IconRef {
   type: 'auto' | 'url' | 'iconify' | 'asset' | 'text';
   ref: string | null;

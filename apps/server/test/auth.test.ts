@@ -164,3 +164,22 @@ test('security: responses carry the expected hardening headers', async () => {
   assert.match(csp, /script-src 'self'/);
   assert.ok(!/connect-src[^;]*\bhttp:\s/.test(csp), `connect-src should not allow plain http by default: ${csp}`);
 });
+
+test('system: health and system/info report package version', async () => {
+  const cookie = await admin();
+  const health = await ctx.app.inject({ method: 'GET', url: '/health' });
+  assert.equal(health.statusCode, 200);
+  const healthJson = health.json<{ status: string; version: string }>();
+  assert.equal(healthJson.status, 'ok');
+  assert.match(healthJson.version, /^\d+\.\d+\.\d+/);
+
+  const info = await ctx.app.inject({
+    method: 'GET',
+    url: '/api/v1/system/info',
+    headers: authed(cookie, ctx),
+  });
+  assert.equal(info.statusCode, 200);
+  const infoJson = info.json<{ version: string; database: string }>();
+  assert.equal(infoJson.version, healthJson.version);
+  assert.equal(infoJson.database, 'sqlite');
+});

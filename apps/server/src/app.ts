@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
@@ -21,6 +22,19 @@ export interface BuildAppOptions {
   webDist?: string | null;
   logger?: boolean;
 }
+
+function readPackageVersion(): string {
+  if (process.env.PURE_VERSION) return process.env.PURE_VERSION;
+  try {
+    const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version?: string };
+    return pkg.version ?? 'dev';
+  } catch {
+    return 'dev';
+  }
+}
+
+export const appVersion = readPackageVersion();
 
 /** Builds the app without listening, so tests can drive it via inject(). */
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -94,7 +108,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.get('/health', async () => ({
     status: 'ok',
-    version: process.env.PURE_VERSION ?? 'dev',
+    version: appVersion,
     uptime: Math.round(process.uptime()),
   }));
 
@@ -111,7 +125,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           assets: (db.prepare('SELECT COUNT(*) AS n FROM assets').get() as { n: number }).n,
         };
         return {
-          version: process.env.PURE_VERSION ?? 'dev',
+          version: appVersion,
           database: 'sqlite',
           counts,
           dataDir: config.dataDir,

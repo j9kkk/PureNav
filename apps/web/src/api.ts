@@ -27,8 +27,16 @@ export interface AuthState {
   user: SessionUser | null;
 }
 
+export interface SystemInfo {
+  version: string;
+  database: string;
+  counts: { groups: number; items: number; assets: number };
+  dataDir: string;
+}
+
 export const api = {
   authState: () => request<AuthState>('/auth/state'),
+  systemInfo: () => request<SystemInfo>('/system/info'),
   setup: (username: string, password: string) =>
     request<{ user: SessionUser }>('/auth/setup', { method: 'POST', body: JSON.stringify({ username, password }) }),
   login: (username: string, password: string) =>

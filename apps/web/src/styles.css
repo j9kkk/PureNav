@@ -1527,12 +1527,24 @@ p {
 }
 
 .side-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 8px 4px;
   font-size: var(--fs-caption);
   color: var(--text-dim);
+}
+
+.side-user-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.side-version {
+  flex: none;
 }
 
 /* ---------- Admin header ---------- */
