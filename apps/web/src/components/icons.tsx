@@ -223,3 +223,31 @@ export function IconTrash({ size = 15 }: IconProps) {
   );
 }
 
+export function IconClose({ size = 14 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+export function IconUpload({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M8 11.5v-7M5 7.3L8 4.5l3 2.8M2.8 12.8h10.4" />
+    </svg>
+  );
+}
+
+export function IconDotsHorizontal({ size = 14 }: IconProps) {
+  return (
+    <svg {...svgProps(size)} fill="currentColor" stroke="none">
+      <circle cx="3" cy="8" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="13" cy="8" r="1.3" />
+    </svg>
+  );
+}
+
+
+

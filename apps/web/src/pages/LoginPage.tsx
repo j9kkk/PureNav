@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api';
 import type { SessionUser } from '../types';
-import { AmbientField } from '../components/AmbientField';
+import { BrandMark } from '../components/BrandMark';
+import { resolveTheme, writeThemeOverride, applyTheme, type ThemeMode } from '../lib/theme';
+import { IconMoon, IconSun } from '../components/icons';
 
 interface Props {
   needsSetup: boolean;
@@ -15,6 +17,15 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
+
+  const toggleTheme = () => {
+    const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
+    writeThemeOverride(next);
+    setThemeMode(next);
+    document.documentElement.dataset.theme = next;
+    applyTheme(undefined);
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -37,65 +48,100 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
   };
 
   return (
-    <>
-      <AmbientField />
-      <div className="auth-wrap">
-        <form className="auth-card pn-enter lg" data-lg="lens" data-lg-blur="22" data-lg-amp="10" onSubmit={submit}>
-        <h1>{needsSetup ? '初始化 PureNav' : '登录后台'}</h1>
-        <p className="sub">{needsSetup ? '首次启动，请创建管理员账号。' : '仅管理员可以编辑导航内容。'}</p>
+    <div className="nx-app" data-theme={themeMode}>
+      <div className="nx-auth-topbar">
+        <button
+          type="button"
+          className="nx-icon-btn"
+          onClick={toggleTheme}
+          title={themeMode === 'dark' ? '切换为浅色主题' : '切换为暗色主题'}
+          aria-label="切换主题"
+        >
+          {themeMode === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
+        </button>
+      </div>
 
-        {error && <p className="error-text">{error}</p>}
+      <div className="nx-auth-wrap">
+        <form className="nx-auth-card" onSubmit={submit}>
+          <div className="nx-auth-brand">
+            <span className="nx-auth-brand-mark">
+              <BrandMark size={26} />
+            </span>
+            <span className="nx-auth-brand-name">PureNav</span>
+          </div>
 
-        <div className="field">
-          <label htmlFor="username">用户名</label>
-          <input
-            id="username"
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoFocus
-            required
-          />
-        </div>
+          <h1 className="nx-auth-title">{needsSetup ? '初始化 PureNav' : '登录管理后台'}</h1>
+          <p className="nx-auth-sub">
+            {needsSetup ? '首次启动，请创建管理员账号。' : '仅管理员可以编辑与管理收藏夹。'}
+          </p>
 
-        <div className="field">
-          <label htmlFor="password">密码</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete={needsSetup ? 'new-password' : 'current-password'}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            minLength={needsSetup ? 8 : 1}
-          />
-          {needsSetup && <span className="hint">至少 8 位</span>}
-        </div>
+          {error && (
+            <div className="nx-alert-error" role="alert">
+              {error}
+            </div>
+          )}
 
-        {needsSetup && (
-          <div className="field">
-            <label htmlFor="confirm">确认密码</label>
+          <div className="nx-field">
+            <label className="nx-label" htmlFor="username">
+              用户名
+            </label>
             <input
-              id="confirm"
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
+              id="username"
+              className="nx-input"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              autoFocus
               required
             />
           </div>
-        )}
 
-        <div className="modal-actions">
-          <button type="button" className="btn" onClick={onCancel}>
-            返回首页
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? '处理中…' : needsSetup ? '创建管理员' : '登录'}
-          </button>
-        </div>
-      </form>
+          <div className="nx-field">
+            <div className="nx-label-row">
+              <label className="nx-label" htmlFor="password">
+                密码
+              </label>
+              {needsSetup && <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>至少 8 位</span>}
+            </div>
+            <input
+              id="password"
+              type="password"
+              className="nx-input"
+              autoComplete={needsSetup ? 'new-password' : 'current-password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={needsSetup ? 8 : 1}
+            />
+          </div>
+
+          {needsSetup && (
+            <div className="nx-field">
+              <label className="nx-label" htmlFor="confirm">
+                确认密码
+              </label>
+              <input
+                id="confirm"
+                type="password"
+                className="nx-input"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          <div className="nx-auth-actions">
+            <button type="button" className="nx-btn-secondary" onClick={onCancel}>
+              返回前台
+            </button>
+            <button type="submit" className="nx-btn-primary" disabled={busy}>
+              {busy ? '处理中…' : needsSetup ? '创建管理员' : '登录'}
+            </button>
+          </div>
+        </form>
       </div>
-    </>
+    </div>
   );
 }

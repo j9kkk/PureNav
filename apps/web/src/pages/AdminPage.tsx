@@ -3,7 +3,13 @@ import { api, type AdminGroupDto, type AdminItemDto } from '../api';
 import type { SessionUser } from '../types';
 import { DragHandle, useRowDrag } from '../components/SortableList';
 import { GroupTreeNav } from '../components/GroupTree';
-import { applyGroupMove, buildGroupTree, treeToSnapshot, type DropMode, type GroupNode } from '../lib/groupTree';
+import {
+  applyGroupMove,
+  buildGroupTree,
+  treeToSnapshot,
+  type DropMode,
+  type GroupNode,
+} from '../lib/groupTree';
 import { Switch } from '../components/Switch';
 import { TagInput } from '../components/TagInput';
 import { BookmarkImportModal } from '../components/BookmarkImportModal';
@@ -20,19 +26,23 @@ import { useIconImage } from '../lib/iconImage';
 import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
 import {
   IconCheckCircle,
+  IconClose,
   IconDownload,
   IconGrid,
   IconHome,
   IconLogout,
+  IconMoon,
   IconPencil,
   IconPlus,
+  IconSearch,
   IconSlashCircle,
   IconSliders,
+  IconSun,
   IconTrash,
   IconUser,
 } from '../components/icons';
-import { AmbientField } from '../components/AmbientField';
 import { BrandMark } from '../components/BrandMark';
+import { resolveTheme, writeThemeOverride, applyTheme, type ThemeMode } from '../lib/theme';
 
 interface Props {
   user: SessionUser;
@@ -58,10 +68,9 @@ interface ItemForm {
 
 function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
-  // 与前台共用同一套解析，后台预览才和实际呈现保持一致。
   const icon = useMemo(() => primaryIconSrc(item.icon, item.url, palette.color), [item.icon, item.url, palette.color]);
   const [src, setSrc] = useState(icon);
-  const { ref: imgRef, loaded, broken, variant, onLoad, setBroken } = useIconImage(src);
+  const { ref: imgRef, loaded, broken, onLoad, setBroken } = useIconImage(src);
 
   useEffect(() => {
     setSrc(icon);
@@ -80,15 +89,11 @@ function ItemPreviewIcon({ item }: { item: AdminItemDto }) {
   const initial = item.title.trim().slice(0, 1).toUpperCase() || '·';
 
   return (
-    <span
-      className="admin-item-icon"
-      data-has-image={src && loaded && !broken ? 'true' : 'false'}
-      data-variant={variant}
-      style={{ color: palette.color }}
-    >
-      {(!src || broken || !loaded) && <span>{initial}</span>}
-      {src && !broken && (
+    <span className="nx-table-icon" style={{ color: palette.color }}>
+      {src && !broken ? (
         <img ref={imgRef} src={src} alt="" loading="lazy" onLoad={onLoad} onError={handleIconError} />
+      ) : (
+        <span>{initial}</span>
       )}
     </span>
   );
@@ -106,33 +111,33 @@ function ItemActions({
   onRemove: () => void;
 }) {
   return (
-    <div className="action-cell">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
       <button
         type="button"
-        className="action-icon-btn"
+        className="nx-icon-btn"
         onClick={onEdit}
-        title="编辑站点"
-        aria-label={`编辑站点 ${item.title}`}
+        title="编辑书签"
+        aria-label={`编辑书签 ${item.title}`}
       >
-        <IconPencil size={15} />
+        <IconPencil size={14} />
       </button>
       <button
         type="button"
-        className={`action-icon-btn${item.enabled ? '' : ' is-disabled'}`}
+        className={item.enabled ? 'nx-icon-btn' : 'nx-icon-btn nx-icon-btn-ok'}
         onClick={onToggle}
-        title={item.enabled ? '停用此项' : '启用此项'}
-        aria-label={item.enabled ? `停用站点 ${item.title}` : `启用站点 ${item.title}`}
+        title={item.enabled ? '停用此书签' : '启用此书签'}
+        aria-label={item.enabled ? `停用书签 ${item.title}` : `启用书签 ${item.title}`}
       >
-        {item.enabled ? <IconSlashCircle size={15} /> : <IconCheckCircle size={15} />}
+        {item.enabled ? <IconSlashCircle size={14} /> : <IconCheckCircle size={14} />}
       </button>
       <button
         type="button"
-        className="action-icon-btn action-icon-btn-danger"
+        className="nx-icon-btn nx-icon-btn-danger"
         onClick={onRemove}
-        title="删除站点"
-        aria-label={`删除站点 ${item.title}`}
+        title="删除书签"
+        aria-label={`删除书签 ${item.title}`}
       >
-        <IconTrash size={15} />
+        <IconTrash size={14} />
       </button>
     </div>
   );
@@ -153,7 +158,6 @@ const EMPTY_FORM = (groupId: string): ItemForm => ({
   pinned: false,
 });
 
-/** 生成带省略号的分页按钮序列，如 [1, '…', 4, 5, 6, '…', 20] */
 function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const wanted = new Set([1, total, current - 1, current, current + 1]);
@@ -168,8 +172,7 @@ function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
   return out;
 }
 
-/** Debounced Iconify search. Queries shorter than two characters are ignored by the server. */
-function IconSearch({ onPick }: { onPick: (id: string) => void }) {
+function IconifyPicker({ onPick }: { onPick: (id: string) => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ id: string; url: string }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -203,17 +206,20 @@ function IconSearch({ onPick }: { onPick: (id: string) => void }) {
   }, [query]);
 
   return (
-    <div className="field">
-      <label htmlFor="f-icon-search">搜索 Iconify 图标</label>
+    <div className="nx-field">
+      <label className="nx-label" htmlFor="f-icon-search">
+        搜索 Iconify 图标
+      </label>
       <input
         id="f-icon-search"
+        className="nx-input"
         value={query}
         placeholder="例如 github、docker"
         onChange={(event) => setQuery(event.target.value)}
       />
-      {busy && <span className="hint">搜索中…</span>}
+      {busy && <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>搜索中…</span>}
       {!busy && query.trim().length >= 2 && results.length === 0 && (
-        <span className="hint">没有匹配结果</span>
+        <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>没有匹配结果</span>
       )}
       {results.length > 0 && (
         <div className="icon-results">
@@ -238,14 +244,17 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [groups, setGroups] = useState<AdminGroupDto[]>([]);
   const [items, setItems] = useState<AdminItemDto[]>([]);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [panel, setPanel] = useState<'items' | 'settings' | 'account'>('items');
+  const [panel, setPanelState] = useState<'items' | 'settings' | 'account'>(() => {
+    const p = new URLSearchParams(window.location.search).get('panel');
+    if (p === 'settings' || p === 'account') return p;
+    return 'items';
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<ItemForm | null>(null);
   const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; icon: string; parentId: string | null } | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
-  // 弹层退出过渡：关闭后保留 DOM 一个动画周期再卸载（data-exit 播退场）
   const formMount = useDelayedUnmount(form, 240);
   const groupDialogMount = useDelayedUnmount(groupDialog, 240);
   const bookmarkMount = useDelayedUnmount(pendingBookmarkFolders, 240);
@@ -255,10 +264,34 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [serverTotal, setServerTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
+
+  const setPanel = (next: 'items' | 'settings' | 'account') => {
+    setPanelState(next);
+    const searchParam = next === 'items' ? '' : `?panel=${next}`;
+    window.history.pushState({}, '', `/admin${searchParam}`);
+  };
+
+  useEffect(() => {
+    const onPop = () => {
+      const p = new URLSearchParams(window.location.search).get('panel');
+      if (p === 'settings' || p === 'account') setPanelState(p);
+      else setPanelState('items');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const toggleTheme = () => {
+    const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
+    writeThemeOverride(next);
+    setThemeMode(next);
+    document.documentElement.dataset.theme = next;
+    applyTheme(undefined);
+  };
 
   const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => item.tags))).sort(), [items]);
 
-  // 面包屑路径：从根到当前选中分组，支持逐级点击返回
   const activeBreadcrumbs = useMemo(() => {
     if (!activeGroup) return [];
     const byId = new Map(groups.map((g) => [g.id, g]));
@@ -271,25 +304,318 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     return trail;
   }, [groups, activeGroup]);
 
-  // 服务端分页：列表接口按 page/pageSize/q 返回当前页与总数
-  const totalPages = Math.max(1, Math.ceil(serverTotal / pageSize));
-  const safePage = Math.min(pageIndex, totalPages);
-  // 行内拖动排序要求整组数据都在当前页且未搜索（order 接口要求完整 id 列表）；
-  // 拖到侧栏分组换目录不依赖这个条件，所以手柄始终可拖。
-  const canDragItems = !!activeGroup && serverTotal <= pageSize && !search;
-
   useEffect(() => {
-    setPageIndex(1);
-  }, [activeGroup, pageSize, search]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPageIndex(1);
+    }, 250);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
   const flash = (message: string) => {
     setToast(message);
-    window.setTimeout(() => setToast(''), 2200);
+    window.setTimeout(() => setToast(''), 2400);
+  };
+
+  const load = async () => {
+    setError('');
+    try {
+      const [groupResult, itemResult] = await Promise.all([
+        api.groups(),
+        api.items(activeGroup ?? undefined, { page: pageIndex, pageSize, q: search || undefined }),
+      ]);
+      setGroups(groupResult.items);
+      setItems(itemResult.items);
+      setServerTotal(itemResult.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败');
+    }
+  };
+
+  const loadItemsOnly = async () => {
+    setError('');
+    try {
+      const itemResult = await api.items(activeGroup ?? undefined, {
+        page: pageIndex,
+        pageSize,
+        q: search || undefined,
+      });
+      setItems(itemResult.items);
+      setServerTotal(itemResult.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败');
+    }
+  };
+
+  const initialLoadRef = useRef(false);
+  useEffect(() => {
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      void load();
+      return;
+    }
+    void loadItemsOnly();
+  }, [activeGroup, pageIndex, pageSize, search]);
+
+  const totalPages = Math.max(1, Math.ceil(serverTotal / pageSize));
+  const safePage = Math.min(pageIndex, totalPages);
+
+  const logout = async () => {
+    try {
+      await api.logout();
+    } finally {
+      onLoggedOut();
+    }
+  };
+
+  const openCreateItem = () => {
+    const groupId = activeGroup ?? groups[0]?.id;
+    if (!groupId) {
+      setError('请先创建一个分组');
+      return;
+    }
+    setForm(EMPTY_FORM(groupId));
+  };
+
+  const openEdit = (item: AdminItemDto) => {
+    const isAsset = item.icon.type === 'asset';
+    setForm({
+      id: item.id,
+      groupId: item.groupId,
+      title: item.title,
+      url: item.url,
+      lanUrl: item.lanUrl ?? '',
+      description: item.description ?? '',
+      iconType: item.icon.type as ItemForm['iconType'],
+      iconRef: item.icon.ref ?? '',
+      iconAssetId: item.icon.assetId ?? '',
+      iconPreview: isAsset ? (item.icon.ref ?? '') : '',
+      tags: item.tags.join(', '),
+      openInNewTab: item.openInNewTab,
+      pinned: item.pinned ?? false,
+    });
+  };
+
+  const saveItem = async () => {
+    if (!form) return;
+    setError('');
+
+    const payload: Record<string, unknown> = {
+      groupId: form.groupId,
+      title: form.title.trim(),
+      url: form.url.trim(),
+      lanUrl: form.lanUrl.trim() || null,
+      description: form.description.trim() || null,
+      openInNewTab: form.openInNewTab,
+      pinned: form.pinned,
+      tags: form.tags
+        .split(/[,，]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      icon:
+        form.iconType === 'asset'
+          ? { type: 'asset', assetId: form.iconAssetId }
+          : form.iconType === 'url' || form.iconType === 'iconify'
+            ? { type: form.iconType, ref: form.iconRef.trim() }
+            : { type: form.iconType },
+    };
+
+    if (!form.title.trim() || !form.url.trim()) {
+      setError('标题和地址不能为空');
+      return;
+    }
+
+    try {
+      if (form.id) {
+        await api.updateItem(form.id, payload);
+        flash('已保存修改');
+      } else {
+        await api.createItem(payload);
+        flash('已添加新书签');
+      }
+      setForm(null);
+      await loadItemsOnly();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存失败');
+    }
+  };
+
+  const uploadIcon = async (file: File) => {
+    try {
+      const asset = await api.uploadIcon(file);
+      setForm((prev) =>
+        prev
+          ? {
+              ...prev,
+              iconType: 'asset',
+              iconAssetId: asset.assetId,
+              iconPreview: asset.url,
+            }
+          : null,
+      );
+      flash('图标上传成功');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '上传失败');
+    }
+  };
+
+  const removeItem = async (item: AdminItemDto) => {
+    if (!window.confirm(`确定删除「${item.title}」？`)) return;
+    try {
+      await api.deleteItem(item.id);
+      flash(`已删除「${item.title}」`);
+      await loadItemsOnly();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除失败');
+    }
+  };
+
+  const toggleItem = async (item: AdminItemDto) => {
+    try {
+      await api.updateItem(item.id, { enabled: !item.enabled });
+      flash(item.enabled ? `已停用「${item.title}」` : `已启用「${item.title}」`);
+      await loadItemsOnly();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '更新状态失败');
+    }
+  };
+
+  const runBatch = async (op: 'enable' | 'disable' | 'delete' | 'move', moveTo?: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    if (op === 'delete' && !window.confirm(`确定删除选中的 ${ids.length} 个书签？`)) {
+      return;
+    }
+
+    try {
+      const result = await api.batchItems(op, ids, moveTo);
+      flash(`已处理 ${result.affected} 项`);
+      setSelectedIds(new Set());
+      await loadItemsOnly();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '批量操作失败');
+    }
+  };
+
+  const createGroup = async () => {
+    if (!groupDialog) return;
+    const name = groupDialog.name.trim();
+    if (!name) {
+      setError('分组名不能为空');
+      return;
+    }
+
+    try {
+      if (groupDialog.id) {
+        await api.updateGroup(groupDialog.id, {
+          name,
+          icon: groupDialog.icon.trim() || null,
+          parentId: groupDialog.parentId,
+        });
+        flash('已更新分组');
+      } else {
+        await api.createGroup({
+          name,
+          icon: groupDialog.icon.trim() || null,
+          parentId: groupDialog.parentId,
+        });
+        flash('已创建新分组');
+      }
+      setGroupDialog(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '操作失败');
+    }
+  };
+
+  const removeGroup = async (group: AdminGroupDto) => {
+    const cascade =
+      group.totalCount > 0
+        ? window.confirm(`「${group.name}」及其子分组共 ${group.totalCount} 个站点，删除会一并移除。继续？`)
+        : window.confirm(`确定删除分组「${group.name}」？`);
+    if (!cascade) return;
+    try {
+      await api.deleteGroup(group.id, group.totalCount > 0);
+      flash(`已删除「${group.name}」`);
+      if (activeGroup === group.id) setActiveGroup(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除失败');
+    }
+  };
+
+  const groupIdsUnder = (rootId: string): string[] => {
+    const out: string[] = [];
+    const walk = (id: string) => {
+      out.push(id);
+      for (const group of groups) {
+        if (group.parentId === id) walk(group.id);
+      }
+    };
+    walk(rootId);
+    return out;
+  };
+
+  const handleGroupTreeMove = async (draggedId: string, targetId: string, mode: DropMode) => {
+    const next = applyGroupMove(groups, draggedId, targetId, mode);
+    if (!next) return;
+    const snapshot = treeToSnapshot(buildGroupTree(next));
+    setGroups(next);
+    try {
+      await api.reorderGroups(snapshot);
+      flash('分组结构已更新');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '分组移动失败');
+      await load();
+    }
+  };
+
+  const canDragItems = Boolean(activeGroup && !search && serverTotal <= pageSize);
+
+  const reorderCurrentGroupItems = async (orderedIds: string[]) => {
+    const groupId = activeGroup;
+    if (!groupId) return;
+
+    const inGroup = items.filter((item) => item.groupId === groupId);
+    const byId = new Map(inGroup.map((item) => [item.id, item]));
+    const optimisticInGroup: AdminItemDto[] = orderedIds
+      .map((id, index) => {
+        const item = byId.get(id);
+        return item ? { ...item, sortOrder: index } : null;
+      })
+      .filter((item): item is AdminItemDto => item !== null);
+
+    const others = items.filter((item) => item.groupId !== groupId);
+    setItems([...optimisticInGroup, ...others]);
+
+    try {
+      await api.reorderItems(groupId, orderedIds);
+      flash('书签排序已更新');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '排序保存失败');
+      await loadItemsOnly();
+    }
+  };
+
+  const itemDragIds = activeGroup ? items.filter((item) => item.groupId === activeGroup).map((item) => item.id) : [];
+
+  const itemDrag = useRowDrag(itemDragIds, (ordered) => void reorderCurrentGroupItems(ordered), {
+    reorderEnabled: canDragItems,
+  });
+
+  const moveItemToGroup = async (itemId: string, groupId: string) => {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item || item.groupId === groupId) return;
+    const group = groups.find((entry) => entry.id === groupId);
+
+    try {
+      await api.updateItem(itemId, { groupId });
+      flash(`「${item.title}」已移动到「${group?.name ?? '目标分组'}」`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移动失败');
+    }
   };
 
   const handleBookmarkFile = async (file: File) => {
@@ -323,888 +649,870 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     }
   };
 
-  const load = async () => {
-    setError('');
-    try {
-      const [groupResult, itemResult] = await Promise.all([
-        api.groups(),
-        api.items(activeGroup ?? undefined, { page: pageIndex, pageSize, q: search || undefined }),
-      ]);
-      setGroups(groupResult.items);
-      setItems(itemResult.items);
-      setServerTotal(itemResult.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败');
-    }
-  };
-
-  // 只换筛选条件时不必重拉整棵树：分组数据只在增删改之后才变。
-  // 之前每次点目录都会同时请求 groups + items，树大的实例上白白多花一轮。
-  const loadItemsOnly = async () => {
-    setError('');
-    try {
-      const itemResult = await api.items(activeGroup ?? undefined, {
-        page: pageIndex,
-        pageSize,
-        q: search || undefined,
-      });
-      setItems(itemResult.items);
-      setServerTotal(itemResult.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败');
-    }
-  };
-
-  const firstLoad = useRef(true);
-  useEffect(() => {
-    // 首次进来两样都要；之后筛选条件变化只重拉列表。
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      void load();
-      return;
-    }
-    void loadItemsOnly();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroup, pageIndex, pageSize, search]);
-
-  const createGroup = async () => {
-    if (!groupDialog) return;
-    const name = groupDialog.name.trim();
-    if (!name) return;
-    try {
-      if (groupDialog.id) {
-        await api.updateGroup(groupDialog.id, {
-          name,
-          icon: groupDialog.icon.trim() || null,
-          parentId: groupDialog.parentId || null,
-        });
-        flash('分组已更新');
-      } else {
-        const created = await api.createGroup({
-          name,
-          icon: groupDialog.icon.trim() || null,
-          parentId: groupDialog.parentId || null,
-        });
-        flash('分组已创建');
-        setActiveGroup(created.id);
-      }
-      setGroupDialog(null);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败');
-    }
-  };
-
-  const removeGroup = async (group: AdminGroupDto) => {
-    const cascade = group.totalCount > 0
-      ? window.confirm(`「${group.name}」及其子分组共 ${group.totalCount} 个站点，删除会一并移除。继续？`)
-      : window.confirm(`删除分组「${group.name}」？`);
-    if (!cascade) return;
-    try {
-      await api.deleteGroup(group.id, group.totalCount > 0);
-      flash('分组已删除');
-      if (activeGroup && groupIdsUnder(group.id).includes(activeGroup)) setActiveGroup(null);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '删除失败');
-    }
-  };
-
-  /** 拖拽分组树：换父或兄弟内排序。乐观更新，失败回滚。 */
-  const handleGroupTreeMove = async (draggedId: string, targetId: string, mode: DropMode) => {
-    const next = applyGroupMove(groups, draggedId, targetId, mode);
-    if (!next) return;
-    const snapshot = treeToSnapshot(buildGroupTree(next));
-    setGroups(next);
-    try {
-      await api.reorderGroups(snapshot);
-      flash('分组结构已更新');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '移动失败');
-      await load();
-    }
-  };
-
-  const groupIdsUnder = (rootId: string): string[] => {
-    const out: string[] = [];
-    const walk = (id: string) => {
-      out.push(id);
-      for (const group of groups) {
-        if (group.parentId === id) walk(group.id);
-      }
-    };
-    walk(rootId);
-    return out;
-  };
-
-  const applyItemOrder = async (groupId: string, ordered: string[]) => {
-    const inGroup = items.filter((item) => item.groupId === groupId);
-    const byId = new Map(inGroup.map((item) => [item.id, item]));
-    const reordered = ordered.map((id) => byId.get(id)!).filter(Boolean);
-    // Replace just this group's slice, keeping items from other groups in place.
-    const others = items.filter((item) => item.groupId !== groupId);
-    setItems([...reordered, ...others]);
-    try {
-      await api.reorderItems(groupId, ordered);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '排序失败');
-      await load();
-    }
-  };
-
-  const saveItem = async () => {
-    if (!form) return;
-    if (!form.title.trim() || !form.url.trim()) {
-      setError('标题与地址为必填项');
-      return;
-    }
-
-    const payload: Record<string, unknown> = {
-      groupId: form.groupId,
-      title: form.title.trim(),
-      url: form.url.trim(),
-      lanUrl: form.lanUrl.trim() || null,
-      description: form.description.trim() || null,
-      openInNewTab: form.openInNewTab,
-      pinned: form.pinned,
-      tags: form.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-      icon:
-        form.iconType === 'asset'
-          ? { type: 'asset', assetId: form.iconAssetId }
-          : form.iconType === 'url' || form.iconType === 'iconify'
-            ? { type: form.iconType, ref: form.iconRef.trim() }
-            : { type: form.iconType },
-    };
-
-    try {
-      if (form.id) {
-        await api.updateItem(form.id, payload);
-        flash('站点已更新');
-      } else {
-        await api.createItem(payload);
-        flash('站点已添加');
-      }
-      setForm(null);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败');
-    }
-  };
-
-  const removeItem = async (item: AdminItemDto) => {
-    if (!window.confirm(`删除「${item.title}」？`)) return;
-    try {
-      await api.deleteItem(item.id);
-      flash('站点已删除');
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '删除失败');
-    }
-  };
-
-  const toggleItem = async (item: AdminItemDto) => {
-    try {
-      await api.updateItem(item.id, { enabled: !item.enabled });
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败');
-    }
-  };
-
-  const runBatch = async (op: 'enable' | 'disable' | 'delete' | 'move', moveTo?: string) => {
-    const ids = [...selectedIds];
-    if (ids.length === 0) return;
-    if (op === 'delete' && !window.confirm(`删除选中的 ${ids.length} 个站点？`)) return;
-
-    try {
-      const result = await api.batchItems(op, ids, moveTo);
-      flash(`已处理 ${result.affected} 项`);
-      setSelectedIds(new Set());
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '批量操作失败');
-    }
-  };
-
-  const logout = async () => {
-    await api.logout().catch(() => undefined);
-    onLoggedOut();
-  };
-
-  const openEdit = (item: AdminItemDto) => {
-    const isAsset = item.icon.type === 'asset';
-    setForm({
-      id: item.id,
-      groupId: item.groupId,
-      title: item.title,
-      url: item.url,
-      lanUrl: item.lanUrl ?? '',
-      description: item.description ?? '',
-      iconType: item.icon.type as ItemForm['iconType'],
-      iconRef: item.icon.ref ?? '',
-      iconAssetId: item.icon.assetId ?? '',
-      iconPreview: isAsset ? (item.icon.ref ?? '') : '',
-      tags: item.tags.join(', '),
-      openInNewTab: item.openInNewTab,
-      pinned: item.pinned ?? false,
-    });
-  };
-
-  const uploadIcon = async (file: File) => {
-    if (!form) return;
-    try {
-      const asset = await api.uploadIcon(file);
-      setForm((prev) =>
-        prev ? { ...prev, iconType: 'asset', iconAssetId: asset.assetId, iconPreview: asset.url } : prev,
-      );
-      flash('图标已上传');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '上传失败');
-    }
-  };
-
-  const visibleGroups = activeGroup ? groups.filter((group) => group.id === activeGroup) : groups;
-
-  // Dragging is only meaningful within one group's slice. In the all-groups view the
-  // rows are mixed, so in-row reordering stays off; dragging onto the sidebar tree
-  // still moves a row to another group, which is why the handle stays draggable.
-  const itemDragIds = activeGroup ? items.filter((item) => item.groupId === activeGroup).map((item) => item.id) : [];
-  const itemDrag = useRowDrag(
-    itemDragIds,
-    (ordered) => {
-      if (activeGroup) void applyItemOrder(activeGroup, ordered);
-    },
-    { reorderEnabled: canDragItems },
-  );
-
-  /** 站点行拖到侧栏分组：跨目录移动，落到目标分组末尾。 */
-  const moveItemToGroup = async (itemId: string, groupId: string) => {
-    const item = items.find((entry) => entry.id === itemId);
-    if (!item || item.groupId === groupId) return;
-    const group = groups.find((entry) => entry.id === groupId);
-    try {
-      await api.updateItem(itemId, { groupId });
-      flash(`「${item.title}」已移动到「${group?.name ?? '目标分组'}」`);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '移动失败');
-    }
-  };
-
   return (
-    <>
-      <AmbientField count={items.length <= 200 ? 52 : 40} />
-      <div className="admin-layout">
-      <aside className="admin-side lg" data-lg="lens" data-lg-blur="20" data-lg-amp="8" data-lg-band="18">
-        <div className="brand" style={{ marginBottom: 14, padding: '0 8px' }}>
-          <span className="brand-mark"><BrandMark /></span>
-          <span className="brand-title">PureNav</span>
-          <span className="count-chip">后台</span>
+    <div className="nx-app" data-theme={themeMode}>
+      {/* 1. 左侧栏 (248px) */}
+      <aside className="nx-sidebar">
+        <div className="nx-brand-box">
+          <div className="nx-brand-row">
+            <span className="nx-brand-logo">
+              <BrandMark size={22} />
+            </span>
+            <span className="nx-brand-title">PureNav</span>
+            <span className="nx-badge">后台管理</span>
+          </div>
+          <button
+            type="button"
+            className="nx-btn-secondary"
+            style={{ width: '100%', justifyContent: 'center' }}
+            onClick={onHome}
+          >
+            <IconHome size={14} />
+            <span>返回前台工作台</span>
+          </button>
         </div>
 
-        <nav className="admin-nav">
-          <button
-            className="side-item"
-            aria-current={panel === 'items' && activeGroup === null ? 'true' : undefined}
-            onClick={() => {
-              setPanel('items');
-              setActiveGroup(null);
-            }}
-          >
-            <span className="side-icon">
-              <IconGrid size={16} />
-            </span>
-            全部站点
-          </button>
+        <div className="nx-side-scroll">
+          {/* 系统管理导航 */}
+          <div className="nx-section">
+            <div className="nx-section-head">
+              <span className="nx-section-title">系统管理</span>
+            </div>
+            <div className="nx-nav-list">
+              <button
+                type="button"
+                className="nx-nav-item"
+                data-active={panel === 'items' && activeGroup === null ? 'true' : undefined}
+                onClick={() => {
+                  setPanel('items');
+                  setActiveGroup(null);
+                }}
+              >
+                <span className="nx-nav-left">
+                  <IconGrid size={15} />
+                  <span className="nx-nav-name">书签批量管理</span>
+                </span>
+                <span className="nx-nav-count">{serverTotal}</span>
+              </button>
 
-          <div className="admin-side-tree">
-            <GroupTreeNav
-              groups={groups}
-              activeGroup={panel === 'items' ? activeGroup : null}
-              onSelect={(groupId) => {
-                setPanel('items');
-                setActiveGroup(groupId);
-              }}
-              onMove={(draggedId, targetId, mode) => void handleGroupTreeMove(draggedId, targetId, mode)}
-              onItemDrop={(itemId, groupId) => void moveItemToGroup(itemId, groupId)}
-              onEdit={(group) => setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '', parentId: group.parentId })}
-              onDelete={(group) => void removeGroup(group)}
-              onCreateChild={(parentGroup) => setGroupDialog({ name: '', icon: '', parentId: parentGroup.id })}
-            />
+              <button
+                type="button"
+                className="nx-nav-item"
+                data-active={panel === 'settings' ? 'true' : undefined}
+                onClick={() => setPanel('settings')}
+              >
+                <span className="nx-nav-left">
+                  <IconSliders size={15} />
+                  <span className="nx-nav-name">站点与数据设置</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="nx-nav-item"
+                data-active={panel === 'account' ? 'true' : undefined}
+                onClick={() => setPanel('account')}
+              >
+                <span className="nx-nav-left">
+                  <IconUser size={15} />
+                  <span className="nx-nav-name">账户与审计日志</span>
+                </span>
+              </button>
+            </div>
           </div>
 
-          <button
-            className="side-item"
-            onClick={() => setGroupDialog({ name: '', icon: '', parentId: null })}
-          >
-            <span className="side-icon">
-              <IconPlus size={16} />
-            </span>
-            新建分组
-          </button>
+          {/* 目录树管理 */}
+          <div className="nx-section">
+            <div className="nx-section-head">
+              <span className="nx-section-title">目录分组</span>
+              <button
+                type="button"
+                className="nx-section-action"
+                onClick={() => setGroupDialog({ name: '', icon: '', parentId: null })}
+                title="新建根分组"
+                aria-label="新建根分组"
+              >
+                <IconPlus size={13} />
+              </button>
+            </div>
 
-          <div className="side-sep" role="presentation" />
+            <div className="nx-admin-tree">
+              <GroupTreeNav
+                groups={groups}
+                activeGroup={panel === 'items' ? activeGroup : null}
+                onSelect={(groupId) => {
+                  setPanel('items');
+                  setActiveGroup(groupId);
+                }}
+                onMove={(draggedId, targetId, mode) => void handleGroupTreeMove(draggedId, targetId, mode)}
+                onItemDrop={(itemId, groupId) => void moveItemToGroup(itemId, groupId)}
+                onEdit={(group) =>
+                  setGroupDialog({ id: group.id, name: group.name, icon: group.icon ?? '', parentId: group.parentId })
+                }
+                onDelete={(group) => void removeGroup(group)}
+                onCreateChild={(parentGroup) =>
+                  setGroupDialog({ name: '', icon: '', parentId: parentGroup.id })
+                }
+              />
+            </div>
+          </div>
+        </div>
 
-          <button
-            className="side-item"
-            aria-current={panel === 'settings' ? 'true' : undefined}
-            onClick={() => setPanel('settings')}
-          >
-            <span className="side-icon">
-              <IconSliders size={16} />
-            </span>
-            站点设置
-          </button>
-
-          <button
-            className="side-item"
-            aria-current={panel === 'account' ? 'true' : undefined}
-            onClick={() => setPanel('account')}
-          >
-            <span className="side-icon">
-              <IconUser size={16} />
-            </span>
-            账户与日志
-          </button>
-
-          <div className="side-sep" role="presentation" />
-
-          <button className="side-item" onClick={onHome}>
-            <span className="side-icon">
-              <IconHome size={16} />
-            </span>
-            返回前台
-          </button>
-          <button className="side-item" onClick={logout}>
-            <span className="side-icon">
-              <IconLogout size={16} />
-            </span>
-            退出登录
-          </button>
-        </nav>
-
-        <div className="spacer" />
-        <div className="side-user">
-          <span className="side-user-name">{user.username}</span>
-          <span className="side-version num">v{__APP_VERSION__}</span>
+        {/* 侧栏底部状态 */}
+        <div className="nx-side-footer">
+          <div className="nx-user">
+            <span className="nx-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
+            <div className="nx-user-col">
+              <span className="nx-user-name">{user.username}</span>
+              <span className="nx-user-ver">v{__APP_VERSION__}</span>
+            </div>
+          </div>
+          <div className="nx-footer-actions">
+            <button
+              type="button"
+              className="nx-icon-btn"
+              onClick={toggleTheme}
+              title={themeMode === 'dark' ? '切换为浅色主题' : '切换为暗色主题'}
+            >
+              {themeMode === 'dark' ? <IconSun size={13} /> : <IconMoon size={13} />}
+            </button>
+            <button type="button" className="nx-icon-btn" onClick={onHome} title="返回前台">
+              <IconHome size={13} />
+            </button>
+            <button type="button" className="nx-icon-btn" onClick={logout} title="退出登录">
+              <IconLogout size={13} />
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main className="admin-main">
-        {panel === 'settings' ? (
-          <>
-            <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
-              <h1>站点设置</h1>
+      {/* 2. 主工作区 */}
+      <main className="nx-main">
+        {/* 顶栏 (52px) */}
+        <header className="nx-topbar">
+          {panel === 'items' ? (
+            <>
+              <div className="nx-topbar-left">
+                <nav className="nx-crumbs" aria-label="分组层级">
+                  {activeBreadcrumbs.length > 0 ? (
+                    <>
+                      <button type="button" className="nx-crumb" onClick={() => setActiveGroup(null)}>
+                        全部站点
+                      </button>
+                      {activeBreadcrumbs.map((crumb, idx) => {
+                        const isLast = idx === activeBreadcrumbs.length - 1;
+                        return (
+                          <span key={crumb.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span className="nx-crumb-sep">/</span>
+                            {isLast ? (
+                              <span className="nx-crumb" data-current="true">
+                                {crumb.name}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="nx-crumb"
+                                onClick={() => setActiveGroup(crumb.id)}
+                              >
+                                {crumb.name}
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <span className="nx-crumb" data-current="true">
+                      全部站点
+                    </span>
+                  )}
+                  <span className="nx-badge">{serverTotal} 个站点</span>
+                </nav>
+
+                <div className="nx-search" style={{ width: 220, height: 32 }}>
+                  <IconSearch size={14} />
+                  <input
+                    type="search"
+                    placeholder="搜索标题或网址…"
+                    aria-label="搜索站点"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                  />
+                  {searchInput && (
+                    <button className="nx-search-clear" onClick={() => setSearchInput('')} title="清空搜索">
+                      <IconClose size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="nx-topbar-right">
+                <button
+                  type="button"
+                  className="nx-btn-secondary"
+                  onClick={() => bookmarkInputRef.current?.click()}
+                  title="支持 Chrome、Edge、Safari、Firefox 导出的 HTML 书签"
+                >
+                  <IconDownload size={14} />
+                  <span>导入书签 HTML</span>
+                </button>
+                <input
+                  ref={bookmarkInputRef}
+                  type="file"
+                  accept=".html,text/html"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleBookmarkFile(file);
+                    e.target.value = '';
+                  }}
+                />
+
+                <button type="button" className="nx-btn-primary" onClick={openCreateItem}>
+                  <IconPlus size={14} />
+                  <span>添加书签</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="nx-topbar-left">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: 'var(--nx-text)' }}>
+                    {panel === 'settings' ? '站点与数据设置' : '账户与审计日志'}
+                  </h1>
+                  <span style={{ fontSize: 12, color: 'var(--nx-text-2)' }}>
+                    {panel === 'settings'
+                      ? '自定义站点全局标识、外观视图模式与完整数据备份'
+                      : '管理员安全密码凭证、活跃设备会话管理与关键操作审计'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="nx-topbar-right">
+                <button type="button" className="nx-btn-secondary" onClick={() => setPanel('items')}>
+                  <IconGrid size={14} />
+                  <span>返回书签管理</span>
+                </button>
+              </div>
+            </>
+          )}
+        </header>
+
+        {/* 主内容区 */}
+        <section className="nx-content">
+          {error && (
+            <div className="nx-alert-error" style={{ marginBottom: 12 }} role="alert">
+              {error}
             </div>
+          )}
+
+          {panel === 'settings' ? (
             <SettingsPage
               onChanged={() => {
-                // Forget the cached snapshot so the front page refetches the new theme.
                 try {
                   localStorage.removeItem('pn.config.snapshot');
                 } catch {
                   // ignore
                 }
+                void load();
               }}
             />
-          </>
-        ) : panel === 'account' ? (
-          <>
-            <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
-              <h1>账户与日志</h1>
-            </div>
+          ) : panel === 'account' ? (
             <AccountPage />
-          </>
-        ) : (
-          <>
-        <div className="admin-header lg" data-lg="lens" data-lg-blur="18" data-lg-amp="8" data-lg-band="16">
-          <div className="admin-title-wrap">
-            {activeBreadcrumbs.length > 0 ? (
-              <nav className="admin-breadcrumb" aria-label="分组层级">
-                <button
-                  type="button"
-                  className="crumb-btn"
-                  onClick={() => setActiveGroup(null)}
-                >
-                  全部站点
-                </button>
-                {activeBreadcrumbs.map((crumb, idx) => {
-                  const isLast = idx === activeBreadcrumbs.length - 1;
-                  return (
-                    <span key={crumb.id} className="crumb-segment">
-                      <span className="crumb-sep">/</span>
-                      {isLast ? (
-                        <h1 className="crumb-current">{crumb.name}</h1>
-                      ) : (
+          ) : (
+            <>
+              {/* 批量操作工具条 */}
+              {selectedIds.size > 0 && (
+                <div className="nx-bulk-bar">
+                  <span className="nx-bulk-count">已选 {selectedIds.size} 项</span>
+                  <div className="nx-bulk-divider" />
+                  <button
+                    type="button"
+                    className="nx-btn-secondary nx-btn-sm"
+                    onClick={() => void runBatch('enable')}
+                  >
+                    启用
+                  </button>
+                  <button
+                    type="button"
+                    className="nx-btn-secondary nx-btn-sm"
+                    onClick={() => void runBatch('disable')}
+                  >
+                    停用
+                  </button>
+                  <select
+                    className="nx-select nx-select-sm"
+                    value=""
+                    onChange={(event) => {
+                      const target = event.target.value;
+                      if (target) void runBatch('move', target);
+                    }}
+                    aria-label="移动到分组"
+                  >
+                    <option value="">移动到分组…</option>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="nx-btn-danger nx-btn-sm"
+                    onClick={() => void runBatch('delete')}
+                  >
+                    批量删除
+                  </button>
+                  <div style={{ flex: 1 }} />
+                  <button
+                    type="button"
+                    className="nx-btn-ghost nx-btn-sm"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    取消选择
+                  </button>
+                </div>
+              )}
+
+              {/* 数据表格容器 */}
+              <div className="nx-table-card">
+                <table className="nx-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 34 }} aria-label="排序" />
+                      <th style={{ width: 34 }}>
+                        <input
+                          type="checkbox"
+                          aria-label="全选本页"
+                          checked={items.length > 0 && items.every((item) => selectedIds.has(item.id))}
+                          onChange={(event) => {
+                            setSelectedIds((current) => {
+                              const next = new Set(current);
+                              for (const item of items) {
+                                if (event.target.checked) next.add(item.id);
+                                else next.delete(item.id);
+                              }
+                              return next;
+                            });
+                          }}
+                        />
+                      </th>
+                      <th style={{ width: 48 }}>图标</th>
+                      <th>书签信息</th>
+                      <th style={{ width: 140 }}>所属分组</th>
+                      <th style={{ width: 160 }}>标签</th>
+                      <th style={{ width: 90 }}>状态</th>
+                      <th style={{ width: 110, textAlign: 'right' }}>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr
+                        key={item.id}
+                        {...itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')}
+                      >
+                        <td>
+                          <DragHandle
+                            handleProps={{
+                              draggable: true,
+                              onDragStart: itemDrag.start(item.id),
+                              onDragEnd: itemDrag.end,
+                              onClick: (event) => event.preventDefault(),
+                            }}
+                            title={canDragItems ? '拖拽调整顺序，或拖到左侧分组移动' : '拖到左侧分组移动'}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={`选择 ${item.title}`}
+                            checked={selectedIds.has(item.id)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setSelectedIds((current) => {
+                                const next = new Set(current);
+                                if (checked) next.add(item.id);
+                                else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <ItemPreviewIcon item={item} />
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <a
+                                className="nx-table-title"
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                title={item.title}
+                              >
+                                {item.title}
+                              </a>
+                              {item.pinned && <span className="nx-badge nx-badge-pinned">置顶</span>}
+                            </div>
+                            <div className="nx-table-url">
+                              <span title={item.url}>{item.url}</span>
+                              {item.lanUrl && <span className="nx-badge nx-badge-lan">内网</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="nx-badge">
+                            {groups.find((group) => group.id === item.groupId)?.name ?? '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                            {item.tags.length > 0 ? (
+                              <>
+                                {item.tags.slice(0, 2).map((t) => (
+                                  <span key={t} className="nx-badge">
+                                    {t}
+                                  </span>
+                                ))}
+                                {item.tags.length > 2 && (
+                                  <span className="nx-badge" title={item.tags.slice(2).join(', ')}>
+                                    +{item.tags.length - 2}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={item.enabled ? 'nx-status-pill is-ok' : 'nx-status-pill is-off'}>
+                            {item.enabled ? '已启用' : '已停用'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <ItemActions
+                            item={item}
+                            onEdit={() => openEdit(item)}
+                            onToggle={() => void toggleItem(item)}
+                            onRemove={() => void removeItem(item)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: 'center', color: 'var(--nx-text-3)', padding: 48 }}>
+                          {search ? '没有匹配的书签' : '当前分组下暂无书签，点击右上角「+ 添加书签」创建'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* 底部分页栏 */}
+                {(totalPages > 1 || serverTotal > 0) && (
+                  <div className="nx-pagination">
+                    <div className="nx-pagination-left">
+                      <span>
+                        共 {serverTotal} 个站点{search ? ` · 匹配「${search}」` : ''}
+                      </span>
+                      <select
+                        className="nx-select nx-select-sm"
+                        value={pageSize}
+                        onChange={(event) => setPageSize(Number(event.target.value))}
+                        aria-label="每页数量"
+                      >
+                        <option value={20}>20 条/页</option>
+                        <option value={50}>50 条/页</option>
+                        <option value={100}>100 条/页</option>
+                      </select>
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="nx-pagination-right">
                         <button
                           type="button"
-                          className="crumb-btn"
-                          onClick={() => setActiveGroup(crumb.id)}
+                          className="nx-btn-secondary nx-btn-sm"
+                          disabled={safePage <= 1}
+                          onClick={() => setPageIndex(safePage - 1)}
                         >
-                          {crumb.name}
+                          上一页
                         </button>
-                      )}
-                    </span>
-                  );
-                })}
-              </nav>
-            ) : (
-              <h1>全部站点</h1>
-            )}
-            <span className="count-chip num">{serverTotal} 个站点</span>
-          </div>
-          <div className="spacer" />
-          <input
-            className="admin-search"
-            type="search"
-            placeholder="搜索标题或网址…"
-            aria-label="搜索站点"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-          />
-          <div className="admin-header-actions">
-            <button
-              className="btn btn-sm"
-              onClick={() => bookmarkInputRef.current?.click()}
-              title="支持从 Chrome、Edge、Safari、Firefox 导出的 HTML 格式书签导入"
-            >
-              <IconDownload size={15} />
-              导入书签
-            </button>
-            <input
-              ref={bookmarkInputRef}
-              type="file"
-              accept=".html,text/html"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleBookmarkFile(file);
-                e.target.value = '';
-              }}
-            />
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => {
-                const groupId = activeGroup ?? groups[0]?.id;
-                if (!groupId) {
-                  setError('请先创建一个分组');
-                  return;
-                }
-                setForm(EMPTY_FORM(groupId));
-              }}
-            >
-              + 添加站点
-            </button>
-          </div>
-        </div>
-
-        {error && <p className="error-text">{error}</p>}
-
-        {selectedIds.size > 0 && (
-          <div className="bulk-bar pn-fade">
-            <span>已选 {selectedIds.size} 项</span>
-            <div className="spacer" />
-            <button
-              className="btn btn-sm"
-              onClick={() => void runBatch('enable')}
-            >
-              启用
-            </button>
-            <button className="btn btn-sm" onClick={() => void runBatch('disable')}>
-              停用
-            </button>
-            <select
-              className="bulk-move"
-              value=""
-              onChange={(event) => {
-                const target = event.target.value;
-                if (target) void runBatch('move', target);
-              }}
-            >
-              <option value="">移动到…</option>
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
-            <button className="btn btn-sm btn-danger" onClick={() => void runBatch('delete')}>
-              删除
-            </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())}>
-              取消
-            </button>
-          </div>
-        )}
-
-        <div className="admin-table-wrap">
-        <table className="table admin-table">
-          <thead>
-            <tr>
-              <th style={{ width: 34 }} aria-label="排序" />
-              <th style={{ width: 34 }}>
-                <input
-                  type="checkbox"
-                  aria-label="全选本页"
-                  checked={items.length > 0 && items.every((item) => selectedIds.has(item.id))}
-                  onChange={(event) => {
-                    setSelectedIds((current) => {
-                      const next = new Set(current);
-                      for (const item of items) {
-                        if (event.target.checked) next.add(item.id);
-                        else next.delete(item.id);
-                      }
-                      return next;
-                    });
-                  }}
-                />
-              </th>
-              <th style={{ width: 44 }}>图标</th>
-              <th>站点</th>
-              <th>分组</th>
-              <th>标签</th>
-              <th style={{ width: 116, textAlign: 'right' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr
-                key={item.id}
-                {...itemDrag.rowProps(item.id, item.enabled ? undefined : 'row-muted')}
-              >
-                <td>
-                  <DragHandle
-                    handleProps={{
-                      draggable: true,
-                      onDragStart: itemDrag.start(item.id),
-                      onDragEnd: itemDrag.end,
-                      onClick: (event) => event.preventDefault(),
-                    }}
-                    title={canDragItems ? '拖拽调整顺序，或拖到左侧分组移动' : '拖到左侧分组移动'}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`选择 ${item.title}`}
-                    checked={selectedIds.has(item.id)}
-                    onChange={(event) => {
-                      setSelectedIds((current) => {
-                        const next = new Set(current);
-                        if (event.target.checked) next.add(item.id);
-                        else next.delete(item.id);
-                        return next;
-                      });
-                    }}
-                  />
-                </td>
-                <td>
-                  <ItemPreviewIcon item={item} />
-                </td>
-                <td>
-                  <div className="table-item-primary">
-                    <a
-                      className="table-item-title"
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      title={item.title}
-                    >
-                      {item.title}
-                    </a>
-                    <span className="table-item-url">
-                      {item.url}
-                      {item.lanUrl && <span className="badge badge-lan">内网</span>}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <span className="badge">{groups.find((group) => group.id === item.groupId)?.name ?? '—'}</span>
-                </td>
-                <td>
-                  <div className="table-tag-list">
-                    {item.tags.length > 0 ? (
-                      <>
-                        {item.tags.slice(0, 2).map((t) => (
-                          <span key={t} className="badge">
-                            {t}
-                          </span>
-                        ))}
-                        {item.tags.length > 2 && (
-                          <span className="badge badge-more" title={item.tags.slice(2).join(', ')}>
-                            +{item.tags.length - 2}
-                          </span>
+                        {pageWindow(safePage, totalPages).map((page, idx) =>
+                          page === 'ellipsis' ? (
+                            <span key={`e-${idx}`} style={{ padding: '0 4px', color: 'var(--nx-text-3)' }}>
+                              …
+                            </span>
+                          ) : (
+                            <button
+                              key={page}
+                              type="button"
+                              className={`nx-page-num${page === safePage ? ' is-current' : ''}`}
+                              onClick={() => setPageIndex(page)}
+                            >
+                              {page}
+                            </button>
+                          ),
                         )}
-                      </>
-                    ) : (
-                      <span className="hint">—</span>
+                        <button
+                          type="button"
+                          className="nx-btn-secondary nx-btn-sm"
+                          disabled={safePage >= totalPages}
+                          onClick={() => setPageIndex(safePage + 1)}
+                        >
+                          下一页
+                        </button>
+                      </div>
                     )}
                   </div>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <ItemActions
-                    item={item}
-                    onEdit={() => openEdit(item)}
-                    onToggle={() => void toggleItem(item)}
-                    onRemove={() => void removeItem(item)}
-                  />
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
-                  {search ? '没有匹配的站点' : '这里还没有站点'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        </div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
 
-        {(totalPages > 1 || serverTotal > 0) && (
-          <div className="table-pagination">
-            <span className="hint">共 {serverTotal} 个站点{search ? ` · 匹配「${search}」` : ''}</span>
-            <select
-              className="bulk-move"
-              value={pageSize}
-              onChange={(event) => setPageSize(Number(event.target.value))}
-              aria-label="每页数量"
-            >
-              <option value={20}>20 条/页</option>
-              <option value={50}>50 条/页</option>
-              <option value={100}>100 条/页</option>
-            </select>
-            {totalPages > 1 && (
-              <>
-                <div className="spacer" />
-                <div className="page-btns">
-                  <button className="btn btn-sm" disabled={safePage <= 1} onClick={() => setPageIndex(safePage - 1)}>
-                    上一页
-                  </button>
-                  {pageWindow(safePage, totalPages).map((page, idx) =>
-                    page === 'ellipsis' ? (
-                      <span key={`e-${idx}`} className="page-ellipsis">…</span>
-                    ) : (
-                      <button
-                        key={page}
-                        className={`page-btn${page === safePage ? ' is-current' : ''}`}
-                        onClick={() => setPageIndex(page)}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-                  <button className="btn btn-sm" disabled={safePage >= totalPages} onClick={() => setPageIndex(safePage + 1)}>
-                    下一页
-                  </button>
-                </div>
-              </>
-            )}
+        {/* 3. 底部状态栏 (32px) */}
+        <footer className="nx-statusbar">
+          <div className="nx-status-left">
+            <span className="nx-status-dot" />
+            <span>
+              {panel === 'items'
+                ? `管理后台 · 共 ${groups.length} 个分组 · ${serverTotal} 条书签 · 当前账号 ${user.username} · v${__APP_VERSION__}`
+                : panel === 'settings'
+                  ? `站点与数据设置 · 当前账号 ${user.username} · v${__APP_VERSION__}`
+                  : `账户与审计日志 · 当前账号 ${user.username} · v${__APP_VERSION__}`}
+            </span>
           </div>
-        )}
-
-        {visibleGroups.length === 0 && groups.length === 0 && (
-          <p className="hint" style={{ marginTop: 16 }}>先创建一个分组，然后就能添加站点了。</p>
-        )}
-          </>
-        )}
+          <div className="nx-status-right">
+            <span>
+              {panel === 'items'
+                ? '支持拖拽行排序 · 拖入左侧目录移动分组'
+                : panel === 'settings'
+                  ? '配置实时自动保存 · 数据导出建议定期归档'
+                  : '活跃会话安全监控 · 密码修改将注销其它设备'}
+            </span>
+          </div>
+        </footer>
       </main>
 
+      {/* 编辑/添加站点弹窗 */}
       {formMount.held && (() => {
-        const form = formMount.held;
+        const currentForm = formMount.held;
         return (
-        <div className="modal-backdrop" data-exit={formMount.closing || undefined} onClick={() => setForm(null)}>
-          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()} inert={formMount.closing || undefined}>
-            <h3>{form.id ? '编辑站点' : '添加站点'}</h3>
-
-            <div className="field">
-              <label htmlFor="f-title">标题</label>
-              <input id="f-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} autoFocus />
-            </div>
-
-            <div className="field">
-              <label htmlFor="f-url">地址</label>
-              <input id="f-url" value={form.url} placeholder="https://…" onChange={(event) => setForm({ ...form, url: event.target.value })} />
-            </div>
-
-            <div className="field">
-              <label htmlFor="f-lan">内网地址（可选）</label>
-              <input id="f-lan" value={form.lanUrl} placeholder="http://192.168.1.10:8080" onChange={(event) => setForm({ ...form, lanUrl: event.target.value })} />
-              <span className="hint">仅后台可见，不会下发到匿名接口。</span>
-            </div>
-
-            <div className="field">
-              <label htmlFor="f-desc">描述</label>
-              <input id="f-desc" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-            </div>
-
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="f-group">分组</label>
-                <select id="f-group" value={form.groupId} onChange={(event) => setForm({ ...form, groupId: event.target.value })}>
-                  {groups.map((group) => (
-                    <option value={group.id} key={group.id}>{group.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="f-icon-type">图标</label>
-                <select
-                  id="f-icon-type"
-                  value={form.iconType}
-                  onChange={(event) => setForm({ ...form, iconType: event.target.value as ItemForm['iconType'] })}
+          <div
+            className="nx-backdrop"
+            data-exit={formMount.closing || undefined}
+            onClick={() => setForm(null)}
+          >
+            <div
+              className="nx-dialog"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={currentForm.id ? '编辑书签' : '添加书签'}
+              style={{ maxWidth: 540 }}
+            >
+              <div className="nx-dialog-head">
+                <span className="nx-dialog-title">{currentForm.id ? '编辑书签' : '添加书签'}</span>
+                <button
+                  type="button"
+                  className="nx-dialog-close"
+                  onClick={() => setForm(null)}
+                  title="关闭"
+                  aria-label="关闭"
                 >
-                  <option value="auto">自动抓取</option>
-                  <option value="url">图片地址</option>
-                  <option value="iconify">Iconify</option>
-                  <option value="asset">上传图片</option>
-                  <option value="text">文字首字母</option>
-                </select>
+                  <IconClose size={15} />
+                </button>
               </div>
-            </div>
 
-            {(form.iconType === 'url' || form.iconType === 'iconify') && (
-              <div className="field">
-                <label htmlFor="f-icon-ref">{form.iconType === 'iconify' ? 'Iconify 名称' : '图片地址'}</label>
-                <input
-                  id="f-icon-ref"
-                  value={form.iconRef}
-                  placeholder={form.iconType === 'iconify' ? 'mdi:github' : 'https://.../logo.png'}
-                  onChange={(event) => setForm({ ...form, iconRef: event.target.value })}
-                />
-              </div>
-            )}
-
-            {form.iconType === 'iconify' && <IconSearch onPick={(id) => setForm({ ...form, iconRef: id })} />}
-
-            {form.iconType === 'asset' && (
-              <div className="field">
-                <label htmlFor="f-icon-file">图标文件</label>
-                <div className="icon-upload">
-                  <span className="icon-preview">
-                    {form.iconPreview ? <img src={form.iconPreview} alt="" /> : '—'}
-                  </span>
+              <div className="nx-dialog-body">
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="f-title">
+                    标题
+                  </label>
                   <input
-                    id="f-icon-file"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void uploadIcon(file);
-                    }}
+                    id="f-title"
+                    className="nx-input"
+                    value={currentForm.title}
+                    onChange={(event) => setForm({ ...currentForm, title: event.target.value })}
+                    autoFocus
                   />
                 </div>
-                <span className="hint">PNG / JPEG / WebP，不超过 512KB。</span>
+
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="f-url">
+                    地址
+                  </label>
+                  <input
+                    id="f-url"
+                    className="nx-input"
+                    value={currentForm.url}
+                    placeholder="https://…"
+                    onChange={(event) => setForm({ ...currentForm, url: event.target.value })}
+                  />
+                </div>
+
+                <div className="nx-field">
+                  <div className="nx-label-row">
+                    <label className="nx-label" htmlFor="f-lan">
+                      内网地址（可选）
+                    </label>
+                    <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>仅后台与内网探测可见</span>
+                  </div>
+                  <input
+                    id="f-lan"
+                    className="nx-input"
+                    value={currentForm.lanUrl}
+                    placeholder="http://192.168.1.10:8080"
+                    onChange={(event) => setForm({ ...currentForm, lanUrl: event.target.value })}
+                  />
+                </div>
+
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="f-desc">
+                    描述
+                  </label>
+                  <input
+                    id="f-desc"
+                    className="nx-input"
+                    value={currentForm.description}
+                    onChange={(event) => setForm({ ...currentForm, description: event.target.value })}
+                  />
+                </div>
+
+                <div className="nx-dual">
+                  <div className="nx-field">
+                    <label className="nx-label" htmlFor="f-group">
+                      所属分组
+                    </label>
+                    <select
+                      id="f-group"
+                      className="nx-select"
+                      value={currentForm.groupId}
+                      onChange={(event) => setForm({ ...currentForm, groupId: event.target.value })}
+                    >
+                      {groups.map((group) => (
+                        <option value={group.id} key={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="nx-field">
+                    <label className="nx-label" htmlFor="f-icon-type">
+                      图标类型
+                    </label>
+                    <select
+                      id="f-icon-type"
+                      className="nx-select"
+                      value={currentForm.iconType}
+                      onChange={(event) =>
+                        setForm({ ...currentForm, iconType: event.target.value as ItemForm['iconType'] })
+                      }
+                    >
+                      <option value="auto">自动抓取</option>
+                      <option value="url">图片地址</option>
+                      <option value="iconify">Iconify</option>
+                      <option value="asset">上传图片</option>
+                      <option value="text">文字首字母</option>
+                    </select>
+                  </div>
+                </div>
+
+                {(currentForm.iconType === 'url' || currentForm.iconType === 'iconify') && (
+                  <div className="nx-field">
+                    <label className="nx-label" htmlFor="f-icon-ref">
+                      {currentForm.iconType === 'iconify' ? 'Iconify 名称' : '图片地址'}
+                    </label>
+                    <input
+                      id="f-icon-ref"
+                      className="nx-input"
+                      value={currentForm.iconRef}
+                      placeholder={currentForm.iconType === 'iconify' ? 'mdi:github' : 'https://.../logo.png'}
+                      onChange={(event) => setForm({ ...currentForm, iconRef: event.target.value })}
+                    />
+                  </div>
+                )}
+
+                {currentForm.iconType === 'iconify' && (
+                  <IconifyPicker onPick={(id) => setForm({ ...currentForm, iconRef: id })} />
+                )}
+
+                {currentForm.iconType === 'asset' && (
+                  <div className="nx-field">
+                    <label className="nx-label" htmlFor="f-icon-file">
+                      图标文件
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span className="nx-table-icon">
+                        {currentForm.iconPreview ? <img src={currentForm.iconPreview} alt="" /> : '—'}
+                      </span>
+                      <input
+                        id="f-icon-file"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadIcon(file);
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>
+                      PNG / JPEG / WebP，不超过 512KB
+                    </span>
+                  </div>
+                )}
+
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="f-tags">
+                    标签（胶囊式，回车确认）
+                  </label>
+                  <TagInput
+                    id="f-tags"
+                    value={currentForm.tags}
+                    onChange={(tags) => setForm({ ...currentForm, tags })}
+                    availableTags={allTags}
+                    placeholder="输入标签按回车确认…"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+                  <Switch
+                    id="f-open-in-new-tab"
+                    checked={currentForm.openInNewTab}
+                    onChange={(checked) => setForm({ ...currentForm, openInNewTab: checked })}
+                    label="在新标签页中打开"
+                    description="点击卡片时在新窗口/标签页中打开链接"
+                  />
+                  <Switch
+                    id="f-pinned"
+                    checked={currentForm.pinned}
+                    onChange={(checked) => setForm({ ...currentForm, pinned: checked })}
+                    label="分组内优先置顶"
+                    description="高亮显示并在所属分组前排展示"
+                  />
+                </div>
               </div>
-            )}
 
-            <div className="field">
-              <label htmlFor="f-tags">标签（胶囊式，回车确认）</label>
-              <TagInput
-                id="f-tags"
-                value={form.tags}
-                onChange={(tags) => setForm({ ...form, tags })}
-                availableTags={allTags}
-                placeholder="输入标签按回车确认…"
-              />
-            </div>
-
-            <div className="field switch-group">
-              <Switch
-                id="f-open-in-new-tab"
-                checked={form.openInNewTab}
-                onChange={(checked) => setForm({ ...form, openInNewTab: checked })}
-                label="在新标签页中打开"
-                description="点击卡片时在新窗口/标签页中打开链接"
-              />
-              <Switch
-                id="f-pinned"
-                checked={form.pinned}
-                onChange={(checked) => setForm({ ...form, pinned: checked })}
-                label="分组内优先置顶"
-                description="高亮显示并在所属分组前排展示"
-              />
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setForm(null)}>取消</button>
-              <button className="btn btn-primary" onClick={saveItem}>保存</button>
+              <div className="nx-dialog-foot">
+                <button type="button" className="nx-btn-secondary" onClick={() => setForm(null)}>
+                  取消
+                </button>
+                <button type="button" className="nx-btn-primary" onClick={saveItem}>
+                  <IconCheckCircle size={14} />
+                  <span>保存</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
+      {/* 新建/编辑分组弹窗 */}
       {groupDialogMount.held && (() => {
-        const groupDialog = groupDialogMount.held;
+        const currentGroup = groupDialogMount.held;
         return (
-        <div className="modal-backdrop" data-exit={groupDialogMount.closing || undefined} onClick={() => setGroupDialog(null)}>
-          <div className="modal pn-enter lg" data-lg="lens" data-lg-blur="24" data-lg-amp="10" onClick={(event) => event.stopPropagation()} inert={groupDialogMount.closing || undefined}>
-            <h3>{groupDialog.id ? '编辑分组' : '新建分组'}</h3>
-            <div className="field">
-              <label htmlFor="g-name">分组名</label>
-              <input
-                id="g-name"
-                value={groupDialog.name}
-                autoFocus
-                maxLength={40}
-                onChange={(event) => setGroupDialog({ ...groupDialog, name: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-                  if (event.key === 'Enter') void createGroup();
-                }}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="g-icon">图标（可选，填一个 emoji）</label>
-              <input
-                id="g-icon"
-                value={groupDialog.icon}
-                maxLength={8}
-                placeholder="任意单个 emoji 表情"
-                onChange={(event) => setGroupDialog({ ...groupDialog, icon: event.target.value })}
-              />
-              <span className="hint">会显示在前台分组标题左侧。</span>
-            </div>
-            <div className="field">
-              <label htmlFor="g-parent">上级分组</label>
-              <select
-                id="g-parent"
-                value={groupDialog.parentId ?? ''}
-                onChange={(event) => setGroupDialog({ ...groupDialog, parentId: event.target.value || null })}
-              >
-                <option value="">无（根层级）</option>
-                {(() => {
-                  // 可选父级 = 全部分组；编辑时排除自身及其子孙（避免成环）
-                  const excluded = groupDialog.id ? new Set(groupIdsUnder(groupDialog.id)) : new Set<string>();
-                  const walk = (nodes: GroupNode[], depth: number): Array<{ id: string; label: string }> =>
-                    nodes.flatMap((node) => [
-                      { id: node.group.id, label: `${'　'.repeat(depth)}${node.group.name}` },
-                      ...walk(node.children, depth + 1),
-                    ]);
-                  return walk(buildGroupTree(groups), 1)
-                    .filter((option) => !excluded.has(option.id))
-                    .map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ));
-                })()}
-              </select>
-              <span className="hint">选择后该分组将成为其子分组，前台按层级嵌套展示。</span>
-            </div>
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setGroupDialog(null)}>取消</button>
-              <button className="btn btn-primary" onClick={createGroup}>保存</button>
+          <div
+            className="nx-backdrop"
+            data-exit={groupDialogMount.closing || undefined}
+            onClick={() => setGroupDialog(null)}
+          >
+            <div
+              className="nx-dialog"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={currentGroup.id ? '编辑分组' : '新建分组'}
+              style={{ maxWidth: 440 }}
+            >
+              <div className="nx-dialog-head">
+                <span className="nx-dialog-title">{currentGroup.id ? '编辑分组' : '新建分组'}</span>
+                <button
+                  type="button"
+                  className="nx-dialog-close"
+                  onClick={() => setGroupDialog(null)}
+                  title="关闭"
+                  aria-label="关闭"
+                >
+                  <IconClose size={15} />
+                </button>
+              </div>
+
+              <div className="nx-dialog-body">
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="g-name">
+                    分组名
+                  </label>
+                  <input
+                    id="g-name"
+                    className="nx-input"
+                    value={currentGroup.name}
+                    autoFocus
+                    maxLength={40}
+                    onChange={(event) => setGroupDialog({ ...currentGroup, name: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                      if (event.key === 'Enter') void createGroup();
+                    }}
+                    placeholder="例如：开发与基础设施"
+                  />
+                </div>
+
+                <div className="nx-field">
+                  <label className="nx-label" htmlFor="g-parent">
+                    上级分组
+                  </label>
+                  <select
+                    id="g-parent"
+                    className="nx-select"
+                    value={currentGroup.parentId ?? ''}
+                    onChange={(event) =>
+                      setGroupDialog({ ...currentGroup, parentId: event.target.value || null })
+                    }
+                  >
+                    <option value="">无（根层级）</option>
+                    {(() => {
+                      const excluded = currentGroup.id
+                        ? new Set(groupIdsUnder(currentGroup.id))
+                        : new Set<string>();
+                      const walk = (nodes: GroupNode[], depth: number): Array<{ id: string; label: string }> =>
+                        nodes.flatMap((node) => [
+                          { id: node.group.id, label: `${'　'.repeat(depth)}${node.group.name}` },
+                          ...walk(node.children, depth + 1),
+                        ]);
+                      return walk(buildGroupTree(groups), 1)
+                        .filter((option) => !excluded.has(option.id))
+                        .map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ));
+                    })()}
+                  </select>
+                  <span style={{ fontSize: 11, color: 'var(--nx-text-3)' }}>
+                    选择后该分组将作为其子目录，在前台层级树中缩发展现。
+                  </span>
+                </div>
+              </div>
+
+              <div className="nx-dialog-foot">
+                <button type="button" className="nx-btn-secondary" onClick={() => setGroupDialog(null)}>
+                  取消
+                </button>
+                <button type="button" className="nx-btn-primary" onClick={createGroup}>
+                  <IconCheckCircle size={14} />
+                  <span>保存</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
+      {/* 浏览器书签导入弹窗 */}
       {bookmarkMount.held && (
         <BookmarkImportModal
           initialFolders={bookmarkMount.held}
@@ -1214,8 +1522,12 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
         />
       )}
 
-      {toast && <div className="toast">{toast}</div>}
-      </div>
-    </>
+      {/* Toast 提示 */}
+      {toast && (
+        <div className="nx-toast-wrap">
+          <div className="nx-toast">{toast}</div>
+        </div>
+      )}
+    </div>
   );
 }

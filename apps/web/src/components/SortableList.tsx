@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { IconGrip } from './icons';
 
 interface SortableListProps<T> {
   items: T[];
@@ -227,7 +228,7 @@ export function DragHandle({
       onDragEnd={handleProps.onDragEnd}
       onClick={handleProps.onClick}
     >
-      ⠿
+      <IconGrip size={14} />
     </span>
   );
 }

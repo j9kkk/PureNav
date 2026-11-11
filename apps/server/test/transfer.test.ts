@@ -126,3 +126,36 @@ test('import: replace clears existing data first', async () => {
   const names = after.json<{ items: { name: string }[] }>().items.map((group) => group.name);
   assert.deepEqual(names, ['OnlyOne']);
 });
+
+test('import: preserves parent_id hierarchy and backfills slash-delimited folder paths', async () => {
+  const response = await ctx.app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/import?mode=replace',
+    headers: authed(cookie, ctx),
+    payload: {
+      format: 'purenav/v1',
+      groups: [
+        { id: 'g_root', name: 'Dev', parent_id: null },
+        { id: 'g_child', name: 'Docs', parent_id: 'g_root' },
+        { id: 'g_legacy', name: 'Infra / Monitoring' },
+      ],
+      items: [
+        { id: 'i_child', group_id: 'g_child', title: 'Vite', url: 'https://vite.dev', sort_order: 1024 },
+        { id: 'i_legacy', group_id: 'g_legacy', title: 'Grafana', url: 'https://grafana.com', sort_order: 1024 },
+      ],
+      tags: [],
+      itemTags: [],
+    },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+
+  const after = await ctx.app.inject({ method: 'GET', url: '/api/v1/admin/groups', headers: authed(cookie, ctx) });
+  const groups = after.json<{ items: { id: string; name: string; parentId: string | null }[] }>().items;
+  const dev = groups.find((g) => g.name === 'Dev');
+  const docs = groups.find((g) => g.name === 'Docs');
+  const infra = groups.find((g) => g.name === 'Infra');
+  const monitoring = groups.find((g) => g.name === 'Monitoring');
+
+  assert.ok(dev && docs && docs.parentId === dev.id, 'explicit parent_id should be preserved');
+  assert.ok(infra && monitoring && monitoring.parentId === infra.id, 'slash path should be split into tree');
+});

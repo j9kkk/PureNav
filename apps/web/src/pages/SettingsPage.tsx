@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, type AdminSettings, type SettingsPatch } from '../api';
 import { Switch } from '../components/Switch';
 import { BookmarkImportModal } from '../components/BookmarkImportModal';
@@ -7,9 +7,8 @@ import {
   bookmarkFoldersToImportPayload,
   type ParsedBookmarkFolder,
 } from '../lib/bookmarkParser';
-
-/* 苹果系统色预设（无紫 / 靛），作为前台主题色 */
-const PRESET_COLORS = ['#0071e3', '#30b0c7', '#34c759', '#ff9500', '#ff3b30', '#ff2d55', '#8e8e93'];
+import { clearThemeOverride, resolveTheme, writeThemeOverride } from '../lib/theme';
+import { IconDownload, IconUpload } from '../components/icons';
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -17,7 +16,6 @@ function downloadBlob(blob: Blob, filename: string): void {
   link.href = url;
   link.download = filename;
   link.click();
-  // Revoking immediately can cancel the download in some browsers.
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -29,9 +27,18 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
   const [pendingBookmarkFolders, setPendingBookmarkFolders] = useState<ParsedBookmarkFolder[] | null>(null);
 
+  // Local inputs to safely isolate IME composition
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
+
   const load = async () => {
     try {
-      setSettings(await api.settings());
+      const data = await api.settings();
+      setSettings(data);
+      setTitle(data.identity.title);
+      setDescription(data.identity.description ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     }
@@ -51,8 +58,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
     setError('');
     try {
       await api.updateSettings(patch);
-      flash('已保存');
-      // The front page caches its theme, so refresh the shell it reads from.
+      flash('设置已保存');
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
@@ -61,13 +67,48 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
     }
   };
 
-  const importFile = async (file: File, mode: 'merge' | 'replace') => {
+  const handleModeChange = (mode: AdminSettings['theme']['mode']) => {
+    setSettings((prev) => (prev ? { ...prev, theme: { ...prev.theme, mode } } : prev));
+    if (mode === 'auto') {
+      clearThemeOverride();
+      document.documentElement.dataset.theme = resolveTheme(undefined);
+    } else {
+      writeThemeOverride(mode);
+      document.documentElement.dataset.theme = mode;
+    }
+    void save({ theme: { mode } });
+  };
+
+  const handleDefaultViewChange = (defaultView: 'grid' | 'list') => {
+    setSettings((prev) => (prev ? { ...prev, layout: { ...prev.layout, defaultView } } : prev));
+    void save({ layout: { defaultView } });
+  };
+
+  const handleShowDescriptionChange = (showDescription: boolean) => {
+    setSettings((prev) => (prev ? { ...prev, layout: { ...prev.layout, showDescription } } : prev));
+    void save({ layout: { showDescription } });
+  };
+
+  const handleTitleBlur = () => {
+    if (!settings || title === settings.identity.title) return;
+    setSettings((prev) => (prev ? { ...prev, identity: { ...prev.identity, title } } : prev));
+    void save({ identity: { title } });
+  };
+
+  const handleDescriptionBlur = () => {
+    if (!settings || description === (settings.identity.description ?? '')) return;
+    const nextDesc = description.trim() || null;
+    setSettings((prev) => (prev ? { ...prev, identity: { ...prev.identity, description: nextDesc } } : prev));
+    void save({ identity: { description: nextDesc } });
+  };
+
+  const importJsonFile = async (file: File, mode: 'merge' | 'replace') => {
     if (mode === 'replace' && !window.confirm('替换会清空现有全部分组与站点。确定继续？')) return;
     try {
       const text = await file.text();
       const payload = JSON.parse(text) as unknown;
       const result = await api.importConfig(payload, mode);
-      flash(`导入完成，共 ${result.created} 条`);
+      flash(`导入完成，共 ${result.created} 条数据`);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '导入失败');
@@ -107,306 +148,244 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
   if (!settings) {
     return (
-      <div>
-        {error && <p className="error-text">{error}</p>}
-        <p className="hint">加载中…</p>
+      <div style={{ padding: 24 }}>
+        {error && <div className="nx-alert-error">{error}</div>}
+        <p style={{ color: 'var(--nx-text-2)', fontSize: 13 }}>加载中…</p>
       </div>
     );
   }
 
   return (
-    <div className="settings">
-      {error && <p className="error-text">{error}</p>}
-
-      <div className="settings-row">
-        <div className="settings-label">
-          <h3>站点信息</h3>
-          <p>站点的名称与描述，显示在前台标题栏和浏览器标签页上。</p>
+    <div style={{ maxWidth: 920, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {error && (
+        <div className="nx-alert-error" role="alert">
+          {error}
         </div>
-        <div className="settings-panel">
-          <div className="field">
-            <label htmlFor="s-title">标题</label>
+      )}
+
+      {/* 1. 站点标识 */}
+      <div className="nx-settings-card">
+        <div className="nx-settings-head">
+          <span className="nx-settings-title">站点标识</span>
+          <span className="nx-settings-desc">
+            站点的名称与副标题说明，显示在前台顶部标题与浏览器标签页上。
+          </span>
+        </div>
+        <div className="nx-settings-body">
+          <div className="nx-field">
+            <label className="nx-label" htmlFor="s-title">
+              站点标题
+            </label>
             <input
               id="s-title"
-              value={settings.identity.title}
+              className="nx-input"
+              value={title}
               maxLength={60}
-              onChange={(event) => setSettings({ ...settings, identity: { ...settings.identity, title: event.target.value } })}
-              onBlur={() => void save({ identity: { title: settings.identity.title } })}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={handleTitleBlur}
+              placeholder="PureNav"
             />
           </div>
-          <div className="field">
-            <label htmlFor="s-desc">描述</label>
+
+          <div className="nx-field">
+            <label className="nx-label" htmlFor="s-desc">
+              站点描述
+            </label>
             <input
               id="s-desc"
-              value={settings.identity.description ?? ''}
+              className="nx-input"
+              value={description}
               maxLength={300}
-              onChange={(event) =>
-                setSettings({ ...settings, identity: { ...settings.identity, description: event.target.value } })
-              }
-              onBlur={() => void save({ identity: { description: settings.identity.description || null } })}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={handleDescriptionBlur}
+              placeholder="全能自托管收藏夹管理器"
             />
           </div>
         </div>
       </div>
 
-      <div className="settings-row">
-        <div className="settings-label">
-          <h3>主题</h3>
-          <p>配色模式、主题色、阴影与卡片圆角。改动即时生效并自动保存。</p>
+      {/* 2. 外观与默认视图 */}
+      <div className="nx-settings-card">
+        <div className="nx-settings-head">
+          <span className="nx-settings-title">外观与默认视图</span>
+          <span className="nx-settings-desc">
+            控制前台工作台的默认配色模式、卡片网格排列方式与描述信息展现。
+          </span>
         </div>
-        <div className="settings-panel">
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="s-mode">配色模式</label>
+        <div className="nx-settings-body">
+          <div className="nx-dual">
+            <div className="nx-field">
+              <label className="nx-label" htmlFor="s-mode">
+                默认配色模式
+              </label>
               <select
                 id="s-mode"
+                className="nx-select"
                 value={settings.theme.mode}
-                onChange={(event) => {
-                  const mode = event.target.value as AdminSettings['theme']['mode'];
-                  setSettings({ ...settings, theme: { ...settings.theme, mode } });
-                  void save({ theme: { mode } });
-                }}
+                onChange={(e) =>
+                  handleModeChange(e.target.value as AdminSettings['theme']['mode'])
+                }
               >
-                <option value="auto">跟随系统</option>
-                <option value="light">浅色</option>
-                <option value="dark">深色</option>
+                <option value="auto">跟随系统 (Auto)</option>
+                <option value="light">浅色模式 (Light)</option>
+                <option value="dark">深色模式 (Dark)</option>
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="s-shadow">阴影</label>
-              <select
-                id="s-shadow"
-                value={settings.theme.shadow}
-                onChange={(event) => {
-                  const shadow = event.target.value as AdminSettings['theme']['shadow'];
-                  setSettings({ ...settings, theme: { ...settings.theme, shadow } });
-                  void save({ theme: { shadow } });
-                }}
-              >
-                <option value="soft">柔和</option>
-                <option value="strong">明显</option>
-                <option value="none">无</option>
-              </select>
-            </div>
-          </div>
 
-          <div className="field">
-            <label>主题色</label>
-            <div className="swatches">
-              {PRESET_COLORS.map((color) => (
-                <button
-                  key={color}
-                  className={settings.theme.accent.toLowerCase() === color ? 'swatch swatch-on' : 'swatch'}
-                  style={{ background: color }}
-                  aria-label={`主题色 ${color}`}
-                  onClick={() => {
-                    setSettings({ ...settings, theme: { ...settings.theme, accent: color } });
-                    void save({ theme: { accent: color } });
-                  }}
-                />
-              ))}
-              <input
-                type="color"
-                className="swatch-picker"
-                value={settings.theme.accent}
-                onChange={(event) => {
-                  const accent = event.target.value;
-                  setSettings({ ...settings, theme: { ...settings.theme, accent } });
-                  void save({ theme: { accent } });
-                }}
-                aria-label="自定义主题色"
-              />
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="s-radius">圆角</label>
-            <div className="field-inline">
-              <input
-                id="s-radius"
-                type="range"
-                min={0}
-                max={32}
-                step={2}
-                value={settings.theme.radius}
-                onChange={(event) => {
-                  const radius = Number(event.target.value);
-                  setSettings({ ...settings, theme: { ...settings.theme, radius } });
-                }}
-                // Commit on release; dragging should not write on every pixel.
-                onMouseUp={() => void save({ theme: { radius: settings.theme.radius } })}
-                onTouchEnd={() => void save({ theme: { radius: settings.theme.radius } })}
-              />
-              <output htmlFor="s-radius" className="num">
-                {settings.theme.radius}px
-              </output>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="settings-row">
-        <div className="settings-label">
-          <h3>布局</h3>
-          <p>前台卡片的密度、尺寸、默认视图与描述显示。</p>
-        </div>
-        <div className="settings-panel">
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="s-density">密度</label>
-              <select
-                id="s-density"
-                value={settings.layout.density}
-                onChange={(event) => {
-                  const density = event.target.value as AdminSettings['layout']['density'];
-                  setSettings({ ...settings, layout: { ...settings.layout, density } });
-                  void save({ layout: { density } });
-                }}
-              >
-                <option value="comfortable">宽松</option>
-                <option value="compact">紧凑</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="s-size">卡片尺寸</label>
-              <select
-                id="s-size"
-                value={settings.layout.cardSize}
-                onChange={(event) => {
-                  const cardSize = event.target.value as AdminSettings['layout']['cardSize'];
-                  setSettings({ ...settings, layout: { ...settings.layout, cardSize } });
-                  void save({ layout: { cardSize } });
-                }}
-              >
-                <option value="sm">小 · 紧凑</option>
-                <option value="md">中 · 标准</option>
-                <option value="lg">大 · 舒展</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="s-view">默认视图</label>
+            <div className="nx-field">
+              <label className="nx-label" htmlFor="s-view">
+                默认排列视图
+              </label>
               <select
                 id="s-view"
+                className="nx-select"
                 value={settings.layout.defaultView}
-                onChange={(event) => {
-                  const defaultView = event.target.value as AdminSettings['layout']['defaultView'];
-                  setSettings({ ...settings, layout: { ...settings.layout, defaultView } });
-                  void save({ layout: { defaultView } });
-                }}
+                onChange={(e) =>
+                  handleDefaultViewChange(e.target.value as 'grid' | 'list')
+                }
               >
-                <option value="grid">卡片网格</option>
-                <option value="list">紧凑列表</option>
+                <option value="grid">双列高密度卡片 (Grid)</option>
+                <option value="list">单列紧凑列表 (List)</option>
               </select>
             </div>
           </div>
 
-          <Switch
-            id="s-show-description"
-            checked={settings.layout.showDescription}
-            onChange={(showDescription) => {
-              setSettings({ ...settings, layout: { ...settings.layout, showDescription } });
-              void save({ layout: { showDescription } });
-            }}
-            label="在卡片上显示站点描述"
-            description="关闭后卡片将仅显示图标与标题，界面布局更紧凑"
-          />
+          <div style={{ paddingTop: 4 }}>
+            <Switch
+              id="s-show-description"
+              checked={settings.layout.showDescription}
+              onChange={handleShowDescriptionChange}
+              label="在卡片上显示站点描述"
+              description="关闭后卡片将仅显示图标与标题，界面信息更加紧凑"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="settings-row">
-        <div className="settings-label">
-          <h3>数据</h3>
-          <p>导出备份，或从浏览器书签 / JSON 配置文件导入。</p>
+      {/* 3. 数据备份与迁移 */}
+      <div className="nx-settings-card">
+        <div className="nx-settings-head">
+          <span className="nx-settings-title">数据备份与迁移</span>
+          <span className="nx-settings-desc">
+            导出备份数据，或从浏览器书签文件 (HTML) / 完整 JSON 配置导入。
+          </span>
         </div>
-        <div className="settings-panel">
-          <div className="field">
-            <label>导出</label>
-            <div className="settings-inline">
+        <div className="nx-settings-body">
+          {/* 导出 */}
+          <div className="nx-field">
+            <span className="nx-label">数据导出</span>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
-                className="btn"
+                type="button"
+                className="nx-btn-secondary"
                 onClick={async () => {
                   try {
                     downloadBlob(await api.exportJson(), 'purenav-export.json');
-                    flash('已导出 JSON');
+                    flash('已导出 JSON 备份文件');
                   } catch (err) {
                     setError(err instanceof Error ? err.message : '导出失败');
                   }
                 }}
               >
-                导出 JSON
+                <IconDownload size={14} />
+                <span>导出完整 JSON 备份</span>
               </button>
               <button
-                className="btn"
+                type="button"
+                className="nx-btn-secondary"
                 onClick={async () => {
                   try {
                     downloadBlob(await api.exportBookmarks(), 'purenav-bookmarks.html');
-                    flash('已导出书签');
+                    flash('已导出浏览器 HTML 书签文件');
                   } catch (err) {
                     setError(err instanceof Error ? err.message : '导出失败');
                   }
                 }}
               >
-                导出浏览器书签
+                <IconDownload size={14} />
+                <span>导出浏览器 HTML 书签</span>
               </button>
             </div>
           </div>
 
-          <div className="field">
-            <label htmlFor="s-import-bookmarks">导入浏览器收藏夹 (HTML)</label>
-            <div className="settings-inline">
-              <label className="btn file-btn">
-                选择 HTML 文件
-                <input
-                  id="s-import-bookmarks"
-                  type="file"
-                  accept=".html,text/html"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void handleBookmarkFile(file);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
+          <div className="nx-divider" style={{ height: 1, background: 'var(--nx-line-soft)', margin: '4px 0' }} />
+
+          {/* 导入浏览器书签 */}
+          <div className="nx-field">
+            <span className="nx-label">导入浏览器收藏夹 (HTML)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                type="button"
+                className="nx-btn-secondary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <IconUpload size={14} />
+                <span>选择 HTML 书签文件</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".html,text/html"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleBookmarkFile(file);
+                  e.target.value = '';
+                }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--nx-text-3)' }}>
+                支持 Chrome、Edge、Safari、Firefox 导出的书签，导入前支持勾选范围。
+              </span>
             </div>
-            <span className="hint">
-              支持 Chrome、Edge、Safari、Firefox 等浏览器导出的 HTML 格式书签文件，导入前支持勾选导入范围。
-            </span>
           </div>
 
-          <div className="field">
-            <label htmlFor="s-import">导入完整 JSON 配置</label>
-            <div className="settings-inline">
+          <div className="nx-divider" style={{ height: 1, background: 'var(--nx-line-soft)', margin: '4px 0' }} />
+
+          {/* 导入完整 JSON */}
+          <div className="nx-field">
+            <span className="nx-label">导入完整 JSON 配置</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <select
-                id="s-import-mode"
+                className="nx-select nx-select-sm"
                 value={importMode}
-                onChange={(event) => setImportMode(event.target.value as 'merge' | 'replace')}
+                onChange={(e) => setImportMode(e.target.value as 'merge' | 'replace')}
+                aria-label="JSON 导入模式"
               >
-                <option value="merge">合并到现有数据</option>
-                <option value="replace">替换全部数据</option>
+                <option value="merge">追加合并到现有数据</option>
+                <option value="replace">清空并替换现有全部数据</option>
               </select>
-              <label className="btn file-btn">
-                选择 JSON 文件
-                <input
-                  id="s-import"
-                  type="file"
-                  accept="application/json"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void importFile(file, importMode);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
+              <button
+                type="button"
+                className="nx-btn-secondary"
+                onClick={() => jsonInputRef.current?.click()}
+              >
+                <IconUpload size={14} />
+                <span>选择 JSON 备份文件</span>
+              </button>
+              <input
+                ref={jsonInputRef}
+                type="file"
+                accept="application/json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importJsonFile(file, importMode);
+                  e.target.value = '';
+                }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--nx-text-3)' }}>
+                {importMode === 'merge' ? '保留现有数据并合入' : '危险：会清空现有全部分组与站点'}
+              </span>
             </div>
-            <span className="hint">
-              {importMode === 'merge' ? '保留现有分组与站点，追加导入内容。' : '会清空现有全部分组与站点。'}
-            </span>
           </div>
         </div>
       </div>
 
-      {busy && <p className="hint">保存中…</p>}
-      {notice && <div className="toast">{notice}</div>}
+      {notice && (
+        <div className="nx-toast-wrap">
+          <div className="nx-toast">{notice}</div>
+        </div>
+      )}
 
       {pendingBookmarkFolders && (
         <BookmarkImportModal

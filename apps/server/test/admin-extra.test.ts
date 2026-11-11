@@ -163,6 +163,73 @@ test('icons/search: an unreachable upstream degrades to an empty list', async ()
   assert.ok(Array.isArray(response.json<{ items: unknown[] }>().items));
 });
 
+test('hit: increments visitCount and updates lastVisitedAt on public items', async () => {
+  const group = await createGroup(ctx, cookie, unique('HitGroup'));
+  const item = await createItem(ctx, cookie, group, { title: 'HitTarget', url: 'https://hit.example.com' });
+
+  const hit1 = await ctx.app.inject({
+    method: 'POST',
+    url: `/api/v1/public/items/${item.id}/hit`,
+    headers: anonymous(ctx),
+  });
+  assert.equal(hit1.statusCode, 200, hit1.body);
+  assert.equal(hit1.json<{ visitCount: number }>().visitCount, 1);
+
+  const hit2 = await ctx.app.inject({
+    method: 'POST',
+    url: `/api/v1/public/items/${item.id}/hit`,
+    headers: anonymous(ctx),
+  });
+  assert.equal(hit2.statusCode, 200, hit2.body);
+  assert.equal(hit2.json<{ visitCount: number }>().visitCount, 2);
+});
+
+test('batch: inbox and uninbox toggle isInbox flag', async () => {
+  const group = await createGroup(ctx, cookie, unique('InboxBatch'));
+  const id = (await createItem(ctx, cookie, group, { title: 'InboxMe' })).id;
+
+  const markInbox = await ctx.app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/items/batch',
+    headers: authed(cookie, ctx),
+    payload: { op: 'inbox', ids: [id] },
+  });
+  assert.equal(markInbox.statusCode, 200, markInbox.body);
+
+  const inboxList = await ctx.app.inject({
+    method: 'GET',
+    url: `/api/v1/admin/items?groupId=${group}&isInbox=true`,
+    headers: authed(cookie, ctx),
+  });
+  assert.equal(inboxList.json<{ items: { id: string; isInbox: boolean }[] }>().items[0]?.isInbox, true);
+
+  const uninbox = await ctx.app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/items/batch',
+    headers: authed(cookie, ctx),
+    payload: { op: 'uninbox', ids: [id] },
+  });
+  assert.equal(uninbox.statusCode, 200);
+});
+
+test('doctor: reports duplicate normalized URLs', async () => {
+  const group = await createGroup(ctx, cookie, unique('DoctorGroup'));
+  await createItem(ctx, cookie, group, { title: 'Dup A', url: 'https://dup-check.example.com/docs/' });
+  await createItem(ctx, cookie, group, { title: 'Dup B', url: 'https://www.dup-check.example.com/docs' });
+
+  const report = await ctx.app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/items/doctor',
+    headers: authed(cookie, ctx),
+  });
+  assert.equal(report.statusCode, 200, report.body);
+  const body = report.json<{ duplicates: { normalizedUrl: string; items: { title: string }[] }[] }>();
+  assert.ok(
+    body.duplicates.some((entry) => entry.normalizedUrl === 'dup-check.example.com/docs' && entry.items.length === 2),
+    'expected normalized duplicate group',
+  );
+});
+
 test('password: change requires the current password', async () => {
   const response = await ctx.app.inject({
     method: 'POST',

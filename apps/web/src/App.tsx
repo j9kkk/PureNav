@@ -60,7 +60,23 @@ export function App() {
   }
 
   if (route.name === 'admin') {
-    if (!auth) return <div className="auth-wrap">加载中…</div>;
+    if (!auth) {
+      return (
+        <div
+          className="nx-app"
+          style={{
+            display: 'grid',
+            placeItems: 'center',
+            height: '100vh',
+            background: 'var(--nx-canvas)',
+            color: 'var(--nx-text-3)',
+            fontSize: 13,
+          }}
+        >
+          加载中…
+        </div>
+      );
+    }
     if (!auth.authenticated) {
       return (
         <LoginPage

@@ -142,17 +142,55 @@ export function parseBookmarksHtml(htmlContent: string): ParsedBookmarkFolder[] 
  * 满铺/居中形态判定失效。auto 两项都避开。
  */
 export function bookmarkFoldersToImportPayload(folders: ParsedBookmarkFolder[]) {
-  const groups = folders.map((folder, gIdx) => ({
-    id: folder.id,
-    name: folder.fullPath || folder.name,
-    sort_order: (gIdx + 1) * 1024,
-    visibility: 'public',
-    enabled: 1,
-  }));
+  const pathIdMap = new Map<string, string>();
+  const groups: {
+    id: string;
+    name: string;
+    parent_id: string | null;
+    sort_order: number;
+    visibility: 'public';
+    enabled: number;
+  }[] = [];
 
-  const items = folders.flatMap((folder) =>
-    folder.items.map((item, iIdx) => ({
-      group_id: folder.id,
+  let orderCounter = 0;
+  const ensurePathGroup = (segments: string[]): string => {
+    let parentId: string | null = null;
+    for (let i = 0; i < segments.length; i += 1) {
+      const key = segments.slice(0, i + 1).join(' / ');
+      let existingId = pathIdMap.get(key);
+      if (!existingId) {
+        orderCounter += 1;
+        existingId = `folder-node-${orderCounter}`;
+        pathIdMap.set(key, existingId);
+        groups.push({
+          id: existingId,
+          name: segments[i]!.slice(0, 40),
+          parent_id: parentId,
+          sort_order: orderCounter * 1024,
+          visibility: 'public',
+          enabled: 1,
+        });
+      }
+      parentId = existingId;
+    }
+    return parentId!;
+  };
+
+  const folderGroupIds = new Map<string, string>();
+  for (const folder of folders) {
+    const rawPath = folder.fullPath || folder.name;
+    const segments = rawPath
+      .split(' / ')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const leafGroupId = ensurePathGroup(segments.length > 0 ? segments : [folder.name || '未命名文件夹']);
+    folderGroupIds.set(folder.id, leafGroupId);
+  }
+
+  const items = folders.flatMap((folder) => {
+    const targetGroupId = folderGroupIds.get(folder.id) ?? folder.id;
+    return folder.items.map((item, iIdx) => ({
+      group_id: targetGroupId,
       title: item.title,
       url: item.url,
       icon_type: 'auto',
@@ -162,8 +200,8 @@ export function bookmarkFoldersToImportPayload(folders: ParsedBookmarkFolder[]) 
       sort_order: (iIdx + 1) * 1024,
       visibility: 'public',
       enabled: 1,
-    })),
-  );
+    }));
+  });
 
   return {
     format: 'purenav/v1',

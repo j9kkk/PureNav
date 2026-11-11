@@ -4,7 +4,7 @@ import type { AdminGroupDto } from '../api';
 import { buildGroupTree, type DropMode, type GroupNode } from '../lib/groupTree';
 import { useDelayedUnmount } from '../lib/useDelayedUnmount';
 import { ITEM_DRAG_TYPE } from './SortableList';
-import { IconChevronRight, IconFolder, IconGrip } from './icons';
+import { IconChevronRight, IconDotsHorizontal, IconFolder, IconGrip } from './icons';
 
 interface MenuState {
   group: AdminGroupDto;
@@ -298,7 +298,7 @@ export function GroupTreeNav({
                   title="操作分组"
                   aria-label={`操作分组 ${node.group.name}`}
                 >
-                  ···
+                  <IconDotsHorizontal size={14} />
                 </button>
               </div>
             )}

@@ -5,6 +5,7 @@ import { ulid } from '../lib/ids.js';
 import { ApiError, assertSameOrigin, requireAdmin } from '../lib/http.js';
 import { audit, bumpVersion } from '../lib/settings.js';
 import { nextOrder, rewriteItemOrder } from './groups.js';
+import { isAllowedIconHost } from './icons.js';
 import { resolveIcon } from './public.js';
 
 const iconSchema = z.discriminatedUnion('type', [
@@ -37,6 +38,7 @@ const itemCreateSchema = z.object({
   icon: iconSchema.optional(),
   openInNewTab: z.boolean().optional(),
   pinned: z.boolean().optional(),
+  isInbox: z.boolean().optional(),
   visibility: z.enum(['public', 'private']).optional(),
   enabled: z.boolean().optional(),
   tags: z.array(z.string().trim().min(1).max(30)).max(20).optional(),
@@ -45,6 +47,8 @@ const itemCreateSchema = z.object({
 const itemUpdateSchema = itemCreateSchema.partial().extend({
   groupId: z.string().min(1).optional(),
   position: z.number().int().min(0).optional(),
+  httpStatus: z.number().int().nullish(),
+  finalUrl: z.string().max(2048).nullish(),
 });
 
 const orderSchema = z.object({
@@ -53,9 +57,13 @@ const orderSchema = z.object({
 });
 
 const batchSchema = z.object({
-  op: z.enum(['enable', 'disable', 'delete', 'move']),
+  op: z.enum(['enable', 'disable', 'delete', 'move', 'inbox', 'uninbox']),
   ids: z.array(z.string().min(1)).min(1).max(500),
   groupId: z.string().min(1).optional(),
+});
+
+const inspectUrlSchema = z.object({
+  url: httpUrl,
 });
 
 interface ItemRow {
@@ -73,6 +81,12 @@ interface ItemRow {
   sort_order: number;
   visibility: string;
   enabled: number;
+  is_inbox: number;
+  visit_count: number;
+  last_visited_at: string | null;
+  http_status: number | null;
+  final_url: string | null;
+  last_checked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +102,12 @@ function serializeItem(row: ItemRow, tags: string[] = []) {
     icon: resolveIcon(row),
     openInNewTab: row.open_in_new_tab === 1,
     pinned: row.pinned === 1,
+    isInbox: row.is_inbox === 1,
+    visitCount: row.visit_count ?? 0,
+    lastVisitedAt: row.last_visited_at ?? null,
+    httpStatus: row.http_status ?? null,
+    finalUrl: row.final_url ?? null,
+    lastCheckedAt: row.last_checked_at ?? null,
     sortOrder: row.sort_order,
     visibility: row.visibility,
     enabled: row.enabled === 1,
@@ -151,6 +171,142 @@ function applyIcon(icon: z.infer<typeof iconSchema> | undefined): {
   }
 }
 
+/**
+ * Normalizes a URL for duplicate comparison: strips protocol difference, `www.`,
+ * trailing slash, hash fragment, and marketing query params (`utm_*`, `ref`).
+ */
+export function normalizeBookmarkUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl.trim());
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const port = parsed.port ? `:${parsed.port}` : '';
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    const params = [...parsed.searchParams.entries()]
+      .filter(([k]) => !/^utm_|^ref$|^fbclid$|^gclid$/i.test(k))
+      .sort(([a], [b]) => a.localeCompare(b));
+    const qs = params.length > 0 ? `?${new URLSearchParams(params).toString()}` : '';
+    return `${host}${port}${pathname}${qs}`;
+  } catch {
+    return rawUrl.trim().toLowerCase().replace(/\/+$/, '');
+  }
+}
+
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractHtmlMeta(html: string): { title: string | null; description: string | null } {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const rawTitle = titleMatch?.[1] ? decodeHtmlEntities(titleMatch[1]) : null;
+
+  let rawDesc: string | null = null;
+  const metaTagRe = /<meta\b[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = metaTagRe.exec(html))) {
+    const tag = match[0];
+    const name = (
+      tag.match(/\b(?:name|property)\s*=\s*["']([^"']+)["']/i)?.[1] ?? ''
+    ).toLowerCase();
+    if (name === 'description' || name === 'og:description' || name === 'twitter:description') {
+      const content = tag.match(/\bcontent\s*=\s*["']([^"']+)["']/i)?.[1];
+      if (content && content.trim()) {
+        rawDesc = decodeHtmlEntities(content);
+        if (name === 'description') break;
+      }
+    }
+  }
+
+  return {
+    title: rawTitle ? rawTitle.slice(0, 80) : null,
+    description: rawDesc ? rawDesc.slice(0, 300) : null,
+  };
+}
+
+async function probePublicPageMeta(targetUrl: string): Promise<{
+  status: number | null;
+  finalUrl: string | null;
+  title: string | null;
+  description: string | null;
+}> {
+  let current = targetUrl;
+  const deadline = Date.now() + 3500;
+  for (let hop = 0; hop <= 3; hop += 1) {
+    let parsed: URL;
+    try {
+      parsed = new URL(current);
+    } catch {
+      return { status: null, finalUrl: null, title: null, description: null };
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return { status: null, finalUrl: null, title: null, description: null };
+    }
+    if (!isAllowedIconHost(parsed.hostname)) {
+      return { status: null, finalUrl: null, title: null, description: null };
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.min(2500, remaining));
+    try {
+      const res = await fetch(current, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: {
+          accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+          'user-agent': 'Mozilla/5.0 (compatible; PureNavInspector/1.0)',
+        },
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        if (!loc) return { status: res.status, finalUrl: current, title: null, description: null };
+        const nextUrl = new URL(loc, current).toString();
+        current = nextUrl;
+        continue;
+      }
+
+      const reader = res.body?.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      if (reader) {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            total += value.length;
+            chunks.push(value);
+            if (total >= 96 * 1024) {
+              await reader.cancel().catch(() => undefined);
+              break;
+            }
+          }
+        }
+      }
+      const html = Buffer.concat(chunks).toString('utf8');
+      const meta = extractHtmlMeta(html);
+      return {
+        status: res.status,
+        finalUrl: current !== targetUrl ? current : null,
+        title: meta.title,
+        description: meta.description,
+      };
+    } catch {
+      return { status: null, finalUrl: null, title: null, description: null };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return { status: null, finalUrl: null, title: null, description: null };
+}
+
 export async function itemRoutes(app: FastifyInstance): Promise<void> {
   app.get('/admin/items', async (req) => {
     requireAdmin(req);
@@ -165,9 +321,13 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
       params.push(query.groupId);
     }
     if (query.q) {
-      where.push('(title LIKE ? OR url LIKE ?)');
+      where.push(
+        `(title LIKE ? OR url LIKE ? OR COALESCE(description, '') LIKE ? OR EXISTS (
+          SELECT 1 FROM item_tags it JOIN tags t ON t.id = it.tag_id WHERE it.item_id = items.id AND t.name LIKE ?
+        ))`,
+      );
       const like = `%${query.q}%`;
-      params.push(like, like);
+      params.push(like, like, like, like);
     }
     const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -180,6 +340,188 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
 
     const tags = tagsForItems(rows.map((row) => row.id));
     return { items: rows.map((row) => serializeItem(row, tags.get(row.id) ?? [])), total, page, pageSize };
+  });
+
+  // Inspect a URL before saving: detects in-library duplicates/same-domain items and fetches page metadata.
+  app.post('/admin/items/inspect-url', async (req) => {
+    assertSameOrigin(req);
+    requireAdmin(req);
+    const { url } = inspectUrlSchema.parse(req.body);
+
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const normalizedTarget = normalizeBookmarkUrl(url);
+
+    const allItems = db
+      .prepare('SELECT id, group_id, title, url, description FROM items')
+      .all() as { id: string; group_id: string; title: string; url: string; description: string | null }[];
+    const groupNames = new Map(
+      (db.prepare('SELECT id, name, parent_id FROM groups').all() as { id: string; name: string; parent_id: string | null }[])
+        .map((g) => [g.id, g]),
+    );
+    const getGroupPath = (groupId: string): string => {
+      const parts: string[] = [];
+      let cur = groupNames.get(groupId);
+      let guard = 0;
+      while (cur && guard < 10) {
+        parts.unshift(cur.name);
+        cur = cur.parent_id ? groupNames.get(cur.parent_id) : undefined;
+        guard += 1;
+      }
+      return parts.join(' / ') || '未分组';
+    };
+
+    let exactDuplicate: { id: string; title: string; url: string; groupId: string; groupPath: string } | null = null;
+    let sameHostItem: { id: string; title: string; url: string; groupId: string; groupPath: string } | null = null;
+
+    for (const row of allItems) {
+      if (normalizeBookmarkUrl(row.url) === normalizedTarget) {
+        exactDuplicate = {
+          id: row.id,
+          title: row.title,
+          url: row.url,
+          groupId: row.group_id,
+          groupPath: getGroupPath(row.group_id),
+        };
+        break;
+      }
+      try {
+        const rowHost = new URL(row.url).hostname.toLowerCase().replace(/^www\./, '');
+        if (rowHost === host && !sameHostItem) {
+          sameHostItem = {
+            id: row.id,
+            title: row.title,
+            url: row.url,
+            groupId: row.group_id,
+            groupPath: getGroupPath(row.group_id),
+          };
+        }
+      } catch {
+        // ignore invalid stored url
+      }
+    }
+
+    const probed = await probePublicPageMeta(url);
+    const fallbackTitle = host
+      .split('.')[0]
+      ?.replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase()) || host;
+
+    return {
+      url,
+      finalUrl: probed.finalUrl,
+      httpStatus: probed.status,
+      title: probed.title ?? exactDuplicate?.title ?? fallbackTitle,
+      description: probed.description ?? '',
+      duplicate: exactDuplicate ?? sameHostItem,
+      duplicateKind: exactDuplicate ? 'exact' : sameHostItem ? 'domain' : null,
+    };
+  });
+
+  // Bookmark Doctor: returns duplicate URL groups, redirect/broken status items, and single-item isolated subfolders.
+  app.get('/admin/items/doctor', async (req) => {
+    requireAdmin(req);
+    const rows = db.prepare('SELECT * FROM items ORDER BY sort_order ASC').all() as ItemRow[];
+    const groups = db
+      .prepare('SELECT id, name, parent_id FROM groups ORDER BY sort_order ASC')
+      .all() as { id: string; name: string; parent_id: string | null }[];
+
+    const groupById = new Map(groups.map((g) => [g.id, g]));
+    const getGroupPath = (groupId: string): string => {
+      const parts: string[] = [];
+      let cur = groupById.get(groupId);
+      let guard = 0;
+      while (cur && guard < 10) {
+        parts.unshift(cur.name);
+        cur = cur.parent_id ? groupById.get(cur.parent_id) : undefined;
+        guard += 1;
+      }
+      return parts.join(' / ') || '未分组';
+    };
+
+    const byNormalized = new Map<string, ItemRow[]>();
+    for (const row of rows) {
+      const key = normalizeBookmarkUrl(row.url);
+      const list = byNormalized.get(key) ?? [];
+      list.push(row);
+      byNormalized.set(key, list);
+    }
+
+    const duplicates = [...byNormalized.entries()]
+      .filter(([, list]) => list.length > 1)
+      .map(([normalizedUrl, list]) => ({
+        normalizedUrl,
+        items: list.map((item) => ({
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          groupId: item.group_id,
+          groupPath: getGroupPath(item.group_id),
+          visitCount: item.visit_count ?? 0,
+        })),
+      }));
+
+    const redirects = rows
+      .filter((r) => r.final_url && normalizeBookmarkUrl(r.final_url) !== normalizeBookmarkUrl(r.url))
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        url: r.url,
+        finalUrl: r.final_url!,
+        httpStatus: r.http_status ?? 301,
+        groupPath: getGroupPath(r.group_id),
+      }));
+
+    const broken = rows
+      .filter((r) => r.http_status !== null && (r.http_status >= 400 || r.http_status === 0))
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        url: r.url,
+        httpStatus: r.http_status!,
+        groupPath: getGroupPath(r.group_id),
+      }));
+
+    return {
+      totalItems: rows.length,
+      healthyCount: Math.max(0, rows.length - duplicates.length - redirects.length - broken.length),
+      duplicates,
+      redirects,
+      broken,
+    };
+  });
+
+  // Re-probes every stored URL and persists http_status / final_url / last_checked_at.
+  app.post('/admin/items/doctor/scan', async (req) => {
+    assertSameOrigin(req);
+    const user = requireAdmin(req);
+    const rows = db
+      .prepare('SELECT id, url FROM items ORDER BY last_checked_at ASC NULLS FIRST, id ASC LIMIT 150')
+      .all() as { id: string; url: string }[];
+
+    const update = db.prepare(
+      'UPDATE items SET http_status = ?, final_url = ?, last_checked_at = ? WHERE id = ?',
+    );
+    const checkedAt = nowIso();
+    let cursor = 0;
+    let okCount = 0;
+
+    const worker = async () => {
+      for (;;) {
+        const index = cursor++;
+        if (index >= rows.length) return;
+        const row = rows[index]!;
+        const probe = await probePublicPageMeta(row.url);
+        const status = probe.status ?? 0;
+        if (status >= 200 && status < 400) okCount += 1;
+        update.run(status, probe.finalUrl, checkedAt, row.id);
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(6, rows.length) }, worker));
+    bumpVersion();
+    audit(user.id, 'item.doctor_scan', 'item', null, { checked: rows.length }, req.ip);
+    return { checked: rows.length, ok: okCount };
   });
 
   app.post('/admin/items', async (req, reply) => {
@@ -197,8 +539,8 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
     db.transaction(() => {
       db.prepare(
         `INSERT INTO items (id, group_id, title, url, lan_url, description, icon_type, icon_ref, icon_asset_id,
-                            open_in_new_tab, pinned, sort_order, visibility, enabled, owner_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            open_in_new_tab, pinned, is_inbox, sort_order, visibility, enabled, owner_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         body.groupId,
@@ -211,6 +553,7 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
         icon.iconAssetId,
         body.openInNewTab === false ? 0 : 1,
         body.pinned ? 1 : 0,
+        body.isInbox ? 1 : 0,
         nextOrder(body.groupId),
         body.visibility ?? 'public',
         body.enabled === false ? 0 : 1,
@@ -256,6 +599,9 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
     if (body.description !== undefined) assign('description', body.description ?? null);
     if (body.openInNewTab !== undefined) assign('open_in_new_tab', body.openInNewTab ? 1 : 0);
     if (body.pinned !== undefined) assign('pinned', body.pinned ? 1 : 0);
+    if (body.isInbox !== undefined) assign('is_inbox', body.isInbox ? 1 : 0);
+    if (body.httpStatus !== undefined) assign('http_status', body.httpStatus ?? null);
+    if (body.finalUrl !== undefined) assign('final_url', body.finalUrl ?? null);
     if (body.visibility !== undefined) assign('visibility', body.visibility);
     if (body.enabled !== undefined) assign('enabled', body.enabled ? 1 : 0);
     if (body.icon !== undefined) {
@@ -330,7 +676,7 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
         db.prepare('DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM item_tags)').run();
       } else if (body.op === 'move') {
         const result = db
-          .prepare(`UPDATE items SET group_id = ?, sort_order = ?, updated_at = ? WHERE id IN (${placeholders})`)
+          .prepare(`UPDATE items SET group_id = ?, is_inbox = 0, sort_order = ?, updated_at = ? WHERE id IN (${placeholders})`)
           .run(body.groupId, nextOrder(body.groupId), now, ...body.ids);
         affected = result.changes;
         const moved = db
@@ -338,6 +684,11 @@ export async function itemRoutes(app: FastifyInstance): Promise<void> {
           .all(body.groupId)
           .map((r) => (r as { id: string }).id);
         rewriteItemOrderPartial(body.groupId!, moved);
+      } else if (body.op === 'inbox' || body.op === 'uninbox') {
+        const result = db
+          .prepare(`UPDATE items SET is_inbox = ?, updated_at = ? WHERE id IN (${placeholders})`)
+          .run(body.op === 'inbox' ? 1 : 0, now, ...body.ids);
+        affected = result.changes;
       } else {
         const result = db
           .prepare(`UPDATE items SET enabled = ?, updated_at = ? WHERE id IN (${placeholders})`)

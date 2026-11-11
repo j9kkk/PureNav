@@ -138,7 +138,22 @@ CREATE INDEX ix_groups_parent ON groups(parent_id);
 `,
     after: backfillGroupTree,
   },
+  {
+    id: '0003_bookmark_manager',
+    sql: `
+ALTER TABLE items ADD COLUMN is_inbox INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE items ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE items ADD COLUMN last_visited_at TEXT;
+ALTER TABLE items ADD COLUMN http_status INTEGER;
+ALTER TABLE items ADD COLUMN final_url TEXT;
+ALTER TABLE items ADD COLUMN last_checked_at TEXT;
+CREATE INDEX ix_items_inbox ON items(is_inbox);
+CREATE INDEX ix_items_visits ON items(visit_count DESC, last_visited_at DESC);
+`,
+  },
 ];
+
+export { backfillGroupTree };
 
 /**
  * One-time backfill: bookmark imports once stored the whole folder hierarchy inside the

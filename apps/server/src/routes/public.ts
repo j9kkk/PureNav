@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { db } from '../db/index.js';
+import { db, nowIso } from '../db/index.js';
 import { requireUser } from '../lib/http.js';
 import { configVersion, getSetting } from '../lib/settings.js';
 
@@ -25,6 +25,13 @@ interface ItemRow {
   open_in_new_tab: number;
   pinned: number;
   sort_order: number;
+  is_inbox: number;
+  visit_count: number;
+  last_visited_at: string | null;
+  http_status: number | null;
+  final_url: string | null;
+  last_checked_at: string | null;
+  created_at: string;
 }
 
 export interface PublicItem {
@@ -36,6 +43,13 @@ export interface PublicItem {
   openInNewTab: boolean;
   pinned: boolean;
   tags: string[];
+  isInbox: boolean;
+  visitCount: number;
+  lastVisitedAt: string | null;
+  httpStatus: number | null;
+  finalUrl: string | null;
+  lastCheckedAt: string | null;
+  createdAt: string;
 }
 
 export interface PublicGroup {
@@ -65,7 +79,8 @@ export function buildPublicConfig(): {
   const items = db
     .prepare(
       `SELECT id, group_id, title, url, description, icon_type, icon_ref, icon_asset_id,
-              open_in_new_tab, pinned, sort_order
+              open_in_new_tab, pinned, sort_order, is_inbox, visit_count, last_visited_at,
+              http_status, final_url, last_checked_at, created_at
        FROM items
        WHERE enabled = 1 AND visibility = 'public'
        ORDER BY pinned DESC, sort_order ASC, id ASC`,
@@ -100,6 +115,13 @@ export function buildPublicConfig(): {
       openInNewTab: row.open_in_new_tab === 1,
       pinned: row.pinned === 1,
       tags: itemTags.get(row.id) ?? [],
+      isInbox: row.is_inbox === 1,
+      visitCount: row.visit_count ?? 0,
+      lastVisitedAt: row.last_visited_at ?? null,
+      httpStatus: row.http_status ?? null,
+      finalUrl: row.final_url ?? null,
+      lastCheckedAt: row.last_checked_at ?? null,
+      createdAt: row.created_at,
     });
     itemsByGroup.set(row.group_id, list);
   }
@@ -183,5 +205,24 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     requireUser(req);
     reply.header('Cache-Control', 'no-store');
     return buildAdminConfig();
+  });
+
+  // Lightweight click / visit tracker (supports navigator.sendBeacon & fetch).
+  app.post('/public/items/:id/hit', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const now = nowIso();
+    const res = db
+      .prepare('UPDATE items SET visit_count = visit_count + 1, last_visited_at = ? WHERE id = ? AND enabled = 1')
+      .run(now, id);
+    if (res.changes === 0) {
+      return reply.status(204).send();
+    }
+    const row = db
+      .prepare('SELECT visit_count, last_visited_at FROM items WHERE id = ?')
+      .get(id) as { visit_count: number; last_visited_at: string | null } | undefined;
+    return {
+      visitCount: row?.visit_count ?? 0,
+      lastVisitedAt: row?.last_visited_at ?? now,
+    };
   });
 }

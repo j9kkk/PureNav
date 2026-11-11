@@ -17,6 +17,13 @@ export interface PublicItem {
   openInNewTab: boolean;
   pinned: boolean;
   tags: string[];
+  isInbox?: boolean;
+  visitCount?: number;
+  lastVisitedAt?: string | null;
+  httpStatus?: number | null;
+  finalUrl?: string | null;
+  lastCheckedAt?: string | null;
+  createdAt?: string;
 }
 
 export interface PublicGroup {

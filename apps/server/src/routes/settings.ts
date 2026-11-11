@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db, nowIso } from '../db/index.js';
+import { backfillGroupTree } from '../db/migrations.js';
 import { config } from '../config.js';
 import { ulid } from '../lib/ids.js';
 import { ApiError, assertSameOrigin, requireAdmin } from '../lib/http.js';
@@ -162,12 +163,16 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
       // 第二遍恢复层级：导出载荷里 parent_id 指向旧 id，经映射后回写。
       const linkParent = db.prepare('UPDATE groups SET parent_id = ? WHERE id = ?');
       for (const group of importedGroups) {
-        const oldParent = (group as { parent_id?: string | null }).parent_id;
+        const oldParent = (group as { parent_id?: string | null; parentId?: string | null }).parent_id ??
+          (group as { parentId?: string | null }).parentId;
         if (!oldParent) continue;
         const newId = groupIdMap.get(String(group.id));
         const newParentId = groupIdMap.get(String(oldParent));
         if (newId && newParentId) linkParent.run(newParentId, newId);
       }
+
+      // 兼容旧版或路径型书签导入（如 name 含 "书签栏 / 开发 / 前端"）：自动拆解为真实父子分组树。
+      backfillGroupTree(db);
 
       const itemIdMap = new Map<string, string>();
       for (const item of importedItems) {

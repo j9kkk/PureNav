@@ -117,11 +117,27 @@ export const api = {
   sessions: () => request<{ items: SessionInfo[] }>('/auth/sessions'),
   revokeSession: (id: string) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
 
-  batchItems: (op: 'enable' | 'disable' | 'delete' | 'move', ids: string[], groupId?: string) =>
+  batchItems: (op: 'enable' | 'disable' | 'delete' | 'move' | 'inbox' | 'uninbox', ids: string[], groupId?: string) =>
     request<{ affected: number }>('/admin/items/batch', {
       method: 'POST',
       body: JSON.stringify({ op, ids, groupId }),
     }),
+
+  hitItem: (id: string) =>
+    request<{ visitCount: number; lastVisitedAt: string }>(`/public/items/${id}/hit`, {
+      method: 'POST',
+    }),
+
+  inspectUrl: (url: string) =>
+    request<InspectUrlResponse>('/admin/items/inspect-url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
+  doctorReport: () => request<DoctorReportResponse>('/admin/items/doctor'),
+
+  doctorScan: () =>
+    request<{ checked: number; ok: number }>('/admin/items/doctor/scan', { method: 'POST' }),
 
   searchIcons: (q: string) =>
     request<{ items: { id: string; url: string }[] }>(`/admin/icons/search?q=${encodeURIComponent(q)}`),
@@ -220,8 +236,63 @@ export interface AdminItemDto {
   icon: IconRef;
   openInNewTab: boolean;
   pinned: boolean;
+  isInbox?: boolean;
+  visitCount?: number;
+  lastVisitedAt?: string | null;
+  httpStatus?: number | null;
+  finalUrl?: string | null;
+  lastCheckedAt?: string | null;
   sortOrder: number;
   visibility: 'public' | 'private';
   enabled: boolean;
   tags: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InspectUrlResponse {
+  url: string;
+  finalUrl: string | null;
+  httpStatus: number | null;
+  title: string;
+  description: string;
+  duplicate: {
+    id: string;
+    title: string;
+    url: string;
+    groupId: string;
+    groupPath: string;
+  } | null;
+  duplicateKind: 'exact' | 'domain' | null;
+}
+
+export interface DoctorReportResponse {
+  totalItems: number;
+  healthyCount: number;
+  duplicates: {
+    normalizedUrl: string;
+    items: {
+      id: string;
+      title: string;
+      url: string;
+      groupId: string;
+      groupPath: string;
+      visitCount: number;
+    }[];
+  }[];
+  redirects: {
+    id: string;
+    title: string;
+    url: string;
+    finalUrl: string;
+    httpStatus: number;
+    groupPath: string;
+  }[];
+  broken: {
+    id: string;
+    title: string;
+    url: string;
+    httpStatus: number;
+    groupPath: string;
+  }[];
 }
