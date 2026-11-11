@@ -2,6 +2,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type DoctorReportResponse } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
+import { getItemPalette } from '../lib/color';
+import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
+import { useIconImage } from '../lib/iconImage';
 import { BrandMark } from '../components/BrandMark';
 import { applyTheme, readThemeOverride, resolveTheme, writeThemeOverride, type ThemeMode } from '../lib/theme';
 import '../nav-workspace.css';
@@ -234,6 +237,56 @@ function sortItems(list: FlatItem[], sortBy: SortBy, visits: Map<string, number>
 
 /* ------------------------------------------------------------------ card */
 
+const BookmarkIcon = memo(function BookmarkIcon({
+  item,
+  size = 'lg',
+}: {
+  item: PublicItem;
+  size?: 'sm' | 'lg';
+}) {
+  const palette = useMemo(() => getItemPalette(item.url, item.title), [item.url, item.title]);
+  const primary = useMemo(() => primaryIconSrc(item.icon, item.url, palette.color), [item.icon, item.url, palette.color]);
+  const [src, setSrc] = useState(primary);
+  const { ref: imgRef, loaded, broken, variant, onLoad, setBroken } = useIconImage(src);
+
+  useEffect(() => {
+    setSrc(primary);
+    setBroken(false);
+  }, [primary, setBroken]);
+
+  const handleError = () => {
+    const fallback = fallbackIconSrc(item.icon, item.url);
+    if (fallback && src !== fallback) {
+      setSrc(fallback);
+      return;
+    }
+    setBroken(true);
+  };
+
+  const hasImage = Boolean(src && loaded && !broken);
+
+  return (
+    <span
+      className={size === 'sm' ? 'nx-mono' : 'nx-mono-lg'}
+      data-has-image={hasImage ? 'true' : 'false'}
+      data-variant={variant}
+    >
+      {!hasImage && <span>{monogram(item.title)}</span>}
+      {src && !broken && (
+        <img
+          ref={imgRef}
+          src={src}
+          alt=""
+          decoding="async"
+          data-loaded={loaded}
+          onLoad={onLoad}
+          onError={handleError}
+        />
+      )}
+    </span>
+  );
+});
+
 const ItemCard = memo(function ItemCard({
   flat,
   visits,
@@ -280,7 +333,7 @@ const ItemCard = memo(function ItemCard({
         if (event.key === 'Enter') onOpen(flat);
       }}
     >
-      <span className="nx-mono-lg">{monogram(item.title)}</span>
+      <BookmarkIcon item={item} size="lg" />
       <div className="nx-card-body">
         <div className="nx-row1">
           <div className="nx-title-wrap">
@@ -1529,7 +1582,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
                     title={`${flat.item.title} · ${flat.item.description ?? flat.item.url}`}
                     onClick={() => openItem(flat)}
                   >
-                    <span className="nx-mono">{monogram(flat.item.title)}</span>
+                    <BookmarkIcon item={flat.item} size="sm" />
                     <span className="nx-dock-name">{flat.item.title}</span>
                   </button>
                 ))}

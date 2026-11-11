@@ -130,7 +130,7 @@ items.forEach((it, i) => {
     it.url,
     it.lanUrl ?? null,
     it.desc ?? null,
-    'text',
+    'auto',
     null,
     null,
     1,

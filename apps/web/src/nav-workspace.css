@@ -789,6 +789,26 @@ body.pn-app-locked {
   place-items: center;
   flex: none;
   letter-spacing: -0.2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.nx-mono img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  display: block;
+}
+
+.nx-mono img:not([data-loaded='true']) {
+  opacity: 0;
+  position: absolute;
+}
+
+.nx-mono[data-variant='full'] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .nx-subfolders {
@@ -1071,12 +1091,25 @@ body.pn-app-locked {
   flex: none;
   margin-top: 1px;
   overflow: hidden;
+  position: relative;
 }
 
 .nx-mono-lg img {
   width: 18px;
   height: 18px;
   object-fit: contain;
+  display: block;
+}
+
+.nx-mono-lg img:not([data-loaded='true']) {
+  opacity: 0;
+  position: absolute;
+}
+
+.nx-mono-lg[data-variant='full'] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .nx-card-body {
