@@ -1,0 +1,3643 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PureNav · 全能自托管收藏夹管理器</title>
+  <style>
+    /* ==========================================================================
+       1. CSS Reset & Precision Scale Tokens
+       Strict Radii: 6px, 8px only
+       Strict Font Sizes: 11px, 12px, 13px, 14px, 16px, 20px only (6 sizes)
+       Strict Font Weights: 400, 500, 600 only (3 weights)
+       Strict Focus Ring: 2px solid var(--accent); outline-offset: 2px;
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* Dark Theme (Default) */
+      --bg-canvas: #0C0D10;
+      --bg-sidebar: #12141A;
+      --bg-header: #12141A;
+      --bg-card: #161922;
+      --bg-card-hover: #1D2230;
+      --bg-card-active: #23293A;
+      --bg-subtle: #1A1E29;
+      --bg-dock: #141720;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.05);
+      --border-strong: rgba(255, 255, 255, 0.16);
+
+      /* High contrast text tokens (WCAG AA >= 4.6:1) */
+      --text-primary: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #94A3B8;
+      --text-dim: #94A3B8;
+
+      /* Primary Brand / Accent */
+      --accent: #6366F1;
+      --accent-hover: #4F46E5;
+      --accent-text: #818CF8;
+      --accent-bg: rgba(99, 102, 241, 0.14);
+      --accent-border: rgba(99, 102, 241, 0.35);
+
+      /* Semantic status tokens */
+      --success: #34D399;
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --success-border: rgba(52, 211, 153, 0.3);
+      --success-text: #34D399;
+
+      --warning: #F59E0B;
+      --warning-bg: rgba(245, 158, 11, 0.14);
+      --warning-border: rgba(245, 158, 11, 0.35);
+      --warning-text: #FBBF24;
+
+      --danger: #EF4444;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+      --danger-border: rgba(239, 68, 68, 0.35);
+      --danger-text: #F87171;
+
+      /* Monogram badge palette */
+      --mono-bg: #1E2330;
+      --mono-border: rgba(255, 255, 255, 0.12);
+      --mono-text: #E2E8F0;
+
+      /* Radii */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+
+      /* Transition */
+      --ease: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    [data-theme="light"] {
+      --bg-canvas: #F8FAFC;
+      --bg-sidebar: #FFFFFF;
+      --bg-header: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-card-hover: #F1F5F9;
+      --bg-card-active: #E2E8F0;
+      --bg-subtle: #F1F5F9;
+      --bg-dock: #F8FAFC;
+      --border: #E2E8F0;
+      --border-subtle: #EDF2F7;
+      --border-strong: #CBD5E1;
+
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #475569;
+      --text-dim: #475569;
+
+      --accent: #4F46E5;
+      --accent-hover: #4338CA;
+      --accent-text: #4338CA;
+      --accent-bg: rgba(79, 70, 229, 0.08);
+      --accent-border: rgba(79, 70, 229, 0.25);
+
+      --success: #047857;
+      --success-bg: #D1FAE5;
+      --success-border: #6EE7B7;
+      --success-text: #047857;
+
+      --warning: #B45309;
+      --warning-bg: #FEF3C7;
+      --warning-border: #FCD34D;
+      --warning-text: #B45309;
+
+      --danger: #DC2626;
+      --danger-bg: #FEE2E2;
+      --danger-border: #FCA5A5;
+      --danger-text: #DC2626;
+
+      --mono-bg: #F1F5F9;
+      --mono-border: #CBD5E1;
+      --mono-text: #1E293B;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      border: none;
+      background: none;
+      outline: none;
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* SVG icon utility */
+    .icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 1.5;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .icon-sm {
+      width: 13px;
+      height: 13px;
+    }
+
+    .icon-lg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* ==========================================================================
+       2. Application Shell ("Three Sections and One Overlay")
+       100vh viewport: Fixed sidebar (248px) + Main workspace (flex: 1)
+       ========================================================================== */
+    .app-shell {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* --- Sidebar (248px) --- */
+    .sidebar {
+      width: 248px;
+      flex-shrink: 0;
+      height: 100vh;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      transition: transform var(--ease);
+    }
+
+    .sidebar-brand-box {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-logo-svg {
+      width: 24px;
+      height: 24px;
+      color: var(--accent);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+
+    .brand-version-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-subtle);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    /* Quick capture button in sidebar */
+    .btn-quick-capture {
+      width: 100%;
+      height: 32px;
+      background-color: var(--accent);
+      color: #FFFFFF;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color var(--ease);
+    }
+
+    .btn-quick-capture:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-quick-capture .kbd-shortcut {
+      font-size: 11px;
+      padding: 0 4px;
+      border-radius: 4px;
+      background-color: rgba(255, 255, 255, 0.22);
+      color: #FFFFFF;
+      line-height: 16px;
+      height: 16px;
+    }
+
+    /* Sidebar scrollable sections */
+    .sidebar-scrollable {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .nav-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      padding: 4px 8px 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-section-action {
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      border-radius: 4px;
+      padding: 2px;
+    }
+
+    .nav-section-action:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-subtle);
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      list-style: none;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 400;
+      transition: background-color var(--ease), color var(--ease);
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background-color: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background-color: var(--accent-bg);
+      color: var(--accent-text);
+      font-weight: 500;
+    }
+
+    .nav-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nav-item-name {
+      overflow: visible;
+      white-space: nowrap;
+    }
+
+    .nav-item-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .nav-item.active .nav-item-count {
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+
+    .nav-item-count.badge-alert {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-weight: 600;
+    }
+
+    /* Nested folder tree */
+    .folder-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .tree-node-parent {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 400;
+      transition: background-color var(--ease), color var(--ease);
+      user-select: none;
+    }
+
+    .tree-node-parent:hover {
+      background-color: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    .tree-node-parent.active {
+      background-color: var(--accent-bg);
+      color: var(--accent-text);
+      font-weight: 500;
+    }
+
+    .tree-node-parent.active .nav-item-count {
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+
+    .tree-arrow-btn {
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: transform var(--ease);
+    }
+
+    .tree-arrow-btn.expanded {
+      transform: rotate(90deg);
+    }
+
+    .tree-children {
+      margin-left: 14px;
+      padding-left: 6px;
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .tree-children[data-collapsed="true"] {
+      display: none;
+    }
+
+    .tree-node-child {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 12px;
+      transition: background-color var(--ease), color var(--ease);
+      user-select: none;
+    }
+
+    .tree-node-child:hover {
+      background-color: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    .tree-node-child.active {
+      background-color: var(--accent-bg);
+      color: var(--accent-text);
+      font-weight: 500;
+    }
+
+    .tree-node-child.active .nav-item-count {
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+
+    /* Tag pills in sidebar */
+    .sidebar-tags-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 2px 4px;
+    }
+
+    .sidebar-tag-pill {
+      font-size: 11px;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .sidebar-tag-pill:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .sidebar-tag-pill.active {
+      background-color: var(--accent-bg);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
+      font-weight: 500;
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-sidebar);
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-avatar-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .user-name-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background-color var(--ease), color var(--ease);
+    }
+
+    .btn-icon:hover {
+      background-color: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    /* --- Main Workspace (flex: 1) --- */
+    .main-workspace {
+      flex: 1;
+      min-width: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Header / Topbar (52px) */
+    .topbar {
+      height: 52px;
+      flex-shrink: 0;
+      background-color: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      max-width: 600px;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      background-color: var(--bg-card);
+    }
+
+    .search-input-box {
+      position: relative;
+      flex: 1;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      gap: 8px;
+      transition: border-color var(--ease), box-shadow var(--ease);
+    }
+
+    .search-input-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .search-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-kbd-tag {
+      font-size: 11px;
+      color: var(--text-muted);
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: inherit;
+      pointer-events: none;
+      line-height: 14px;
+    }
+
+    .search-clear-btn {
+      cursor: pointer;
+      color: var(--text-muted);
+      display: none;
+      align-items: center;
+    }
+
+    .search-clear-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .select-dropdown {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .select-dropdown:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .view-toggle-group {
+      display: flex;
+      height: 32px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .view-toggle-btn {
+      width: 28px;
+      height: 26px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all var(--ease);
+    }
+
+    .view-toggle-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .view-toggle-btn.active {
+      background-color: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .topbar-action-link {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .topbar-action-link:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    /* Workspace Content Area */
+    .workspace-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 24px 44px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Pinned Dock (Top in "All" view) */
+    .pinned-dock-section {
+      background-color: var(--bg-dock);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .dock-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dock-title-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      letter-spacing: 0.3px;
+    }
+
+    .dock-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .dock-card {
+      height: 38px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .dock-card:hover {
+      background-color: var(--bg-card-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .dock-monogram {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background-color: var(--mono-bg);
+      border: 1px solid var(--mono-border);
+      color: var(--mono-text);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .dock-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: visible;
+    }
+
+    /* Subfolder Pills Bar (Horizontal Compact Entry Cards) */
+    .subfolders-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 2px 0 6px 0;
+    }
+
+    .subfolder-card {
+      height: 34px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      transition: all var(--ease);
+      user-select: none;
+    }
+
+    .subfolder-card:hover {
+      background-color: var(--bg-card-hover);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .subfolder-card.active {
+      background-color: var(--accent-bg);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
+    }
+
+    .subfolder-count-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* View Header: Breadcrumbs & Actions */
+    .view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 2px;
+    }
+
+    .breadcrumb-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .breadcrumb-item {
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color var(--ease);
+    }
+
+    .breadcrumb-item:hover {
+      color: var(--text-primary);
+    }
+
+    .breadcrumb-item.current {
+      color: var(--text-primary);
+      cursor: default;
+    }
+
+    .breadcrumb-sep {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .breadcrumb-total {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .view-actions-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    /* Folder Section Block */
+    .folder-section-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .folder-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+
+    .folder-section-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .folder-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .folder-section-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Bookmark Cards Grid (Strict 2-Column Precision Alignment) */
+    .bookmark-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .bookmark-cards-grid.single-column {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Row Card Component */
+    .item-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: all var(--ease);
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .item-card:hover {
+      background-color: var(--bg-card-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .item-card.highlighted {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    /* Monogram Badge */
+    .item-monogram {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      background-color: var(--mono-bg);
+      border: 1px solid var(--mono-border);
+      color: var(--mono-text);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .item-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Line 1: Title, Domain, LAN Toggle, Tags, Visits, Context Menu */
+    .item-line-primary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .item-title-domain-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: visible;
+    }
+
+    .item-domain {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: nowrap;
+      overflow: visible;
+    }
+
+    .item-domain.lan-active {
+      color: var(--success-text);
+      font-weight: 500;
+    }
+
+    /* LAN / WAN Toggle Chip */
+    .lan-toggle-chip {
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+      transition: all var(--ease);
+      flex-shrink: 0;
+    }
+
+    .lan-toggle-chip:hover {
+      filter: brightness(1.1);
+    }
+
+    .lan-toggle-chip[data-active="wan"] {
+      background-color: var(--bg-subtle);
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+
+    .item-actions-meta-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .item-tag {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .item-pinned-icon {
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+    }
+
+    .item-visits {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .item-more-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--ease);
+    }
+
+    .item-more-btn:hover {
+      background-color: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    /* Line 2: Description and Folder Badge */
+    .item-line-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .item-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      white-space: normal;
+      overflow: visible;
+      flex: 1;
+    }
+
+    .item-folder-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      background-color: var(--bg-subtle);
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Compact Table Mode */
+    .compact-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background-color: var(--bg-card);
+      overflow: hidden;
+    }
+
+    .table-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      gap: 12px;
+      transition: background-color var(--ease);
+      cursor: pointer;
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .table-row:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    /* ==========================================================================
+       3. Bookmark Doctor View (?view=doctor)
+       ========================================================================== */
+    .doctor-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .doctor-summary-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .doctor-summary-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .doctor-score-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-color: var(--accent-bg);
+      border: 2px solid var(--accent);
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .doctor-summary-text-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .doctor-summary-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .doctor-summary-stats {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .doctor-stat-tag {
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .doctor-stat-tag.clean {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .doctor-stat-tag.alert {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+    }
+
+    /* Doctor Issue Card */
+    .doctor-issue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .doctor-issue-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all var(--ease);
+    }
+
+    .doctor-issue-card:hover {
+      border-color: var(--border-strong);
+    }
+
+    .doctor-issue-card.resolved {
+      opacity: 0.6;
+      border-color: var(--success-border);
+      background-color: var(--bg-subtle);
+    }
+
+    .doctor-issue-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .issue-type-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .issue-type-badge.dup {
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+    }
+
+    .issue-type-badge.redirect {
+      background-color: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-text);
+    }
+
+    .issue-type-badge.timeout {
+      background-color: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .issue-type-badge.resolved {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+
+    .issue-desc-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .issue-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .issue-site-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .issue-site-path {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .issue-detail-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .issue-detail-text code {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      background-color: var(--bg-subtle);
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: var(--text-primary);
+    }
+
+    .doctor-issue-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-action-primary {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      background-color: var(--accent);
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color var(--ease);
+    }
+
+    .btn-action-primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    /* ==========================================================================
+       4. Empty & No-result States
+       ========================================================================== */
+    .empty-state-card {
+      background-color: var(--bg-card);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 48px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 16px;
+      max-width: 520px;
+      margin: 40px auto;
+    }
+
+    .empty-icon-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .empty-state-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      max-width: 380px;
+      line-height: 1.5;
+    }
+
+    .empty-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-hint-text {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Search No Result Card */
+    .no-result-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 36px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 16px;
+      max-width: 560px;
+      margin: 30px auto;
+    }
+
+    .search-engines-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ==========================================================================
+       5. Fixed Status Bar (32px)
+       ========================================================================== */
+    .statusbar {
+      height: 32px;
+      flex-shrink: 0;
+      background-color: var(--bg-header);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 10;
+    }
+
+    .statusbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .statusbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--success);
+      display: inline-block;
+    }
+
+    /* ==========================================================================
+       6. Overlays: Context Menu & Quick Capture Modal
+       ========================================================================== */
+    /* Context Menu Modal / Dropdown */
+    .context-menu-popover {
+      position: absolute;
+      width: 220px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .context-menu-popover.visible {
+      display: flex;
+    }
+
+    .context-item {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+      transition: all var(--ease);
+      position: relative;
+    }
+
+    .context-item:hover {
+      background-color: var(--accent-bg);
+      color: var(--accent-text);
+    }
+
+    .context-item.danger:hover {
+      background-color: var(--danger-bg);
+      color: var(--danger-text);
+    }
+
+    .context-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .context-item-kbd {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: inherit;
+    }
+
+    .context-separator {
+      height: 1px;
+      background-color: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    /* Submenu for "Move to folder" */
+    .context-submenu {
+      position: absolute;
+      right: calc(100% + 4px);
+      left: auto;
+      top: -6px;
+      width: 170px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 120;
+    }
+
+    .context-submenu.visible,
+    .context-item:hover > .context-submenu {
+      display: flex !important;
+    }
+
+    /* Modal Backdrop & Dialog */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.visible {
+      display: flex;
+    }
+
+    .capture-dialog {
+      width: 100%;
+      max-width: 540px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .modal-close-btn {
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      border-radius: 4px;
+      padding: 4px;
+    }
+
+    .modal-close-btn:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-subtle);
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    /* Form Fields in Quick Capture */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .form-status-badge {
+      font-size: 11px;
+      color: var(--success-text);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+    }
+
+    .form-input {
+      height: 34px;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .form-textarea {
+      height: 60px;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      color: var(--text-primary);
+      font-size: 12px;
+      resize: none;
+      font-family: inherit;
+    }
+
+    .form-textarea:focus {
+      border-color: var(--accent);
+    }
+
+    /* Duplicate URL Warning Banner (Amber) */
+    .warning-banner {
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .warning-banner-icon {
+      color: var(--warning-text);
+      margin-top: 1px;
+    }
+
+    .warning-banner-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .warning-banner-text {
+      font-size: 12px;
+      color: var(--warning-text);
+      line-height: 1.4;
+    }
+
+    .warning-banner-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-warning-action {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      background-color: rgba(245, 158, 11, 0.2);
+      color: var(--warning-text);
+      border: 1px solid var(--warning-border);
+      cursor: pointer;
+    }
+
+    .btn-warning-action:hover {
+      background-color: rgba(245, 158, 11, 0.3);
+    }
+
+    /* Form Dual Column */
+    .form-grid-dual {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-select {
+      height: 34px;
+      background-color: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .form-select option {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    /* Monogram Selector */
+    .monogram-selector-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .monogram-preview-card {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background-color: var(--mono-bg);
+      border: 1px solid var(--mono-border);
+      color: var(--mono-text);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Bookmarklet drag zone */
+    .bookmarklet-zone {
+      background-color: var(--bg-subtle);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .bookmarklet-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .bookmarklet-pill {
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 13px;
+      background-color: var(--accent);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: grab;
+      user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      background-color: var(--bg-card);
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 44px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .toast-item {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+      color: var(--text-primary);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: toastIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ==========================================================================
+       7. Responsive Layout (Mobile / 640px)
+       ========================================================================== */
+    @media (max-width: 860px) {
+      .sidebar {
+        position: fixed;
+        left: -248px;
+        top: 0;
+        bottom: 0;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .sidebar.mobile-open {
+        left: 0;
+      }
+
+      .mobile-menu-btn {
+        display: flex;
+      }
+
+      .dock-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .bookmark-cards-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      .workspace-content {
+        padding: 14px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <!-- ========================================================================
+         LEFT SIDEBAR: Navigation Tree (248px)
+         ======================================================================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand-box">
+        <div class="brand-row">
+          <div class="brand-title-wrap">
+            <svg class="brand-logo-svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="brand-title">PureNav</span>
+          </div>
+        </div>
+        <button class="btn-quick-capture" id="btnSidebarQuickCapture" title="快速收录新网页 (N)">
+          <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+          <span>快速收录</span>
+          <span class="kbd-shortcut">N</span>
+        </button>
+      </div>
+
+      <div class="sidebar-scrollable">
+        <!-- 1. Smart Views -->
+        <div>
+          <div class="nav-section-title">
+            <span>智能视图</span>
+          </div>
+          <ul class="nav-list">
+            <li class="nav-item active" data-view="all" id="navAll">
+              <div class="nav-item-left">
+                <svg class="icon" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6"/></svg>
+                <span class="nav-item-name">全部书签</span>
+              </div>
+              <span class="nav-item-count" id="countAll">24</span>
+            </li>
+            <li class="nav-item" data-view="pinned" id="navPinned">
+              <div class="nav-item-left">
+                <svg class="icon" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+                <span class="nav-item-name">常用置顶</span>
+              </div>
+              <span class="nav-item-count" id="countPinned">6</span>
+            </li>
+            <li class="nav-item" data-view="recent" id="navRecent">
+              <div class="nav-item-left">
+                <svg class="icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+                <span class="nav-item-name">最近访问</span>
+              </div>
+              <span class="nav-item-count" id="countRecent">8</span>
+            </li>
+            <li class="nav-item" data-view="inbox" id="navInbox">
+              <div class="nav-item-left">
+                <svg class="icon" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 9h3l1.5 2h2l1.5-2h3"/></svg>
+                <span class="nav-item-name">待整理收件箱</span>
+              </div>
+              <span class="nav-item-count" id="countInbox">2</span>
+            </li>
+            <li class="nav-item" data-view="doctor" id="navDoctor">
+              <div class="nav-item-left">
+                <svg class="icon" viewBox="0 0 16 16"><path d="M2 8h3l2-4 3 8 2-4h4"/></svg>
+                <span class="nav-item-name">书签体检</span>
+              </div>
+              <span class="nav-item-count badge-alert" id="countDoctor">3</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 2. Folder Tree -->
+        <div>
+          <div class="nav-section-title">
+            <span>文件夹树</span>
+            <span class="nav-section-action" title="新建文件夹" id="btnNewFolder">
+              <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+            </span>
+          </div>
+
+          <div class="folder-group">
+            <!-- Dev & Infra -->
+            <div>
+              <div class="tree-node-parent" data-folder="dev" id="navFolderDev">
+                <div class="nav-item-left">
+                  <span class="tree-arrow-btn expanded" id="arrowDev">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                  </span>
+                  <svg class="icon" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+                  <span class="nav-item-name">开发与基础设施</span>
+                </div>
+                <span class="nav-item-count">10</span>
+              </div>
+              <div class="tree-children" id="childrenDev">
+                <div class="tree-node-child" data-folder="dev-docs" id="navFolderDevDocs">
+                  <div class="nav-item-left">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M3.5 2.5h7l2.5 2.5v8.5h-9.5zM10.5 2.5v2.5h2.5"/></svg>
+                    <span class="nav-item-name">文档与规范</span>
+                  </div>
+                  <span class="nav-item-count">3</span>
+                </div>
+                <div class="tree-node-child" data-folder="dev-apple" id="navFolderDevApple">
+                  <div class="nav-item-left">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 2.5v2M8 4.5a3.5 3.5 0 1 0 3.5 3.5c0-1.9-1.6-3.5-3.5-3.5z"/></svg>
+                    <span class="nav-item-name">Apple 研发</span>
+                  </div>
+                  <span class="nav-item-count">1</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Homelab -->
+            <div>
+              <div class="tree-node-parent" data-folder="homelab" id="navFolderHomelab">
+                <div class="nav-item-left">
+                  <span class="tree-arrow-btn" id="arrowHomelab">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                  </span>
+                  <svg class="icon" viewBox="0 0 16 16"><path d="M2.5 6.5L8 2.5l5.5 4V13.5h-11z"/></svg>
+                  <span class="nav-item-name">自建与内网</span>
+                </div>
+                <span class="nav-item-count">4</span>
+              </div>
+            </div>
+
+            <!-- Design & Product -->
+            <div>
+              <div class="tree-node-parent" data-folder="design" id="navFolderDesign">
+                <div class="nav-item-left">
+                  <span class="tree-arrow-btn expanded" id="arrowDesign">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                  </span>
+                  <svg class="icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="3.5"/><circle cx="10" cy="10" r="3.5"/></svg>
+                  <span class="nav-item-name">设计与产品</span>
+                </div>
+                <span class="nav-item-count">6</span>
+              </div>
+              <div class="tree-children" id="childrenDesign">
+                <div class="tree-node-child" data-folder="design-tokens" id="navFolderDesignTokens">
+                  <div class="nav-item-left">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M3 8a5 5 0 0 1 10 0v4H3z"/></svg>
+                    <span class="nav-item-name">色彩与字体</span>
+                  </div>
+                  <span class="nav-item-count">2</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tech Reading -->
+            <div>
+              <div class="tree-node-parent" data-folder="reading" id="navFolderReading">
+                <div class="nav-item-left">
+                  <span class="tree-arrow-btn" id="arrowReading">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                  </span>
+                  <svg class="icon" viewBox="0 0 16 16"><path d="M2.5 3.5h4.5a2 2 0 0 1 2 2v7a2 2 0 0 0-2-2H2.5zM13.5 3.5H9a2 2 0 0 0-2 2v7a2 2 0 0 1 2-2h4.5z"/></svg>
+                  <span class="nav-item-name">技术阅读</span>
+                </div>
+                <span class="nav-item-count">4</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Tags Filter -->
+        <div>
+          <div class="nav-section-title">
+            <span>标签筛选</span>
+          </div>
+          <div class="sidebar-tags-wrap" id="sidebarTagsWrap">
+            <span class="sidebar-tag-pill active" data-tag="全部">全部 24</span>
+            <span class="sidebar-tag-pill" data-tag="常用">常用 8</span>
+            <span class="sidebar-tag-pill" data-tag="内部">内部 8</span>
+            <span class="sidebar-tag-pill" data-tag="外部">外部 6</span>
+            <span class="sidebar-tag-pill" data-tag="新上线">新上线 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer User Panel -->
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar-dot">A</div>
+          <span class="user-name-text">admin</span>
+        </div>
+        <div class="footer-actions">
+          <button class="btn-icon" id="btnThemeToggle" title="切换明暗主题">
+            <svg class="icon icon-sm" id="themeIconSvg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4"/><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M3.4 12.6l.7-.7M11.9 4.1l.7-.7"/></svg>
+          </button>
+          <a class="btn-icon" href="/admin" title="管理后台">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 2.5v1.5M8 12v1.5M2.5 8H4M12 8h1.5"/></svg>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========================================================================
+         RIGHT MAIN WORKSPACE
+         ======================================================================== -->
+    <main class="main-workspace">
+      <!-- Topbar Header (52px) -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-btn" id="btnMobileMenu" title="打开侧栏">
+            <svg class="icon" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
+          </button>
+          <div class="search-input-box">
+            <svg class="icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            <input type="text" class="search-input" id="globalSearchInput" placeholder="搜索标题 / 域名 / 路径 / 标签 (/ 或 ⌘K)" autocomplete="off" spellcheck="false">
+            <span class="search-kbd-tag" id="searchKbdTag">/</span>
+            <span class="search-clear-btn" id="btnSearchClear" title="清空搜索">
+              <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Sort Dropdown -->
+          <select class="select-dropdown" id="selectSortBy" title="排序方式">
+            <option value="visits">按访问频次降序</option>
+            <option value="title">按标题拼音升序</option>
+            <option value="date">按添加时间倒序</option>
+          </select>
+
+          <!-- View Mode Toggle -->
+          <div class="view-toggle-group">
+            <button class="view-toggle-btn active" id="btnViewGrid" title="双列卡片矩阵">
+              <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2.5 3h4.5v4.5h-4.5zM9 3h4.5v4.5h-4.5zM2.5 9.5h4.5v4.5h-4.5zM9 9.5h4.5v4.5h-4.5z"/></svg>
+            </button>
+            <button class="view-toggle-btn" id="btnViewTable" title="单列紧凑列表">
+              <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
+            </button>
+          </div>
+
+          <!-- Topbar Action Link -->
+          <a class="topbar-action-link" href="/admin" title="管理后台">
+            <span>管理后台</span>
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M5 11l6-6M6 5h5v5"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <!-- Dynamic Content Area -->
+      <section class="workspace-content" id="workspaceContent">
+        <!-- Rendered dynamically by JS -->
+      </section>
+
+      <!-- Statusbar (32px) -->
+      <footer class="statusbar">
+        <div class="statusbar-left">
+          <span class="status-indicator-dot"></span>
+          <span id="statusBarSummary">共 24 条书签 · 4 个根文件夹 · 内网可达 3/4 · 体检发现 3 项</span>
+        </div>
+        <div class="statusbar-right">
+          <span>按 / 搜索 · 右键管理 · N 快速收录</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       CONTEXT MENU POPOVER (In-Place Management)
+       ======================================================================== -->
+  <div class="context-menu-popover" id="contextMenuPopover">
+    <div class="context-item" id="ctxOpen">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M5 11l6-6M6 5h5v5"/></svg>
+        <span>在新标签页打开</span>
+      </div>
+      <span class="context-item-kbd">Enter</span>
+    </div>
+    <div class="context-item" id="ctxToggleLan">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="8" r="2"/><path d="M6 8h4"/></svg>
+        <span>切换为内网/外网地址</span>
+      </div>
+    </div>
+    <div class="context-item" id="ctxTogglePin">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+        <span id="ctxTogglePinText">设为常用置顶</span>
+      </div>
+    </div>
+    <div class="context-item" id="ctxMoveFolder">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+        <span>移动到文件夹</span>
+      </div>
+      <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+
+      <!-- Submenu -->
+      <div class="context-submenu" id="ctxSubmenu">
+        <div class="context-item" data-target-folder="dev">开发与基础设施</div>
+        <div class="context-item" data-target-folder="dev-docs">&nbsp;&nbsp;├ 文档与规范</div>
+        <div class="context-item" data-target-folder="dev-apple">&nbsp;&nbsp;└ Apple 研发</div>
+        <div class="context-item" data-target-folder="homelab">自建与内网</div>
+        <div class="context-item" data-target-folder="design">设计与产品</div>
+        <div class="context-item" data-target-folder="reading">技术阅读</div>
+        <div class="context-item" data-target-folder="inbox">待整理收件箱</div>
+      </div>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" id="ctxEdit">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M10 2.5l3.5 3.5L5 14.5H1.5V11L10 2.5z"/></svg>
+        <span>编辑书签信息…</span>
+      </div>
+    </div>
+    <div class="context-item" id="ctxCopyUrl">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M4.5 3.5h7v9h-7zM2.5 5.5v8h7"/></svg>
+        <span>复制网址</span>
+      </div>
+      <span class="context-item-kbd">⌘C</span>
+    </div>
+    <div class="context-item" id="ctxSendInbox">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 9h3l1.5 2h2l1.5-2h3"/></svg>
+        <span>移入待整理收件箱</span>
+      </div>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item danger" id="ctxDelete">
+      <div class="context-item-left">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M3 4.5h10M6 4.5V2.5h4v2M5 4.5v8.5h6V4.5"/></svg>
+        <span>删除书签</span>
+      </div>
+      <span class="context-item-kbd">⌫</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       QUICK CAPTURE MODAL DIALOG (?modal=capture)
+       ======================================================================== -->
+  <div class="modal-backdrop" id="captureModalBackdrop">
+    <div class="capture-dialog" id="captureDialog">
+      <div class="modal-header">
+        <span class="modal-title">+ 快速收录书签 (Quick Capture)</span>
+        <span class="modal-close-btn" id="btnCloseCaptureModal">
+          <svg class="icon" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </span>
+      </div>
+
+      <div class="modal-body">
+        <!-- URL Input with auto-fetch badge -->
+        <div class="form-group">
+          <div class="form-label-row">
+            <span class="form-label">网页 URL</span>
+            <span class="form-status-badge">
+              <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3.5-3.5"/></svg>
+              <span>已自动抓取元信息 (200 OK)</span>
+            </span>
+          </div>
+          <input type="text" class="form-input" id="captureInputUrl" value="https://vite.dev/guide">
+        </div>
+
+        <!-- Amber Duplicate Warning Banner -->
+        <div class="warning-banner" id="captureDupWarning">
+          <svg class="icon icon-sm warning-banner-icon" viewBox="0 0 16 16">
+            <path d="M8 2.5L14 13.5H2L8 2.5zM8 7v3M8 11.5v.5"/>
+          </svg>
+          <div class="warning-banner-content">
+            <div class="warning-banner-text">
+              检测到库内已存在相同域名书签「Vite」（位于：开发与基础设施 / 文档与规范），可一键合并或继续保存为独立子页面。
+            </div>
+            <div class="warning-banner-actions">
+              <button class="btn-warning-action" id="btnWarningMerge">一键合并更新现有书签</button>
+              <button class="btn-warning-action" id="btnWarningViewExisting">查看已有项</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Title & Meta Description -->
+        <div class="form-group">
+          <span class="form-label">网页标题</span>
+          <input type="text" class="form-input" id="captureInputTitle" value="Vite | 现代前端开发构建与工具链">
+        </div>
+
+        <div class="form-group">
+          <span class="form-label">Meta 描述</span>
+          <textarea class="form-textarea" id="captureInputDesc">现代前端开发构建配置与插件生态，支持秒级热更新与极速 Rollup 生产分包打包。</textarea>
+        </div>
+
+        <!-- Monogram & Folder Dual Select -->
+        <div class="form-grid-dual">
+          <div class="form-group">
+            <span class="form-label">推荐双字母微章</span>
+            <div class="monogram-selector-box">
+              <div class="monogram-preview-card" id="captureMonogramPreview">VT</div>
+              <input type="text" class="form-input" id="captureInputMonogram" value="VT" maxlength="2" style="width: 60px; text-transform: uppercase; text-align: center;">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <span class="form-label">目标存储文件夹</span>
+            <select class="form-select" id="captureSelectFolder">
+              <option value="dev-docs">开发与基础设施 / 文档与规范</option>
+              <option value="dev">开发与基础设施 (直属)</option>
+              <option value="dev-apple">开发与基础设施 / Apple 研发</option>
+              <option value="homelab">自建与内网服务</option>
+              <option value="design">设计与产品协作</option>
+              <option value="reading">技术阅读与社区</option>
+              <option value="inbox">存入待整理收件箱 (Inbox)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tags input -->
+        <div class="form-group">
+          <span class="form-label">标签 (逗号分隔)</span>
+          <input type="text" class="form-input" id="captureInputTags" value="文档, 前端, 构建">
+        </div>
+
+        <!-- Bookmarklet Section -->
+        <div class="bookmarklet-zone">
+          <div class="bookmarklet-text">
+            <strong>浏览器一键收录小书签：</strong>将右侧药丸拖入浏览器书签栏，浏览任意网页时点一下即可 1 秒收录
+          </div>
+          <a class="bookmarklet-pill" href="javascript:(function(){window.open('http://127.0.0.1:8092/?modal=capture&url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title),'_blank');})();" onclick="event.preventDefault(); showToast('请将该小书签拖至浏览器书签栏即可使用');">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+            <span>存入 PureNav</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnCancelCapture">取消</button>
+        <button class="btn-action-primary" id="btnSaveCapture">
+          <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M3 3h8l2 2v8H3zM6 3v3h4V3"/></svg>
+          <span>保存书签 (⌘S)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ========================================================================
+       DATA & JAVASCRIPT CONTROLLER
+       ======================================================================== -->
+  <script>
+    /* --------------------------------------------------------------------------
+       1. Standard Dataset: 24 Bookmarks across 4 Groups with Subfolders
+       -------------------------------------------------------------------------- */
+    const BOOKMARKS_DATA = [
+      // 1. 开发与基础设施 (dev) - 直属 6 条
+      { id: "github", title: "GitHub", url: "https://github.com", desc: "代码托管、Issue 追踪与 PR 评审", tags: ["常用"], pinned: true, monogram: "GH", visits: 142, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+      { id: "vercel", title: "Vercel", url: "https://vercel.com", desc: "前端边缘部署与分支预览环境", tags: ["常用"], pinned: true, monogram: "VC", visits: 89, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+      { id: "cloudflare", title: "Cloudflare", url: "https://dash.cloudflare.com", desc: "全球 DNS 解析、Zero Trust 隧道与缓存", tags: ["内部"], pinned: false, monogram: "CF", visits: 67, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+      { id: "sentry", title: "Sentry", url: "https://sentry.io", desc: "线上异常堆栈捕获与性能追踪", tags: ["内部"], pinned: false, monogram: "ST", visits: 45, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+      { id: "docker", title: "Docker Hub", url: "https://hub.docker.com", desc: "容器基础镜像仓库与多架构分发", tags: ["外部"], pinned: false, monogram: "DK", visits: 38, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+      { id: "npm", title: "npm Registry", url: "https://www.npmjs.com", desc: "JavaScript 包检索与版本变更对比", tags: ["外部"], pinned: false, monogram: "NP", visits: 52, folder: "dev", folderName: "开发与基础设施", path: "开发与基础设施" },
+
+      // 1.1 开发与基础设施 / 文档与规范 (dev-docs) - 3 条
+      { id: "mdn", title: "MDN Web Docs", url: "https://developer.mozilla.org", desc: "Web 标准、CSS 与 DOM API 权威参考", tags: ["常用"], pinned: true, monogram: "MD", visits: 116, folder: "dev-docs", folderName: "文档与规范", parentFolder: "dev", path: "开发 / 文档与规范" },
+      { id: "react", title: "React Docs", url: "https://react.dev", desc: "Hooks、并发渲染机制与组件模式指南", tags: [], pinned: false, monogram: "RC", visits: 74, folder: "dev-docs", folderName: "文档与规范", parentFolder: "dev", path: "开发 / 文档与规范" },
+      { id: "vite", title: "Vite", url: "https://vite.dev", desc: "现代前端开发构建配置与插件生态", tags: [], pinned: false, monogram: "VT", visits: 63, folder: "dev-docs", folderName: "文档与规范", parentFolder: "dev", path: "开发 / 文档与规范" },
+
+      // 1.2 开发与基础设施 / Apple 研发 (dev-apple) - 1 条
+      { id: "apple-dev", title: "Apple Developer", url: "https://developer.apple.com", desc: "证书签名、公证流水线与 HIG 人机界面规范", tags: ["常用"], pinned: false, monogram: "AP", visits: 29, folder: "dev-apple", folderName: "Apple 研发", parentFolder: "dev", path: "开发 / Apple 研发" },
+
+      // 2. 自建与内网服务 (homelab) - 4 条 (All with LAN / WAN dual-addresses!)
+      { id: "synology", title: "Synology NAS", url: "https://nas.tdcode.tech", lanUrl: "http://192.168.1.10:5000", usingLan: true, desc: "存储池阵列、快照备份与容器编排", tags: ["内部"], pinned: true, monogram: "SY", visits: 156, folder: "homelab", folderName: "自建与内网", path: "自建与内网" },
+      { id: "openwrt", title: "OpenWrt 路由网关", url: "https://gw.tdcode.tech", lanUrl: "http://192.168.1.1", usingLan: true, desc: "主旁路由策略、DNS 分流与 DHCP 租约", tags: ["内部"], pinned: false, monogram: "OW", visits: 94, folder: "homelab", folderName: "自建与内网", path: "自建与内网" },
+      { id: "gitea", title: "Gitea 私有代码库", url: "https://git.tdcode.tech", lanUrl: "http://192.168.1.10:3000", usingLan: true, desc: "内网 Git 托管、CI Runner 与私有制品库", tags: ["内部"], pinned: false, monogram: "GT", visits: 81, folder: "homelab", folderName: "自建与内网", path: "自建与内网" },
+      { id: "immich", title: "Immich 家庭相册", url: "https://photo.tdcode.tech", lanUrl: "http://192.168.1.10:2283", usingLan: false, desc: "手机原片自动备份、人脸聚类与时间线", tags: ["新上线", "内部"], pinned: false, monogram: "IM", visits: 42, folder: "homelab", folderName: "自建与内网", path: "自建与内网" },
+
+      // 3. 设计与产品协作 (design) - 直属 4 条
+      { id: "figma", title: "Figma", url: "https://www.figma.com", desc: "设计系统令牌、组件库与开发交付标注", tags: ["常用"], pinned: true, monogram: "FG", visits: 128, folder: "design", folderName: "设计与产品", path: "设计与产品" },
+      { id: "linear", title: "Linear", url: "https://linear.app", desc: "研发周期排期、需求拆分与缺陷闭环", tags: ["内部"], pinned: false, monogram: "LN", visits: 95, folder: "design", folderName: "设计与产品", path: "设计与产品" },
+      { id: "notion", title: "Notion", url: "https://www.notion.so", desc: "产品规格文档、架构评审与团队知识库", tags: ["常用"], pinned: false, monogram: "NT", visits: 104, folder: "design", folderName: "设计与产品", path: "设计与产品" },
+      { id: "iconify", title: "Iconify", url: "https://icon-sets.iconify.design", desc: "开源矢量图标集统一检索与纯净 SVG 导出", tags: ["外部"], pinned: false, monogram: "IC", visits: 51, folder: "design", folderName: "设计与产品", path: "设计与产品" },
+
+      // 3.1 设计与产品 / 色彩与字体 (design-tokens) - 2 条
+      { id: "oklch", title: "OKLCH Picker", url: "https://oklch.com", desc: "感知均匀色彩空间调制与对比度计算", tags: ["新上线"], pinned: false, monogram: "OK", visits: 33, folder: "design-tokens", folderName: "色彩与字体", parentFolder: "design", path: "设计 / 色彩与字体" },
+      { id: "fontshare", title: "Fontshare", url: "https://www.fontshare.com", desc: "免费商用几何与人文主义字体下载站", tags: ["外部"], pinned: false, monogram: "FS", visits: 27, folder: "design-tokens", folderName: "色彩与字体", parentFolder: "design", path: "设计 / 色彩与字体" },
+
+      // 4. 技术阅读与社区 (reading) - 直属 4 条
+      { id: "hackernews", title: "Hacker News", url: "https://news.ycombinator.com", desc: "全球工程师一线技术讨论与硅谷动态", tags: ["常用"], pinned: true, monogram: "HN", visits: 135, folder: "reading", folderName: "技术阅读", path: "技术阅读" },
+      { id: "sspai", title: "少数派", url: "https://sspai.com", desc: "数字工具深度评测与高效工作流实践", tags: ["常用"], pinned: false, monogram: "SS", visits: 88, folder: "reading", folderName: "技术阅读", path: "技术阅读" },
+      { id: "arxiv", title: "arXiv CS", url: "https://arxiv.org", desc: "人工智能、编程语言与系统方向预印本", tags: ["外部"], pinned: false, monogram: "AX", visits: 41, folder: "reading", folderName: "技术阅读", path: "技术阅读" },
+      { id: "v2ex", title: "V2EX", url: "https://www.v2ex.com", desc: "开发者技术节点讨论与独立开发分享", tags: ["外部"], pinned: false, monogram: "V2", visits: 76, folder: "reading", folderName: "技术阅读", path: "技术阅读" }
+    ];
+
+    // Inbox Data (2 items)
+    const INBOX_DATA = [
+      { id: "inbox-1", title: "Linear Docs", url: "https://linear.app/docs", desc: "Issue 与 Cycle 自动化工作流与 Webhook 规范", tags: ["待整理"], monogram: "LD", visits: 12, folder: "inbox", folderName: "待整理收件箱", path: "收件箱" },
+      { id: "inbox-2", title: "Excalidraw", url: "https://excalidraw.com", desc: "轻量手绘风格白板草图与架构图即时协作", tags: ["待整理"], monogram: "EX", visits: 18, folder: "inbox", folderName: "待整理收件箱", path: "收件箱" }
+    ];
+
+    // Doctor Issues Data (3 items)
+    const DOCTOR_ISSUES = [
+      {
+        id: "doc-dup",
+        type: "dup",
+        typeName: "重复收藏",
+        siteTitle: "Vite",
+        siteUrl: "https://vite.dev",
+        siteFolder: "开发与基础设施 / 文档与规范",
+        desc: "检测到在「开发与基础设施 / 文档与规范」与「待整理收件箱」中存在归一化后相同的网址 <code>https://vite.dev</code>。",
+        resolved: false,
+        actionText: "合并保留一条",
+        resolveToast: "已合并 Vite 书签并自动清理重复条目"
+      },
+      {
+        id: "doc-redirect",
+        type: "redirect",
+        typeName: "301 永久重定向",
+        siteTitle: "React Docs",
+        siteUrl: "https://reactjs.org → https://react.dev",
+        siteFolder: "开发与基础设施 / 文档与规范",
+        desc: "原收藏 <code>https://reactjs.org</code> 已永久重定向至现代官方文档 <code>https://react.dev</code>，建议一键升级目标地址。",
+        resolved: false,
+        actionText: "一键更新为新网址",
+        resolveToast: "React Docs 地址已成功升级至 https://react.dev"
+      },
+      {
+        id: "doc-timeout",
+        type: "timeout",
+        typeName: "内网探测超时",
+        siteTitle: "Immich 家庭相册",
+        siteUrl: "http://192.168.1.10:2283",
+        siteFolder: "自建与内网服务",
+        desc: "内网地址 <code>http://192.168.1.10:2283</code> 连接探测超时，已为您安全切换至可用外网通道 <code>https://photo.tdcode.tech</code>。",
+        resolved: false,
+        actionText: "切换默认外网",
+        resolveToast: "Immich 家庭相册已更新默认线路为公网隧道"
+      }
+    ];
+
+    /* --------------------------------------------------------------------------
+       2. Application State Controller
+       -------------------------------------------------------------------------- */
+    const AppState = {
+      theme: "dark",
+      view: "all", // "all", "pinned", "recent", "inbox", "doctor", "folder"
+      folder: null, // "dev", "dev-docs", "dev-apple", "homelab", "design", "design-tokens", "reading"
+      selectedTag: "全部",
+      searchQuery: "",
+      viewMode: "grid", // "grid" | "table"
+      sortBy: "visits", // "visits" | "title" | "date"
+      modal: null, // null | "capture" | "context"
+      contextTargetId: "synology", // Target bookmark id for context menu
+      showSubmenu: false,
+      state: "normal", // "normal" | "empty"
+
+      init() {
+        this.parseUrlParams();
+        this.bindEvents();
+        this.applyTheme(this.theme);
+        this.render();
+
+        // Check if modal parameter is preset
+        if (this.modal === "capture") {
+          openCaptureModal();
+        } else if (this.modal === "context") {
+          setTimeout(() => {
+            const targetId = this.contextTargetId || "synology";
+            const targetEl = document.querySelector(`[data-id="${targetId}"]`) || document.querySelector('.item-card');
+            if (targetEl) {
+              targetEl.scrollIntoView({ block: "center", behavior: "instant" });
+              openContextMenu(targetEl, targetId, null, null, this.showSubmenu);
+            }
+          }, 80);
+        }
+      },
+
+      parseUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("theme")) this.theme = params.get("theme");
+        if (params.get("view")) this.view = params.get("view");
+        if (params.get("folder")) {
+          this.view = "folder";
+          this.folder = params.get("folder");
+        }
+        if (params.get("tag")) this.selectedTag = params.get("tag");
+        if (params.get("q")) this.searchQuery = params.get("q");
+        if (params.get("state") === "empty") this.state = "empty";
+        if (params.get("modal")) this.modal = params.get("modal");
+        if (params.get("target")) this.contextTargetId = params.get("target");
+        if (params.get("submenu") === "true") this.showSubmenu = true;
+        if (params.get("viewMode")) this.viewMode = params.get("viewMode");
+        if (params.get("sort")) this.sortBy = params.get("sort");
+      },
+
+      updateUrlParams() {
+        const params = new URLSearchParams();
+        if (this.theme !== "dark") params.set("theme", this.theme);
+        if (this.view !== "all") params.set("view", this.view);
+        if (this.folder && this.view === "folder") params.set("folder", this.folder);
+        if (this.selectedTag !== "全部") params.set("tag", this.selectedTag);
+        if (this.searchQuery) params.set("q", this.searchQuery);
+        if (this.state === "empty") params.set("state", "empty");
+        if (this.modal) params.set("modal", this.modal);
+        if (this.modal === "context") {
+          if (this.contextTargetId) params.set("target", this.contextTargetId);
+          if (this.showSubmenu) params.set("submenu", "true");
+        }
+        if (this.viewMode !== "grid") params.set("viewMode", this.viewMode);
+        if (this.sortBy !== "visits") params.set("sort", this.sortBy);
+
+        const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+        window.history.replaceState({}, "", newUrl);
+      },
+
+      applyTheme(theme) {
+        this.theme = theme;
+        document.documentElement.dataset.theme = theme;
+        this.updateUrlParams();
+      },
+
+      toggleTheme() {
+        const next = this.theme === "dark" ? "light" : "dark";
+        this.applyTheme(next);
+        showToast(next === "dark" ? "已切换至暗色工程主题" : "已切换至浅色高对比度主题");
+      },
+
+      bindEvents() {
+        // Theme toggle
+        document.getElementById("btnThemeToggle").addEventListener("click", () => this.toggleTheme());
+
+        // Quick capture modal triggers
+        document.getElementById("btnSidebarQuickCapture").addEventListener("click", () => openCaptureModal());
+        document.getElementById("btnCloseCaptureModal").addEventListener("click", () => closeCaptureModal());
+        document.getElementById("btnCancelCapture").addEventListener("click", () => closeCaptureModal());
+        document.getElementById("captureModalBackdrop").addEventListener("click", (e) => {
+          if (e.target.id === "captureModalBackdrop") closeCaptureModal();
+        });
+
+        // Save capture
+        document.getElementById("btnSaveCapture").addEventListener("click", () => {
+          const title = document.getElementById("captureInputTitle").value;
+          showToast(`已成功收录书签「${title}」`);
+          closeCaptureModal();
+        });
+
+        // Warning banner merge button
+        document.getElementById("btnWarningMerge").addEventListener("click", () => {
+          showToast("已将新抓取参数合并至原有 Vite 书签");
+          closeCaptureModal();
+        });
+
+        document.getElementById("btnWarningViewExisting").addEventListener("click", () => {
+          closeCaptureModal();
+          AppState.view = "folder";
+          AppState.folder = "dev-docs";
+          AppState.render();
+          showToast("已定位至开发与基础设施 / 文档与规范");
+        });
+
+        // Search input
+        const searchInput = document.getElementById("globalSearchInput");
+        const searchClear = document.getElementById("btnSearchClear");
+
+        if (this.searchQuery) {
+          searchInput.value = this.searchQuery;
+          searchClear.style.display = "flex";
+        }
+
+        searchInput.addEventListener("input", (e) => {
+          if (e.isComposing) return;
+          this.searchQuery = e.target.value.trim();
+          searchClear.style.display = this.searchQuery ? "flex" : "none";
+          this.state = "normal";
+          this.render();
+          this.updateUrlParams();
+        });
+
+        searchClear.addEventListener("click", () => {
+          searchInput.value = "";
+          this.searchQuery = "";
+          searchClear.style.display = "none";
+          this.render();
+          this.updateUrlParams();
+          searchInput.focus();
+        });
+
+        // Global hotkeys
+        window.addEventListener("keydown", (e) => {
+          if (e.isComposing || e.keyCode === 229) return;
+          const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+          const isInputActive = activeTag === "input" || activeTag === "textarea" || activeTag === "select";
+
+          if (!isInputActive) {
+            if (e.key === "/" || (e.metaKey && e.key === "k")) {
+              e.preventDefault();
+              searchInput.focus();
+              searchInput.select();
+            } else if (e.key === "n" || e.key === "N") {
+              e.preventDefault();
+              openCaptureModal();
+            }
+          } else {
+            if (e.key === "Escape") {
+              if (document.getElementById("captureModalBackdrop").classList.contains("visible")) {
+                closeCaptureModal();
+              } else if (document.getElementById("contextMenuPopover").classList.contains("visible")) {
+                closeContextMenu();
+              } else if (searchInput.value) {
+                searchInput.value = "";
+                this.searchQuery = "";
+                searchClear.style.display = "none";
+                this.render();
+                this.updateUrlParams();
+              } else {
+                searchInput.blur();
+              }
+            }
+          }
+        });
+
+        // Sort by
+        document.getElementById("selectSortBy").value = this.sortBy;
+        document.getElementById("selectSortBy").addEventListener("change", (e) => {
+          this.sortBy = e.target.value;
+          this.render();
+          this.updateUrlParams();
+        });
+
+        // View toggle
+        document.getElementById("btnViewGrid").addEventListener("click", () => {
+          this.viewMode = "grid";
+          document.getElementById("btnViewGrid").classList.add("active");
+          document.getElementById("btnViewTable").classList.remove("active");
+          this.render();
+          this.updateUrlParams();
+        });
+
+        document.getElementById("btnViewTable").addEventListener("click", () => {
+          this.viewMode = "table";
+          document.getElementById("btnViewTable").classList.add("active");
+          document.getElementById("btnViewGrid").classList.remove("active");
+          this.render();
+          this.updateUrlParams();
+        });
+
+        // Mobile menu
+        document.getElementById("btnMobileMenu").addEventListener("click", () => {
+          document.getElementById("sidebar").classList.toggle("mobile-open");
+        });
+
+        // Sidebar Smart Views clicks
+        document.querySelectorAll(".sidebar [data-view]").forEach((el) => {
+          el.addEventListener("click", () => {
+            this.view = el.dataset.view;
+            this.folder = null;
+            this.selectedTag = "全部";
+            this.state = "normal";
+            this.render();
+            this.updateUrlParams();
+            document.getElementById("sidebar").classList.remove("mobile-open");
+          });
+        });
+
+        // Sidebar Folder clicks
+        document.querySelectorAll(".sidebar [data-folder]").forEach((el) => {
+          el.addEventListener("click", (e) => {
+            // Check if clicking arrow
+            if (e.target.closest(".tree-arrow-btn")) {
+              const arrow = e.target.closest(".tree-arrow-btn");
+              const isDev = arrow.id === "arrowDev";
+              const isDesign = arrow.id === "arrowDesign";
+              const targetChildren = isDev ? document.getElementById("childrenDev") : isDesign ? document.getElementById("childrenDesign") : null;
+              if (targetChildren) {
+                const isCollapsed = targetChildren.dataset.collapsed === "true";
+                targetChildren.dataset.collapsed = isCollapsed ? "false" : "true";
+                arrow.classList.toggle("expanded", isCollapsed);
+              }
+              return;
+            }
+            this.view = "folder";
+            this.folder = el.dataset.folder;
+            this.selectedTag = "全部";
+            this.state = "normal";
+            this.render();
+            this.updateUrlParams();
+            document.getElementById("sidebar").classList.remove("mobile-open");
+          });
+        });
+
+        // Sidebar Tag clicks
+        document.querySelectorAll(".sidebar-tag-pill").forEach((el) => {
+          el.addEventListener("click", () => {
+            this.selectedTag = el.dataset.tag;
+            this.state = "normal";
+            this.render();
+            this.updateUrlParams();
+          });
+        });
+
+        // Click outside context menu to close
+        document.addEventListener("click", (e) => {
+          if (!e.target.closest("#contextMenuPopover") && !e.target.closest(".item-more-btn")) {
+            closeContextMenu();
+          }
+        });
+      },
+
+      /* ------------------------------------------------------------------------
+         Filtering & Sorting Items
+         ------------------------------------------------------------------------ */
+      getFilteredItems() {
+        if (this.state === "empty") return [];
+
+        let items = [...BOOKMARKS_DATA];
+
+        // 1. View / Folder Filter
+        if (this.view === "pinned") {
+          items = items.filter((item) => item.pinned);
+        } else if (this.view === "recent") {
+          items = [...items].sort((a, b) => b.visits - a.visits).slice(0, 8);
+        } else if (this.view === "inbox") {
+          items = [...INBOX_DATA];
+        } else if (this.view === "folder" && this.folder) {
+          if (this.folder === "dev") {
+            // Include dev and subfolders (dev-docs, dev-apple)
+            items = items.filter((item) => item.folder === "dev" || item.folder === "dev-docs" || item.folder === "dev-apple");
+          } else if (this.folder === "design") {
+            // Include design and subfolder (design-tokens)
+            items = items.filter((item) => item.folder === "design" || item.folder === "design-tokens");
+          } else {
+            // Specific leaf folder
+            items = items.filter((item) => item.folder === this.folder);
+          }
+        }
+
+        // 2. Tag Filter
+        if (this.selectedTag && this.selectedTag !== "全部") {
+          items = items.filter((item) => item.tags && item.tags.includes(this.selectedTag));
+        }
+
+        // 3. Search Query Filter
+        if (this.searchQuery) {
+          const q = this.searchQuery.toLowerCase();
+          items = items.filter((item) => {
+            const matchTitle = item.title.toLowerCase().includes(q);
+            const matchUrl = item.url.toLowerCase().includes(q);
+            const matchLan = item.lanUrl && item.lanUrl.toLowerCase().includes(q);
+            const matchDesc = item.desc && item.desc.toLowerCase().includes(q);
+            const matchFolder = item.folderName && item.folderName.toLowerCase().includes(q);
+            const matchTags = item.tags && item.tags.some((t) => t.toLowerCase().includes(q));
+            // Pinyin shortcuts
+            const pinyinMatch = (q === "nas" && item.id === "synology") ||
+                               (q === "ss" && item.id === "sspai") ||
+                               (q === "gh" && item.id === "github");
+            return matchTitle || matchUrl || matchLan || matchDesc || matchFolder || matchTags || pinyinMatch;
+          });
+        }
+
+        // 4. Sort Items
+        if (this.sortBy === "visits") {
+          items.sort((a, b) => b.visits - a.visits);
+        } else if (this.sortBy === "title") {
+          items.sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+        }
+
+        return items;
+      },
+
+      /* ------------------------------------------------------------------------
+         Main Workspace Renderer
+         ------------------------------------------------------------------------ */
+      render() {
+        this.updateSidebarActiveState();
+
+        const container = document.getElementById("workspaceContent");
+        container.innerHTML = "";
+
+        // Check if Empty State requested
+        if (this.state === "empty") {
+          container.appendChild(renderEmptyState());
+          return;
+        }
+
+        // Check if Doctor View
+        if (this.view === "doctor") {
+          container.appendChild(renderDoctorView());
+          return;
+        }
+
+        // Check if Search yielded 0 results
+        const items = this.getFilteredItems();
+        if (items.length === 0 && this.searchQuery) {
+          container.appendChild(renderNoResultsState(this.searchQuery));
+          return;
+        }
+
+        // 1. Pinned Dock (Render only in "All" view with empty search)
+        if (this.view === "all" && !this.searchQuery && this.selectedTag === "全部") {
+          container.appendChild(renderPinnedDock());
+        }
+
+        // 2. View Header & Subfolder Navigation Bar
+        container.appendChild(renderViewHeader(this.view, this.folder, items.length));
+
+        // 3. Render Bookmarks Grid or Table
+        if (this.view === "all" && !this.searchQuery && this.selectedTag === "全部") {
+          // Render grouped by folders
+          renderGroupedAllView(container, items);
+        } else {
+          // Render flat cards list
+          const grid = document.createElement("div");
+          grid.className = `bookmark-cards-grid ${this.viewMode === "table" ? "single-column" : ""}`;
+          items.forEach((item) => {
+            grid.appendChild(renderItemCard(item));
+          });
+          container.appendChild(grid);
+        }
+      },
+
+      updateSidebarActiveState() {
+        // Clear all active classes
+        document.querySelectorAll(".sidebar .nav-item, .sidebar .tree-node-parent, .sidebar .tree-node-child").forEach((el) => {
+          el.classList.remove("active");
+        });
+
+        if (this.view === "all") {
+          document.getElementById("navAll").classList.add("active");
+        } else if (this.view === "pinned") {
+          document.getElementById("navPinned").classList.add("active");
+        } else if (this.view === "recent") {
+          document.getElementById("navRecent").classList.add("active");
+        } else if (this.view === "inbox") {
+          document.getElementById("navInbox").classList.add("active");
+        } else if (this.view === "doctor") {
+          document.getElementById("navDoctor").classList.add("active");
+        } else if (this.view === "folder" && this.folder) {
+          if (this.folder === "dev") document.getElementById("navFolderDev").classList.add("active");
+          else if (this.folder === "dev-docs") document.getElementById("navFolderDevDocs").classList.add("active");
+          else if (this.folder === "dev-apple") document.getElementById("navFolderDevApple").classList.add("active");
+          else if (this.folder === "homelab") document.getElementById("navFolderHomelab").classList.add("active");
+          else if (this.folder === "design") document.getElementById("navFolderDesign").classList.add("active");
+          else if (this.folder === "design-tokens") document.getElementById("navFolderDesignTokens").classList.add("active");
+          else if (this.folder === "reading") document.getElementById("navFolderReading").classList.add("active");
+        }
+
+        // Tags
+        document.querySelectorAll(".sidebar-tag-pill").forEach((el) => {
+          el.classList.toggle("active", el.dataset.tag === this.selectedTag);
+        });
+
+        // If empty state, update counts to 0
+        const isEmpty = this.state === "empty";
+        document.getElementById("countAll").textContent = isEmpty ? "0" : "24";
+        document.getElementById("countPinned").textContent = isEmpty ? "0" : "6";
+        document.getElementById("countRecent").textContent = isEmpty ? "0" : "8";
+        document.getElementById("countInbox").textContent = isEmpty ? "0" : "2";
+        const docBadge = document.getElementById("countDoctor");
+        if (docBadge) {
+          docBadge.style.display = isEmpty ? "none" : "inline-flex";
+          docBadge.textContent = "3";
+        }
+        document.querySelectorAll(".sidebar .tree-node-parent .nav-item-count, .sidebar .tree-node-child .nav-item-count").forEach((el) => {
+          if (isEmpty) {
+            el.dataset.normalCount = el.dataset.normalCount || el.textContent;
+            el.textContent = "0";
+          } else if (el.dataset.normalCount) {
+            el.textContent = el.dataset.normalCount;
+          }
+        });
+        document.querySelectorAll(".sidebar-tag-pill").forEach((el) => {
+          const tag = el.dataset.tag;
+          if (isEmpty) {
+            el.textContent = `${tag} 0`;
+          } else {
+            const counts = { "全部": 24, "常用": 8, "内部": 8, "外部": 6, "新上线": 2 };
+            el.textContent = `${tag} ${counts[tag] || 0}`;
+          }
+        });
+        const summaryEl = document.getElementById("statusBarSummary");
+        if (summaryEl) {
+          summaryEl.textContent = isEmpty
+            ? "共 0 条书签 · 0 个文件夹 · 欢迎使用 PureNav 收藏夹管理器"
+            : `共 24 条书签 · 4 个根文件夹 · 内网可达 3/4 · 体检发现 ${DOCTOR_ISSUES.filter(i => !i.resolved).length} 项`;
+        }
+      }
+    };
+
+    /* --------------------------------------------------------------------------
+       3. View Component Builders
+       -------------------------------------------------------------------------- */
+
+    // Top Pinned Dock (6 items)
+    function renderPinnedDock() {
+      const dockSec = document.createElement("section");
+      dockSec.className = "pinned-dock-section";
+      dockSec.id = "pinnedDock";
+
+      const headerRow = document.createElement("div");
+      headerRow.className = "dock-header-row";
+      headerRow.innerHTML = `
+        <span class="dock-title-label">
+          <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+          <span>常用置顶快捷槽 (高频免滚直达)</span>
+        </span>
+        <span style="font-size: 11px; color: var(--text-muted);">6 个高频站点</span>
+      `;
+      dockSec.appendChild(headerRow);
+
+      const dockGrid = document.createElement("div");
+      dockGrid.className = "dock-grid";
+
+      const pinnedItems = BOOKMARKS_DATA.filter((i) => i.pinned);
+      pinnedItems.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "dock-card";
+        card.title = `${item.title} · ${item.desc}`;
+        card.innerHTML = `
+          <div class="dock-monogram">${item.monogram}</div>
+          <span class="dock-name">${item.title}</span>
+        `;
+        card.addEventListener("click", () => {
+          const targetUrl = item.lanUrl && item.usingLan ? item.lanUrl : item.url;
+          showToast(`即将打开置顶站点：${item.title} (${targetUrl})`);
+        });
+        dockGrid.appendChild(card);
+      });
+
+      dockSec.appendChild(dockGrid);
+      return dockSec;
+    }
+
+    // View Header (Breadcrumbs + Subfolder Navigation Pills)
+    function renderViewHeader(view, folder, count) {
+      const headerBox = document.createElement("div");
+      headerBox.style.display = "flex";
+      headerBox.style.flexDirection = "column";
+      headerBox.style.gap = "8px";
+
+      const topRow = document.createElement("div");
+      topRow.className = "view-header";
+
+      const breadcrumb = document.createElement("div");
+      breadcrumb.className = "breadcrumb-wrap";
+
+      if (view === "all") {
+        breadcrumb.innerHTML = `
+          <span class="breadcrumb-item current">全部书签</span>
+          <span class="breadcrumb-total">(${count})</span>
+        `;
+      } else if (view === "pinned") {
+        breadcrumb.innerHTML = `
+          <span class="breadcrumb-item" onclick="navigateView('all')">全部书签</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-item current">常用置顶</span>
+          <span class="breadcrumb-total">(${count})</span>
+        `;
+      } else if (view === "recent") {
+        breadcrumb.innerHTML = `
+          <span class="breadcrumb-item" onclick="navigateView('all')">全部书签</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-item current">最近访问</span>
+          <span class="breadcrumb-total">(${count})</span>
+        `;
+      } else if (view === "inbox") {
+        breadcrumb.innerHTML = `
+          <span class="breadcrumb-item" onclick="navigateView('all')">全部书签</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-item current">待整理收件箱</span>
+          <span class="breadcrumb-total">(${count})</span>
+        `;
+      } else if (view === "folder") {
+        let parentName = "开发与基础设施";
+        let childName = "";
+
+        if (folder === "dev") {
+          parentName = "开发与基础设施";
+        } else if (folder === "dev-docs") {
+          parentName = "开发与基础设施";
+          childName = "文档与规范";
+        } else if (folder === "dev-apple") {
+          parentName = "开发与基础设施";
+          childName = "Apple 研发";
+        } else if (folder === "homelab") {
+          parentName = "自建与内网服务";
+        } else if (folder === "design") {
+          parentName = "设计与产品协作";
+        } else if (folder === "design-tokens") {
+          parentName = "设计与产品协作";
+          childName = "色彩与字体";
+        } else if (folder === "reading") {
+          parentName = "技术阅读与社区";
+        }
+
+        if (childName) {
+          breadcrumb.innerHTML = `
+            <span class="breadcrumb-item" onclick="navigateView('all')">全部书签</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-item" onclick="navigateFolder('${folder.startsWith('dev') ? 'dev' : 'design'}')">${parentName}</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-item current">${childName}</span>
+            <span class="breadcrumb-total">(${count})</span>
+          `;
+        } else {
+          breadcrumb.innerHTML = `
+            <span class="breadcrumb-item" onclick="navigateView('all')">全部书签</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-item current">${parentName}</span>
+            <span class="breadcrumb-total">(${count})</span>
+          `;
+        }
+      }
+
+      topRow.appendChild(breadcrumb);
+
+      const rightActions = document.createElement("div");
+      rightActions.className = "view-actions-right";
+      rightActions.innerHTML = `
+        <button class="btn-secondary" onclick="openCaptureModal()">
+          <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+          <span>添加书签</span>
+        </button>
+      `;
+      topRow.appendChild(rightActions);
+      headerBox.appendChild(topRow);
+
+      // Subfolder Cards Bar: When viewing Dev & Infra (or All with Dev), show subfolder entry pills!
+      if (view === "folder" && folder === "dev") {
+        const subfoldersBar = document.createElement("div");
+        subfoldersBar.className = "subfolders-bar";
+        subfoldersBar.innerHTML = `
+          <button class="subfolder-card" onclick="navigateFolder('dev-docs')">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+            <span>文档与规范</span>
+            <span class="subfolder-count-badge">3 ›</span>
+          </button>
+          <button class="subfolder-card" onclick="navigateFolder('dev-apple')">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+            <span>Apple 研发</span>
+            <span class="subfolder-count-badge">1 ›</span>
+          </button>
+        `;
+        headerBox.appendChild(subfoldersBar);
+      } else if (view === "folder" && folder === "design") {
+        const subfoldersBar = document.createElement("div");
+        subfoldersBar.className = "subfolders-bar";
+        subfoldersBar.innerHTML = `
+          <button class="subfolder-card" onclick="navigateFolder('design-tokens')">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+            <span>色彩与字体</span>
+            <span class="subfolder-count-badge">2 ›</span>
+          </button>
+        `;
+        headerBox.appendChild(subfoldersBar);
+      }
+
+      return headerBox;
+    }
+
+    // Grouped All View (renders headers and subfolder pills for dev and design)
+    function renderGroupedAllView(container, allItems) {
+      const groups = [
+        {
+          id: "dev",
+          name: "开发与基础设施",
+          count: 10,
+          subfolders: [
+            { id: "dev-docs", name: "文档与规范", count: 3 },
+            { id: "dev-apple", name: "Apple 研发", count: 1 }
+          ],
+          items: allItems.filter((i) => i.folder === "dev" || i.folder === "dev-docs" || i.folder === "dev-apple")
+        },
+        {
+          id: "homelab",
+          name: "自建与内网服务",
+          count: 4,
+          subfolders: [],
+          items: allItems.filter((i) => i.folder === "homelab")
+        },
+        {
+          id: "design",
+          name: "设计与产品协作",
+          count: 6,
+          subfolders: [
+            { id: "design-tokens", name: "色彩与字体", count: 2 }
+          ],
+          items: allItems.filter((i) => i.folder === "design" || i.folder === "design-tokens")
+        },
+        {
+          id: "reading",
+          name: "技术阅读与社区",
+          count: 4,
+          subfolders: [],
+          items: allItems.filter((i) => i.folder === "reading")
+        }
+      ];
+
+      groups.forEach((grp) => {
+        const sec = document.createElement("div");
+        sec.className = "folder-section-block";
+
+        const secHeader = document.createElement("div");
+        secHeader.className = "folder-section-header";
+        secHeader.innerHTML = `
+          <div class="folder-section-title-wrap">
+            <span class="folder-section-title">${grp.name}</span>
+            <span class="folder-section-count">${grp.count}</span>
+          </div>
+          <button class="btn-secondary" style="height: 24px; font-size: 11px; padding: 0 8px;" onclick="navigateFolder('${grp.id}')">
+            <span>查看此目录 ›</span>
+          </button>
+        `;
+        sec.appendChild(secHeader);
+
+        // Subfolder pills if available
+        if (grp.subfolders.length > 0) {
+          const subBar = document.createElement("div");
+          subBar.className = "subfolders-bar";
+          grp.subfolders.forEach((sf) => {
+            subBar.innerHTML += `
+              <button class="subfolder-card" onclick="navigateFolder('${sf.id}')">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+                <span>${sf.name}</span>
+                <span class="subfolder-count-badge">${sf.count} ›</span>
+              </button>
+            `;
+          });
+          sec.appendChild(subBar);
+        }
+
+        const grid = document.createElement("div");
+        grid.className = `bookmark-cards-grid ${AppState.viewMode === "table" ? "single-column" : ""}`;
+        grp.items.forEach((item) => {
+          grid.appendChild(renderItemCard(item));
+        });
+        sec.appendChild(grid);
+
+        container.appendChild(sec);
+      });
+    }
+
+    // Bookmark Row Card (56-62px height, perfectly aligned, 0 truncation)
+    function renderItemCard(item) {
+      const card = document.createElement("article");
+      card.className = "item-card";
+      card.dataset.id = item.id;
+
+      // Determine display URL and domain
+      const activeUrl = item.lanUrl && item.usingLan ? item.lanUrl : item.url;
+      let displayHost = "";
+      try {
+        const parsed = new URL(activeUrl);
+        displayHost = parsed.host;
+      } catch {
+        displayHost = activeUrl.replace(/^https?:\/\//, "");
+      }
+
+      // Build card inner HTML
+      card.innerHTML = `
+        <div class="item-monogram">${item.monogram}</div>
+        <div class="item-content">
+          <!-- Line 1: Title, Domain, LAN Toggle, Tag, Visits, More -->
+          <div class="item-line-primary">
+            <div class="item-title-domain-wrap">
+              <span class="item-title">${item.title}</span>
+              <span class="item-domain ${item.usingLan ? 'lan-active' : ''}">${displayHost}</span>
+              ${item.lanUrl ? `
+                <span class="lan-toggle-chip" data-active="${item.usingLan ? 'lan' : 'wan'}" title="点击切换内网/外网地址">
+                  <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="8" r="2"/><path d="M6 8h4"/></svg>
+                  <span>${item.usingLan ? '内网' : '外网'}</span>
+                </span>
+              ` : ''}
+            </div>
+
+            <div class="item-actions-meta-wrap">
+              ${item.tags && item.tags.length > 0 ? `<span class="item-tag">${item.tags[0]}</span>` : ''}
+              ${item.pinned ? `
+                <span class="item-pinned-icon" title="常用置顶">
+                  <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+                </span>
+              ` : ''}
+              <span class="item-visits">${item.visits}次</span>
+              <button class="item-more-btn" title="更多原地操作 (右键)">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="4" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="8" r="1.2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Line 2: Full description & folder badge -->
+          <div class="item-line-secondary">
+            <p class="item-desc">${item.desc}</p>
+            <span class="item-folder-badge">${item.path}</span>
+          </div>
+        </div>
+      `;
+
+      // Card click opens site
+      card.addEventListener("click", (e) => {
+        // Prevent opening if clicked on LAN toggle or more button
+        if (e.target.closest(".lan-toggle-chip") || e.target.closest(".item-more-btn")) return;
+        const currentUrl = item.lanUrl && item.usingLan ? item.lanUrl : item.url;
+        showToast(`即将打开：${item.title} (${currentUrl})`);
+      });
+
+      // LAN toggle button click
+      const lanBtn = card.querySelector(".lan-toggle-chip");
+      if (lanBtn) {
+        lanBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          item.usingLan = !item.usingLan;
+          showToast(`${item.title} 已切换至${item.usingLan ? '内网局域网' : '公网隧道'}地址`);
+          AppState.render();
+        });
+      }
+
+      // Context menu trigger via more button
+      const moreBtn = card.querySelector(".item-more-btn");
+      moreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openContextMenu(card, item.id, e.clientX, e.clientY);
+      });
+
+      // Right-click context menu trigger
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openContextMenu(card, item.id, e.clientX, e.clientY);
+      });
+
+      return card;
+    }
+
+    /* --------------------------------------------------------------------------
+       4. Bookmark Doctor Center View Builder (?view=doctor)
+       -------------------------------------------------------------------------- */
+    function renderDoctorView() {
+      const docWrap = document.createElement("div");
+      docWrap.className = "doctor-container";
+
+      const unresolvedCount = DOCTOR_ISSUES.filter((i) => !i.resolved).length;
+      const cleanCount = 24 - unresolvedCount;
+
+      // Summary Card
+      const summaryCard = document.createElement("div");
+      summaryCard.className = "doctor-summary-card";
+      summaryCard.innerHTML = `
+        <div class="doctor-summary-left">
+          <div class="doctor-score-circle">${unresolvedCount === 0 ? '100' : '88'}</div>
+          <div class="doctor-summary-text-wrap">
+            <span class="doctor-summary-title">收藏夹健康治理中心</span>
+            <div class="doctor-summary-stats">
+              <span>全库 24 条书签</span>
+              <span>·</span>
+              <span class="doctor-stat-tag clean">健康 ${cleanCount} 条</span>
+              <span>·</span>
+              <span class="doctor-stat-tag alert">待处理 ${unresolvedCount} 项</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn-action-primary" id="btnRescanDoctor">
+          <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5v2L11 2 8-.5v2A6.5 6.5 0 1 0 14.5 8z"/></svg>
+          <span>重新扫描全库</span>
+        </button>
+      `;
+      docWrap.appendChild(summaryCard);
+
+      // Issues List
+      const issueList = document.createElement("div");
+      issueList.className = "doctor-issue-list";
+
+      DOCTOR_ISSUES.forEach((issue) => {
+        const issueCard = document.createElement("div");
+        issueCard.className = `doctor-issue-card ${issue.resolved ? 'resolved' : ''}`;
+        issueCard.innerHTML = `
+          <div class="doctor-issue-info">
+            <span class="issue-type-badge ${issue.resolved ? 'resolved' : issue.type}">
+              ${issue.resolved ? '已修复' : issue.typeName}
+            </span>
+            <div class="issue-desc-wrap">
+              <div class="issue-title-row">
+                <span class="issue-site-title">${issue.siteTitle}</span>
+                <span class="issue-site-path">${issue.siteFolder}</span>
+              </div>
+              <div class="issue-detail-text">${issue.desc}</div>
+            </div>
+          </div>
+
+          <div class="doctor-issue-actions">
+            ${issue.resolved ? `
+              <span style="font-size: 12px; color: var(--success-text); font-weight: 500;">✓ 治理完成</span>
+            ` : `
+              <button class="btn-action-primary" onclick="resolveDoctorIssue('${issue.id}')">${issue.actionText}</button>
+              <button class="btn-secondary" onclick="ignoreDoctorIssue('${issue.id}')">忽略</button>
+            `}
+          </div>
+        `;
+        issueList.appendChild(issueCard);
+      });
+
+      docWrap.appendChild(issueList);
+
+      // Bind rescan button
+      setTimeout(() => {
+        const btn = document.getElementById("btnRescanDoctor");
+        if (btn) {
+          btn.addEventListener("click", () => {
+            showToast("全库 24 条书签扫描完成，链接连通率 95.8%");
+          });
+        }
+      }, 0);
+
+      return docWrap;
+    }
+
+    function resolveDoctorIssue(issueId) {
+      const issue = DOCTOR_ISSUES.find((i) => i.id === issueId);
+      if (issue) {
+        issue.resolved = true;
+        showToast(issue.resolveToast);
+        updateDoctorAlertBadge();
+        AppState.render();
+      }
+    }
+
+    function ignoreDoctorIssue(issueId) {
+      const issue = DOCTOR_ISSUES.find((i) => i.id === issueId);
+      if (issue) {
+        issue.resolved = true;
+        showToast(`已忽略「${issue.siteTitle}」的体检警示`);
+        updateDoctorAlertBadge();
+        AppState.render();
+      }
+    }
+
+    function updateDoctorAlertBadge() {
+      const unresolvedCount = DOCTOR_ISSUES.filter((i) => !i.resolved).length;
+      const countEl = document.getElementById("countDoctor");
+      if (countEl) {
+        countEl.textContent = unresolvedCount;
+        countEl.style.display = unresolvedCount > 0 ? "inline-flex" : "none";
+      }
+      const summaryEl = document.getElementById("statusBarSummary");
+      if (summaryEl) {
+        summaryEl.textContent = `共 24 条书签 · 4 个根文件夹 · 内网可达 3/4 · 体检发现 ${unresolvedCount} 项`;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       5. Empty & No-Result Component Builders
+       -------------------------------------------------------------------------- */
+    function renderEmptyState() {
+      const wrap = document.createElement("div");
+      wrap.className = "empty-state-card";
+      wrap.innerHTML = `
+        <div class="empty-icon-wrap">
+          <svg class="icon icon-lg" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6"/></svg>
+        </div>
+        <div class="empty-state-title">收藏夹空空如也</div>
+        <p class="empty-state-desc">你可以一键导入 Chrome / Edge / Safari / Firefox 导出的标准 HTML 书签文件，或者直接收录你的第一个常用工具。</p>
+        <div class="empty-actions-row">
+          <button class="btn-action-primary" onclick="showToast('正在调起浏览器书签 HTML 文件选择器...')">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 2v9M4 7l4 4 4-4M2 13h12"/></svg>
+            <span>导入浏览器书签 HTML</span>
+          </button>
+          <button class="btn-secondary" onclick="openCaptureModal()">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+            <span>快速收录第一个网页</span>
+          </button>
+        </div>
+        <span class="empty-hint-text">支持多层级目录自动解析与标签自动提取</span>
+      `;
+      return wrap;
+    }
+
+    function renderNoResultsState(query) {
+      const wrap = document.createElement("div");
+      wrap.className = "no-result-card";
+      wrap.innerHTML = `
+        <div class="empty-icon-wrap">
+          <svg class="icon icon-lg" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        </div>
+        <div class="empty-state-title">未找到匹配「${query}」的书签</div>
+        <p class="empty-state-desc">库内暂无该关键词对应站点。你可以直接使用外部搜索引擎进行检索，或将其快速收录至 PureNav。</p>
+        <div class="search-engines-row">
+          <button class="btn-secondary" onclick="window.open('https://www.google.com/search?q=' + encodeURIComponent('${query}'), '_blank')">Google 搜索 ↗</button>
+          <button class="btn-secondary" onclick="window.open('https://github.com/search?q=' + encodeURIComponent('${query}'), '_blank')">GitHub 检索 ↗</button>
+          <button class="btn-secondary" onclick="window.open('https://www.bing.com/search?q=' + encodeURIComponent('${query}'), '_blank')">Bing 搜索 ↗</button>
+          <button class="btn-secondary" onclick="window.open('https://www.baidu.com/s?wd=' + encodeURIComponent('${query}'), '_blank')">百度搜索 ↗</button>
+        </div>
+        <button class="btn-action-primary" style="margin-top: 8px;" onclick="clearSearchFilter()">清空筛选条件</button>
+      `;
+      return wrap;
+    }
+
+    function clearSearchFilter() {
+      const input = document.getElementById("globalSearchInput");
+      input.value = "";
+      AppState.searchQuery = "";
+      document.getElementById("btnSearchClear").style.display = "none";
+      AppState.render();
+      AppState.updateUrlParams();
+      input.focus();
+    }
+
+    /* --------------------------------------------------------------------------
+       6. Context Menu Logic & Positioning
+       -------------------------------------------------------------------------- */
+    let currentContextItem = null;
+
+    function openContextMenu(targetEl, bookmarkId, clientX, clientY, showSubmenu = false) {
+      currentContextItem = BOOKMARKS_DATA.find((i) => i.id === bookmarkId) || BOOKMARKS_DATA[0];
+      const menu = document.getElementById("contextMenuPopover");
+
+      // Highlight target card
+      document.querySelectorAll(".item-card").forEach((c) => c.classList.remove("highlighted"));
+      targetEl.classList.add("highlighted");
+
+      // Calculate position
+      const rect = targetEl.getBoundingClientRect();
+      let top = rect.top + 28;
+      let left = rect.right - 230;
+
+      if (clientX && clientY) {
+        top = Math.min(clientY, window.innerHeight - 320);
+        left = Math.min(clientX, window.innerWidth - 240);
+      }
+
+      menu.style.top = `${Math.max(10, Math.min(window.innerHeight - 300, top))}px`;
+      menu.style.left = `${Math.max(10, left)}px`;
+      menu.classList.add("visible");
+
+      // Update Pin Text
+      const pinText = document.getElementById("ctxTogglePinText");
+      if (pinText) {
+        pinText.textContent = currentContextItem.pinned ? "取消置顶" : "设为常用置顶";
+      }
+
+      // LAN item visibility
+      const lanItem = document.getElementById("ctxToggleLan");
+      if (lanItem) {
+        lanItem.style.display = "flex";
+        if (currentContextItem.lanUrl) {
+          lanItem.style.opacity = "1";
+          lanItem.style.pointerEvents = "auto";
+          lanItem.querySelector("span").textContent = `切换为${currentContextItem.usingLan ? '外网' : '内网'}地址`;
+        } else {
+          lanItem.style.opacity = "0.45";
+          lanItem.style.pointerEvents = "none";
+          lanItem.querySelector("span").textContent = "切换为内网/外网地址 (公网)";
+        }
+      }
+
+      // Submenu visibility
+      const submenu = document.getElementById("ctxSubmenu");
+      const moveFolderItem = document.getElementById("ctxMoveFolder");
+      if (submenu) {
+        submenu.classList.toggle("visible", !!showSubmenu);
+      }
+      if (moveFolderItem) {
+        if (showSubmenu) {
+          moveFolderItem.style.backgroundColor = "var(--accent-bg)";
+          moveFolderItem.style.color = "var(--accent-text)";
+        } else {
+          moveFolderItem.style.backgroundColor = "";
+          moveFolderItem.style.color = "";
+        }
+      }
+    }
+
+    function closeContextMenu() {
+      const menu = document.getElementById("contextMenuPopover");
+      menu.classList.remove("visible");
+      const submenu = document.getElementById("ctxSubmenu");
+      if (submenu) submenu.classList.remove("visible");
+      const moveFolderItem = document.getElementById("ctxMoveFolder");
+      if (moveFolderItem) {
+        moveFolderItem.style.backgroundColor = "";
+        moveFolderItem.style.color = "";
+      }
+      document.querySelectorAll(".item-card").forEach((c) => c.classList.remove("highlighted"));
+    }
+
+    // Context Menu Items Handlers
+    document.getElementById("ctxOpen").addEventListener("click", () => {
+      if (currentContextItem) {
+        const u = currentContextItem.lanUrl && currentContextItem.usingLan ? currentContextItem.lanUrl : currentContextItem.url;
+        showToast(`已在新标签页打开：${currentContextItem.title} (${u})`);
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxToggleLan").addEventListener("click", () => {
+      if (currentContextItem && currentContextItem.lanUrl) {
+        currentContextItem.usingLan = !currentContextItem.usingLan;
+        showToast(`${currentContextItem.title} 已切换至${currentContextItem.usingLan ? '内网' : '外网'}地址`);
+        AppState.render();
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxTogglePin").addEventListener("click", () => {
+      if (currentContextItem) {
+        currentContextItem.pinned = !currentContextItem.pinned;
+        showToast(currentContextItem.pinned ? `已将「${currentContextItem.title}」设为常用置顶` : `已取消「${currentContextItem.title}」的置顶`);
+        AppState.render();
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxCopyUrl").addEventListener("click", () => {
+      if (currentContextItem) {
+        const u = currentContextItem.lanUrl && currentContextItem.usingLan ? currentContextItem.lanUrl : currentContextItem.url;
+        showToast(`已复制网址至剪贴板：${u}`);
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxEdit").addEventListener("click", () => {
+      if (currentContextItem) {
+        showToast(`正在打开「${currentContextItem.title}」编辑面板`);
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxSendInbox").addEventListener("click", () => {
+      if (currentContextItem) {
+        showToast(`已将「${currentContextItem.title}」移入待整理收件箱`);
+      }
+      closeContextMenu();
+    });
+
+    document.getElementById("ctxDelete").addEventListener("click", () => {
+      if (currentContextItem) {
+        showToast(`已删除书签「${currentContextItem.title}」`);
+      }
+      closeContextMenu();
+    });
+
+    // Submenu move folder
+    document.querySelectorAll("#ctxSubmenu [data-target-folder]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const targetFolder = el.dataset.targetFolder;
+        if (currentContextItem) {
+          showToast(`已将「${currentContextItem.title}」移动至文件夹 ${targetFolder}`);
+        }
+        closeContextMenu();
+      });
+    });
+
+    /* --------------------------------------------------------------------------
+       7. Quick Capture Modal Actions
+       -------------------------------------------------------------------------- */
+    function openCaptureModal() {
+      document.getElementById("captureModalBackdrop").classList.add("visible");
+      document.getElementById("captureInputUrl").focus();
+      document.getElementById("captureInputUrl").select();
+    }
+
+    function closeCaptureModal() {
+      document.getElementById("captureModalBackdrop").classList.remove("visible");
+    }
+
+    /* --------------------------------------------------------------------------
+       8. Helper Navigation & Toast
+       -------------------------------------------------------------------------- */
+    function navigateView(viewName) {
+      AppState.view = viewName;
+      AppState.folder = null;
+      AppState.selectedTag = "全部";
+      AppState.render();
+      AppState.updateUrlParams();
+    }
+
+    function navigateFolder(folderId) {
+      AppState.view = "folder";
+      AppState.folder = folderId;
+      AppState.selectedTag = "全部";
+      AppState.render();
+      AppState.updateUrlParams();
+    }
+
+    function showToast(message) {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = "toast-item";
+      toast.innerHTML = `
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3.5-3.5"/></svg>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = "opacity 200ms ease, transform 200ms ease";
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(8px)";
+        setTimeout(() => toast.remove(), 200);
+      }, 3000);
+    }
+
+    // Initialize application on DOMContentLoaded
+    window.addEventListener("DOMContentLoaded", () => {
+      AppState.init();
+    });
+  </script>
+</body>
+</html>

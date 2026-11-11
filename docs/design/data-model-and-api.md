@@ -159,6 +159,12 @@ erDiagram
 | `open_in_new_tab` | 0/1 | 默认 1 |
 | `pinned` | 0/1 | 置顶，前台排序时优先于 `sort_order` |
 | `sort_order` | INTEGER | 组内作用域，与 `group_id` 组成逻辑键 |
+| `is_inbox` | 0/1 | 待整理收件箱标记（迁移 `0003`），跨文件夹的智能视图 |
+| `visit_count` | INTEGER | 点击热度，前台 `POST /public/items/:id/hit` 累加 |
+| `last_visited_at` | TEXT | 最近一次打开时间，`最近访问` 视图与热度排序依据 |
+| `http_status` | INTEGER | 体检探测回写的最近 HTTP 状态码 |
+| `final_url` | TEXT | 探测跟随重定向后的最终地址，与 `url` 不等即为永久重定向项 |
+| `last_checked_at` | TEXT | 最近一次体检时间，`doctor/scan` 按此升序取最久未检查的项 |
 | `visibility` / `enabled` | | 同上 |
 
 > `icon_type` 与 `icon_ref/icon_asset_id` 用 CHECK 约束互斥（见 DDL），避免出现"既有上传又有 URL"的歧义态。
@@ -393,6 +399,7 @@ PUT /admin/items/order
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/public/config` | 整包配置：站点设置 + 可见分组 + 可见导航项 + 标签。不含 `lan_url` |
+| POST | `/public/items/:id/hit` | 记录一次点击：`visit_count + 1`、刷新 `last_visited_at`（仅 `enabled = 1` 的项）。匿名可调用但受全局同源 `Origin` 校验约束 |
 | GET | `/assets/:id` | 图标/Logo 静态资源 |
 | GET | `/health` | `{ status, version, uptime }` |
 
@@ -427,8 +434,11 @@ PUT /admin/items/order
 | POST | `/admin/items` | `{ group_id, title, url, lanUrl?, description?, icon?, tags?, ... }` |
 | PATCH | `/admin/items/:id` | 部分更新；可带 `{ group_id, position }` 实现跨组移动 |
 | DELETE | `/admin/items/:id` | 硬删除（审计日志保留快照） |
-| POST | `/admin/items/batch` | `{ op: 'enable'\|'disable'\|'delete'\|'move', ids: [], group_id? }` |
+| POST | `/admin/items/batch` | `{ op: 'enable'\|'disable'\|'delete'\|'move'\|'inbox'\|'uninbox', ids: [], group_id? }` |
 | PUT | `/admin/items/order` | `{ group_id, ordered_ids: [...] }` |
+| POST | `/admin/items/inspect-url` | `{ url }` → 抓取 `title`/`description`/`icon`，返回归一化后的 URL 与防重结果 `duplicate: { id, title, groupPath } \| null`、`duplicateKind: 'exact' \| 'domain'` |
+| GET | `/admin/items/doctor` | 体检报告：`totalItems`、`healthyCount`、`duplicates[]`、`redirects[]`、`broken[]` |
+| POST | `/admin/items/doctor/scan` | 触发全库探测：按 `last_checked_at ASC NULLS FIRST` 取 150 条、6 并发，回写 `http_status`/`final_url`/`last_checked_at` |
 
 `icon` 入参统一结构，避免五套字段：
 

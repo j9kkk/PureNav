@@ -1,17 +1,23 @@
 # PureNav
 
-轻量、自托管的导航页。分组 + 卡片 + 高保真动效，前台浏览、后台管理，Docker 一键部署。
+自托管的**收藏夹管理器 + 导航入口**。把浏览器里越积越乱的几百条书签收进来，用多级目录树、点击热度、防重收录与体检治理重新组织；前台即可原地管理，Docker 一键部署。
 
 <p align="center">
-  <img src="docs/screenshots/home-dark.png" alt="PureNav 前台主页 (暗色模式)" width="850" />
+  <img src="docs/design/nav-r7/impl/impl-all-dark.png" alt="PureNav 收藏夹工作台（暗色模式）" width="850" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/admin.png" alt="PureNav 后台管理工作台" width="850" />
+  <img src="docs/design/nav-r7/impl/impl-doctor-dark.png" alt="PureNav 书签体检中心" width="850" />
 </p>
 
-- **前台**：分组卡片网格、即时搜索（`/` 聚焦）、多搜索引擎回退（Google/GitHub/Bing/百度）、轻量时钟胶囊、标签药丸横向筛选栏、平滑手风琴折叠展开（CSS Grid 动画）、卡片径向微光与双行自适应描述、键盘导航（`↑` `↓` 选择、`Enter` 打开）、深浅色与列表/网格视图切换、离线快照、`prefers-reduced-motion` 降级
-- **后台**：管理员登录、现代可视化工作台（站点图标实时预览、标题与 URL 复合排版、收敛操作下拉菜单）、分组与站点 CRUD、拖拽排序、批量操作、标签、内网地址、图标（上传 / URL / Iconify / 自动抓取）、站点设置、导入导出、改密与登录设备管理、操作日志
+- **工作台**：固定视口三区布局（左侧智能视图 + 多级文件夹树 + 标签筛选 / 右侧顶栏搜索、排序、视图切换 / 底部状态栏）；子文件夹以紧凑药丸横排，消灭「单条目子分类独占整行」的留白洞
+- **智能视图与热度**：全部 / 常用置顶 / 最近访问 / 待整理收件箱，跨文件夹聚合；每次打开自动累计 `visit_count`，可按热度或最近访问排序
+- **1 秒快速收录**（`N`）：粘 URL 即抓标题、描述与图标，归一化后按域名查重，命中重复时琥珀色预警 + 一键合并；附带 Bookmarklet
+- **原地管理**：右键（或卡片 `···`）呼出菜单——打开、切换内外网、置顶、移动到文件夹（二级子菜单）、编辑、复制链接、移入待整理、删除；书签可**拖拽**到侧栏树节点或子文件夹药丸归档
+- **书签体检**：健康分 + 重复网址 / 死链 / 永久重定向分类清单，一键重新扫描全库并逐条修复
+- **多级书签无损导入**：解析 Netscape HTML 书签文件的文件夹路径，按 `parent_id` 逐级还原成真实目录树
+- **后台**：管理员登录、分组与站点 CRUD、拖拽排序、批量操作、标签、内网地址、图标（上传 / URL / Iconify / 自动抓取）、站点设置、导入导出、改密与登录设备管理、操作日志
+- **通用**：深浅色主题、`/` 与 `⌘K` 聚焦搜索、SQLite 持久化、离线快照、`prefers-reduced-motion` 降级
 - **部署**：单容器、SQLite、数据目录挂载；GitHub Actions 自动产出 `linux/amd64` + `linux/arm64` 镜像
 
 ## 快速开始
@@ -46,10 +52,12 @@ PURENAV_PORT=9000 docker compose up -d
 
 | 按键 | 行为 |
 | --- | --- |
-| `/` | 聚焦搜索框 |
-| `↑` `↓` | 在可见卡片间移动选择（自动跳过折叠分组与过滤掉的项） |
+| `/` 或 `⌘K` | 聚焦搜索框 |
+| `N` | 打开快速收录（管理员） |
+| `↑` `↓` | 在可见卡片间移动选择（自动跳过过滤掉的项） |
 | `Enter` | 打开选中站点 |
-| `Esc` | 清空搜索并失焦 |
+| `Esc` | 关闭浮层 / 清空搜索并失焦 |
+| 右键 | 书签卡片上呼出原地管理菜单 |
 
 ## 配置
 
@@ -152,17 +160,20 @@ git push origin v0.1.0
 ```
 apps/
   server/          Fastify + SQLite，API 与静态托管
-    src/db/        迁移与连接
+    src/db/        迁移与连接（0003 起含收藏夹生命周期字段）
     src/lib/       认证、密码、设置、错误
     src/routes/    公共 / 认证 / 分组 / 站点 / 设置与资源
   web/             React + Vite 单页应用
-    src/pages/     NavPage / LoginPage / AdminPage
+    src/pages/     NavPage（收藏夹工作台）/ LoginPage / AdminPage
+    src/nav-workspace.css   工作台样式（nx- 前缀，与应用其余样式隔离）
+    src/lib/       书签 HTML 解析、主题、内网探测
 docs/
   product/         需求与功能模块梳理
   design/          数据模型与接口设计
+  design/nav-r7/   第七轮「收藏夹管理器」原型、规格与实现截图
 ```
 
-数据模型、接口清单与关键设计取舍见 [`docs/design/data-model-and-api.md`](docs/design/data-model-and-api.md)，功能模块拆分见 [`docs/product/feature-modules.md`](docs/product/feature-modules.md)。
+数据模型、接口清单与关键设计取舍见 [`docs/design/data-model-and-api.md`](docs/design/data-model-and-api.md)，功能模块拆分见 [`docs/product/feature-modules.md`](docs/product/feature-modules.md)，工作台实现与原型逐项对照见 [`docs/design/nav-r7/README.md`](docs/design/nav-r7/README.md)。
 
 ## 安全说明
 
