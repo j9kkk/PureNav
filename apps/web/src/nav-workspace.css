@@ -562,6 +562,32 @@ button.nx-tree-arrow:hover {
   font-size: 12px;
 }
 
+/* 触屏没有 hover：操作常驻，并改为参与布局（不叠在计数上），同时放大点击区 */
+@media (hover: none) {
+  .nx-node-actions {
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    gap: 2px;
+  }
+
+  .nx-node-actions button {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* 触屏宽度紧张：只常驻「⋯」，＋ 收进菜单（菜单里已有「新建子文件夹」） */
+  .nx-node-actions button:first-child {
+    display: none;
+  }
+
+  .nx-nav-item:hover .nx-nav-count,
+  .nx-tree-child:hover .nx-nav-count {
+    opacity: 1;
+  }
+}
+
 .nx-inline-form.nx-inline-form-nested {
   padding-left: 22px;
 }
