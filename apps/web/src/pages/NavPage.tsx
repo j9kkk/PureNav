@@ -574,6 +574,12 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
   const [folderDrop, setFolderDrop] = useState<{ id: string; zone: 'before' | 'after' | 'inside' } | null>(null);
   const [nodeMenu, setNodeMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const expandTimer = useRef<number | null>(null);
+  // 触屏：长按进入拖拽（HTML5 拖拽在触摸屏上完全不触发）
+  const [touchDrag, setTouchDrag] = useState<{ id: string } | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const touchDragRef = useRef<{ id: string; startX: number; startY: number; active: boolean } | null>(null);
+  const touchTargetRef = useRef<{ id: string; zone: 'before' | 'after' | 'inside' } | null>(null);
+  const suppressClickRef = useRef(false);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   // 窄屏下占位文案会被搜索框尾部快捷键徽标切掉，换成短文案
@@ -1175,6 +1181,121 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
     [canEdit, clearExpandTimer, groupById, dropFolder, moveItem],
   );
 
+  /* ---------------- 触屏长按拖拽（HTML5 拖拽在触摸屏上不触发） ---------------- */
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const onNodePointerDown = useCallback(
+    (event: React.PointerEvent, groupId: string) => {
+      if (!canEdit || event.pointerType !== 'touch') return;
+      // 按在箭头/＋/⋯ 上时交给这些控件自己处理
+      if ((event.target as HTMLElement).closest('.nx-node-actions, button.nx-tree-arrow')) return;
+      touchDragRef.current = { id: groupId, startX: event.clientX, startY: event.clientY, active: false };
+      cancelLongPress();
+      longPressTimer.current = window.setTimeout(() => {
+        const ref = touchDragRef.current;
+        if (!ref) return;
+        ref.active = true;
+        setDragGroupId(groupId);
+        setTouchDrag({ id: groupId });
+        setNodeMenu(null);
+        navigator.vibrate?.(8);
+      }, 380);
+    },
+    [canEdit, cancelLongPress],
+  );
+
+  useEffect(() => {
+    if (!canEdit) return;
+
+    const zoneAt = (row: HTMLElement, clientY: number): 'before' | 'after' | 'inside' => {
+      const rect = row.getBoundingClientRect();
+      const ratio = (clientY - rect.top) / Math.max(1, rect.height);
+      if (ratio < 1 / 3) return 'before';
+      if (ratio > 2 / 3) return 'after';
+      return 'inside';
+    };
+
+    const onMove = (event: PointerEvent) => {
+      const ref = touchDragRef.current;
+      if (!ref) return;
+      if (!ref.active) {
+        // 长按前移动超过 10px 视为滚动，取消长按
+        if (Math.hypot(event.clientX - ref.startX, event.clientY - ref.startY) > 10) cancelLongPress();
+        return;
+      }
+      event.preventDefault();
+      const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+      const row = element?.closest<HTMLElement>('[data-group-id]') ?? null;
+      const targetId = row?.dataset.groupId ?? null;
+      if (!row || !targetId || targetId === ref.id) {
+        touchTargetRef.current = null;
+        setFolderDrop(null);
+        return;
+      }
+      const zone = zoneAt(row, event.clientY);
+      touchTargetRef.current = { id: targetId, zone };
+      setFolderDrop({ id: targetId, zone });
+      const arrow = row.querySelector('button.nx-tree-arrow');
+      if (zone === 'inside' && arrow?.getAttribute('aria-expanded') === 'false') {
+        if (expandTimer.current === null) {
+          expandTimer.current = window.setTimeout(() => {
+            setNodeOpen(targetId, true);
+            expandTimer.current = null;
+          }, 500);
+        }
+      } else {
+        clearExpandTimer();
+      }
+    };
+
+    const finish = (commit: boolean) => {
+      const ref = touchDragRef.current;
+      const target = touchTargetRef.current;
+      cancelLongPress();
+      clearExpandTimer();
+      touchTargetRef.current = null;
+      setFolderDrop(null);
+      setDragGroupId(null);
+      setTouchDrag(null);
+      touchDragRef.current = null;
+      if (!ref?.active) return;
+      // 拖拽结束后浏览器还会补一次 click，别让它顺手把文件夹打开
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 400);
+      if (commit && target) void dropFolder(ref.id, target.id, target.zone);
+    };
+
+    // 长按激活后必须掐掉 touchmove 的默认滚动，否则浏览器一开始滚动就会发 pointercancel，拖拽静默中断
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchDragRef.current?.active) event.preventDefault();
+    };
+
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('touchend', onUp);
+    window.addEventListener('touchcancel', onCancel);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('touchend', onUp);
+      window.removeEventListener('touchcancel', onCancel);
+    };
+  }, [canEdit, cancelLongPress, clearExpandTimer, dropFolder, setNodeOpen]);
+
   const createFolder = useCallback(async () => {
     const name = newFolder.name.trim();
     if (!name) return;
@@ -1588,7 +1709,10 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
             data-drop={dropTargetId === group.id || undefined}
             data-zone={zone || undefined}
             data-contains-active={containsActive(group.id) || undefined}
+            data-group-id={group.id}
+            data-touch-drag={touchDrag?.id === group.id || undefined}
             draggable={canEdit && !editing ? true : undefined}
+            onPointerDown={(event) => onNodePointerDown(event, group.id)}
             onDragStart={(event) => {
               if (!canEdit || editing) return;
               event.stopPropagation();
@@ -1615,6 +1739,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                 aria-label={`${open ? '收起' : '展开'}「${group.name}」`}
                 onClick={(event) => {
                   event.stopPropagation();
+                  if (suppressClickRef.current) return;
                   setNodeOpen(group.id, !open);
                 }}
               >
@@ -1641,7 +1766,10 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
               <button
                 type="button"
                 className="nx-node-main"
-                onClick={() => selectView('folder', group.id)}
+                onClick={() => {
+                  if (suppressClickRef.current) return;
+                  selectView('folder', group.id);
+                }}
               >
                 <span className="nx-nav-left">
                   {(depth === 0 || kids.length === 0) && <IcoFolder size={depth === 0 ? 15 : 13} />}

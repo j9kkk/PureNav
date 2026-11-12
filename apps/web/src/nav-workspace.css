@@ -562,6 +562,17 @@ button.nx-tree-arrow:hover {
   font-size: 12px;
 }
 
+/* 触屏长按拖拽：源节点变淡，落点复用上面的 data-zone 提示 */
+.nx-nav-item[data-touch-drag='true'],
+.nx-tree-child[data-touch-drag='true'] {
+  opacity: 0.55;
+}
+
+.nx-nav-item,
+.nx-tree-child {
+  touch-action: pan-y;
+}
+
 /* 触屏没有 hover：操作常驻，并改为参与布局（不叠在计数上），同时放大点击区 */
 @media (hover: none) {
   .nx-node-actions {
