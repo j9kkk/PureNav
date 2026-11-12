@@ -414,12 +414,156 @@ body.pn-app-locked {
   display: grid;
   place-items: center;
   color: var(--nx-text-3);
-  transition: transform var(--nx-ease);
+  transition: transform var(--nx-ease), color var(--nx-ease);
   flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 3px;
+}
+
+button.nx-tree-arrow {
+  cursor: pointer;
+}
+
+button.nx-tree-arrow:hover {
+  color: var(--nx-text);
+}
+
+.nx-tree-arrow[data-empty='true'] {
+  display: block;
 }
 
 .nx-tree-arrow[data-open='true'] {
   transform: rotate(90deg);
+}
+
+/* 节点行：箭头 + 主体 + hover 操作，三者分开，避免按钮套按钮 */
+.nx-nav-item,
+.nx-tree-child {
+  position: relative;
+}
+
+.nx-node-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-node-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--nx-ease);
+}
+
+.nx-nav-item:hover .nx-node-actions,
+.nx-tree-child:hover .nx-node-actions,
+.nx-nav-item:focus-within .nx-node-actions,
+.nx-tree-child:focus-within .nx-node-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nx-node-actions button {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--nx-text-3);
+  cursor: pointer;
+  transition: background-color var(--nx-ease), color var(--nx-ease);
+}
+
+.nx-node-actions button:hover {
+  background: var(--nx-card-hover);
+  color: var(--nx-text);
+}
+
+.nx-nav-item:hover .nx-nav-count,
+.nx-tree-child:hover .nx-nav-count {
+  opacity: 0;
+}
+
+.nx-nav-count {
+  transition: opacity var(--nx-ease);
+}
+
+/* 文件夹拖拽落点：上下 1/3 是插入线，中间 1/3 是「成为子级」 */
+.nx-nav-item[data-zone='before']::before,
+.nx-nav-item[data-zone='after']::after,
+.nx-tree-child[data-zone='before']::before,
+.nx-tree-child[data-zone='after']::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--nx-accent);
+}
+
+.nx-nav-item[data-zone='before']::before,
+.nx-tree-child[data-zone='before']::before {
+  top: -1px;
+}
+
+.nx-nav-item[data-zone='after']::after,
+.nx-tree-child[data-zone='after']::after {
+  bottom: -1px;
+}
+
+.nx-nav-item[data-zone='inside'],
+.nx-tree-child[data-zone='inside'] {
+  background: var(--nx-accent-bg);
+  box-shadow: inset 0 0 0 1.5px var(--nx-accent);
+  color: var(--nx-accent-ink);
+}
+
+/* 当前视图藏在这个折叠节点里时点一颗小标 */
+.nx-nav-item[data-contains-active='true'] .nx-nav-name::after,
+.nx-tree-child[data-contains-active='true'] .nx-nav-name::after {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--nx-accent);
+  vertical-align: middle;
+}
+
+.nx-tree-input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.nx-inline-form.nx-inline-form-nested {
+  padding-left: 22px;
 }
 
 .nx-inline-form {

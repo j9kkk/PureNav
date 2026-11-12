@@ -16,6 +16,8 @@ import { applyTheme, resolveTheme, type ThemeMode } from '../lib/theme';
 import '../nav-workspace.css';
 
 const SNAPSHOT_KEY = 'pn.config.snapshot';
+/** 文件夹拖拽用自定义 MIME，与书签拖拽的 text/plain 区分开。 */
+const FOLDER_MIME = 'application/x-purenav-folder';
 
 interface Props {
   authenticated: boolean;
@@ -542,7 +544,9 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
    */
   const [editMode, setEditMode] = useState(false);
   const canEdit = authenticated && editMode;
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // 记录用户「主动折叠」的节点：默认全展开，只有用户手点过的才收起。
+  // 反过来记录展开（旧做法）会让任何一次 loadConfig 把有子节点的重新塞回去，折叠形同不存在。
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [mobileNav, setMobileNav] = useState(false);
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
   const [lanTick, setLanTick] = useState(0);
@@ -556,10 +560,20 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
   const [doctor, setDoctor] = useState<DoctorReportResponse | null>(null);
   const [doctorBusy, setDoctorBusy] = useState(false);
   const [ignored, setIgnored] = useState<Set<string>>(new Set());
-  const [newFolder, setNewFolder] = useState<{ open: boolean; name: string }>({ open: false, name: '' });
+  const [newFolder, setNewFolder] = useState<{
+    open: boolean;
+    name: string;
+    parentId: string | null;
+    fromHeader: boolean;
+  }>({ open: false, name: '', parentId: null, fromHeader: false });
   const [dragging, setDragging] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
+  // 文件夹拖拽（与书签拖拽并行，靠自定义 MIME 区分）
+  const [dragGroupId, setDragGroupId] = useState<string | null>(null);
+  const [folderDrop, setFolderDrop] = useState<{ id: string; zone: 'before' | 'after' | 'inside' } | null>(null);
+  const [nodeMenu, setNodeMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const expandTimer = useRef<number | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   // 窄屏下占位文案会被搜索框尾部快捷键徽标切掉，换成短文案
@@ -672,17 +686,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
 
   const groups = useMemo(() => config?.groups ?? [], [config]);
 
-  // 有子文件夹的节点默认展开：树是导航主路径，收起等于把内容藏起来。
-  useEffect(() => {
-    if (groups.length === 0) return;
-    setExpanded((current) => {
-      const next = new Set(current);
-      for (const group of groups) {
-        if (groups.some((child) => child.parentId === group.id)) next.add(group.id);
-      }
-      return next.size === current.size ? current : next;
-    });
-  }, [groups]);
+  // 文件夹树默认全展开；折叠状态只由用户点击决定，不再随 config 刷新重置。
 
   const groupById = useMemo(() => new Map(groups.map((group) => [group.id, group])), [groups]);
 
@@ -903,6 +907,12 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
 
   const moveItem = useCallback(
     async (id: string, targetGroupId: string, targetName: string) => {
+      // 拖回原位置不该报「已移动」：假的成功提示会让用户以为操作生效了
+      const current = allFlat.find((flat) => flat.item.id === id);
+      if (current && targetGroupId !== '__inbox__' && current.group.id === targetGroupId && !current.item.isInbox) {
+        pushToast(`「${current.item.title}」已在「${targetName}」中`);
+        return;
+      }
       if (targetGroupId === '__inbox__') {
         await patchItem(id, { isInbox: true }, `已移入待整理收件箱`);
         setView('inbox');
@@ -910,7 +920,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
       }
       await patchItem(id, { groupId: targetGroupId, isInbox: false }, `已移动至「${targetName}」`);
     },
-    [patchItem],
+    [patchItem, allFlat, pushToast],
   );
 
   /**
@@ -972,7 +982,10 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
               event.preventDefault();
               event.stopPropagation();
               const id = event.dataTransfer.getData('text/plain');
-              const target = groupById.get(groupId);
+              const target =
+                groupId === '__inbox__'
+                  ? { id: '__inbox__', name: '待整理收件箱' }
+                  : groupById.get(groupId);
               setDropTargetId(null);
               setDragging(false);
               setDragId(null);
@@ -985,18 +998,197 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
     [canEdit, groupById, moveItem],
   );
 
+  /* ---------------- 文件夹树：折叠 / 拖拽排序与嵌套 ---------------- */
+
+  const setNodeOpen = useCallback((id: string, open: boolean) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (open) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearExpandTimer = useCallback(() => {
+    if (expandTimer.current !== null) {
+      window.clearTimeout(expandTimer.current);
+      expandTimer.current = null;
+    }
+  }, []);
+
+  // 当前视图所在文件夹的祖先链：折叠后侧栏仍能标出「你在这一支里」
+  const activeAncestorIds = useMemo(() => {
+    const set = new Set<string>();
+    if (view !== 'folder' || !folderId) return set;
+    let cursor = groupById.get(folderId)?.parentId ?? null;
+    while (cursor && !set.has(cursor)) {
+      set.add(cursor);
+      cursor = groupById.get(cursor)?.parentId ?? null;
+    }
+    return set;
+  }, [view, folderId, groupById]);
+
+  const containsActive = useCallback((groupId: string) => activeAncestorIds.has(groupId), [activeAncestorIds]);
+
+  const descendantGroupIds = useCallback(
+    (rootId: string): string[] => {
+      const out: string[] = [];
+      const walk = (id: string) => {
+        for (const child of childrenByParent.get(id) ?? []) {
+          out.push(child.id);
+          walk(child.id);
+        }
+      };
+      walk(rootId);
+      return out;
+    },
+    [childrenByParent],
+  );
+
+  const onNodeDragOver = useCallback(
+    (event: React.DragEvent, groupId: string, hasKids: boolean, open: boolean) => {
+      if (!canEdit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const isFolderDrag = Array.from(event.dataTransfer.types).includes(FOLDER_MIME);
+      if (!isFolderDrag) {
+        event.dataTransfer.dropEffect = 'move';
+        setDropTargetId(groupId);
+        return;
+      }
+      const zone = zoneFor(event.currentTarget as HTMLElement, event.clientY);
+      event.dataTransfer.dropEffect = 'move';
+      setFolderDrop({ id: groupId, zone });
+      // 悬停折叠节点 500ms 自动展开，方便拖进子级
+      if (hasKids && !open && expandTimer.current === null) {
+        expandTimer.current = window.setTimeout(() => {
+          setNodeOpen(groupId, true);
+          expandTimer.current = null;
+        }, 500);
+      }
+    },
+    [canEdit, setNodeOpen],
+  );
+
+  const onNodeDragLeave = useCallback(
+    (groupId: string) => {
+      clearExpandTimer();
+      setDropTargetId((current) => (current === groupId ? null : current));
+      setFolderDrop((current) => (current?.id === groupId ? null : current));
+    },
+    [clearExpandTimer],
+  );
+
+  /** 把文件夹拖到目标的前 / 后 / 内部：本地重排整棵树后整份快照提交。 */
+  const dropFolder = useCallback(
+    async (movedId: string, targetId: string, zone: 'before' | 'after' | 'inside') => {
+      if (movedId === targetId) return;
+      const moved = groupById.get(movedId);
+      const target = groupById.get(targetId);
+      if (!moved || !target) return;
+      const forbidden = [movedId, ...descendantGroupIds(movedId)];
+      const parentId = zone === 'inside' ? targetId : target.parentId ?? null;
+      if (parentId && forbidden.includes(parentId)) {
+        pushToast('不能把文件夹移动到它自己的子文件夹里');
+        return;
+      }
+
+      const buckets = new Map<string | null, string[]>();
+      for (const group of groups) {
+        if (group.id === movedId) continue;
+        const parent = group.parentId ?? null;
+        const list = buckets.get(parent) ?? [];
+        list.push(group.id);
+        buckets.set(parent, list);
+      }
+      const siblings = buckets.get(parentId) ?? [];
+      if (zone === 'inside') {
+        siblings.push(movedId);
+      } else {
+        const index = siblings.indexOf(targetId);
+        siblings.splice(index < 0 ? siblings.length : zone === 'before' ? index : index + 1, 0, movedId);
+      }
+      buckets.set(parentId, siblings);
+
+      const snapshot: { id: string; parentId: string | null }[] = [];
+      const walk = (parent: string | null) => {
+        for (const id of buckets.get(parent) ?? []) {
+          snapshot.push({ id, parentId: parent });
+          walk(id);
+        }
+      };
+      walk(null);
+      if (snapshot.length !== groups.length) {
+        pushToast('文件夹顺序提交失败，请刷新后重试');
+        return;
+      }
+
+      try {
+        await api.reorderGroups(snapshot);
+        if (parentId) setNodeOpen(parentId, true);
+        pushToast(
+          zone === 'inside'
+            ? `已把「${moved.name}」移入「${target.name}」`
+            : `「${moved.name}」顺序已更新`,
+        );
+        await refreshAll();
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : '移动文件夹失败');
+      }
+    },
+    [groupById, descendantGroupIds, groups, pushToast, refreshAll, setNodeOpen],
+  );
+
+  /** 目标行上 1/3 插到前面、下 1/3 插到后面、中间 1/3 成为子级。 */
+  const zoneFor = (element: HTMLElement, clientY: number): 'before' | 'after' | 'inside' => {
+    const rect = element.getBoundingClientRect();
+    const ratio = (clientY - rect.top) / Math.max(1, rect.height);
+    if (ratio < 1 / 3) return 'before';
+    if (ratio > 2 / 3) return 'after';
+    return 'inside';
+  };
+
+  const onNodeDrop = useCallback(
+    (event: React.DragEvent, groupId: string) => {
+      if (!canEdit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearExpandTimer();
+      // 落点按 drop 事件的坐标现算，不依赖 dragover 期间的状态（单次派发的拖拽读不到）
+      const zone = zoneFor(event.currentTarget as HTMLElement, event.clientY);
+      const movedGroupId = event.dataTransfer.getData(FOLDER_MIME);
+      const itemId = event.dataTransfer.getData('text/plain');
+      const target = groupById.get(groupId);
+      setFolderDrop(null);
+      setDropTargetId(null);
+      setDragGroupId(null);
+      setDragId(null);
+      setDropHint(null);
+      setDragging(false);
+      if (movedGroupId) {
+        if (zone) void dropFolder(movedGroupId, groupId, zone);
+        return;
+      }
+      if (!itemId || !target) return;
+      void moveItem(itemId, groupId, target.name);
+    },
+    [canEdit, clearExpandTimer, groupById, dropFolder, moveItem],
+  );
+
   const createFolder = useCallback(async () => {
     const name = newFolder.name.trim();
     if (!name) return;
     try {
-      await api.createGroup({ name, parentId: folderId ?? undefined });
-      setNewFolder({ open: false, name: '' });
-      pushToast(`已新建文件夹「${name}」`);
+      const parentId = newFolder.parentId;
+      await api.createGroup({ name, parentId: parentId ?? undefined });
+      setNewFolder({ open: false, name: '', parentId: null, fromHeader: false });
+      if (parentId) setNodeOpen(parentId, true);
+      pushToast(parentId ? `已在「${groupById.get(parentId)?.name ?? '当前文件夹'}」下新建「${name}」` : `已新建文件夹「${name}」`);
       await loadConfig();
     } catch (error) {
       pushToast(error instanceof Error ? error.message : '新建文件夹失败');
     }
-  }, [newFolder.name, folderId, pushToast, loadConfig]);
+  }, [newFolder.name, newFolder.parentId, pushToast, loadConfig, setNodeOpen, groupById]);
 
   /* ---------------- drawers (appearance / structure / data) ---------------- */
 
@@ -1034,6 +1226,23 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [drawer]);
+
+  // 树节点「更多」菜单：点外部 / 滚动 / Esc 关闭
+  useEffect(() => {
+    if (!nodeMenu) return;
+    const close = () => setNodeMenu(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [nodeMenu]);
 
   const saveSettings = useCallback(
     async (patch: SettingsPatch, message = '外观已保存') => {
@@ -1364,43 +1573,136 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
   const renderSidebarTree = () => {
     const renderNode = (group: PublicGroup, depth: number): React.ReactNode => {
       const kids = childrenByParent.get(group.id) ?? [];
-      const open = expanded.has(group.id);
+      const open = !collapsed.has(group.id);
       const active = view === 'folder' && folderId === group.id;
       const total = subtreeFlat(group.id).length;
+      const editing = folderEdit?.id === group.id;
+      const zone = folderDrop?.id === group.id ? folderDrop.zone : null;
+      const creating =
+        newFolder.open && !newFolder.fromHeader && newFolder.parentId === group.id && !folderEdit;
       return (
         <div key={group.id}>
-          <button
+          <div
             className={depth === 0 ? 'nx-nav-item' : 'nx-tree-child'}
             data-active={active || undefined}
             data-drop={dropTargetId === group.id || undefined}
-            style={depth > 0 ? undefined : { paddingLeft: 8 }}
-            onClick={() => selectView('folder', group.id)}
-            {...dropProps(group.id)}
+            data-zone={zone || undefined}
+            data-contains-active={containsActive(group.id) || undefined}
+            draggable={canEdit && !editing ? true : undefined}
+            onDragStart={(event) => {
+              if (!canEdit || editing) return;
+              event.stopPropagation();
+              event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData(FOLDER_MIME, group.id);
+              setDragGroupId(group.id);
+              setNodeMenu(null);
+            }}
+            onDragEnd={() => {
+              setDragGroupId(null);
+              setFolderDrop(null);
+              setDropTargetId(null);
+            }}
+            onDragOver={(event) => onNodeDragOver(event, group.id, kids.length > 0, open)}
+            onDragLeave={() => onNodeDragLeave(group.id)}
+            onDrop={(event) => onNodeDrop(event, group.id)}
           >
-            <span className="nx-nav-left">
-              {kids.length > 0 && (
-                <span
-                  className="nx-tree-arrow"
-                  data-open={open || undefined}
+            {kids.length > 0 ? (
+              <button
+                type="button"
+                className="nx-tree-arrow"
+                data-open={open || undefined}
+                aria-expanded={open}
+                aria-label={`${open ? '收起' : '展开'}「${group.name}」`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setNodeOpen(group.id, !open);
+                }}
+              >
+                <IcoChevron size={13} />
+              </button>
+            ) : (
+              <span className="nx-tree-arrow" data-empty="true" aria-hidden="true" />
+            )}
+            {editing ? (
+              <input
+                className="nx-structure-input nx-tree-input"
+                autoFocus
+                value={folderEdit.name}
+                aria-label={`重命名「${group.name}」`}
+                onChange={(event) => setFolderEdit({ id: group.id, name: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.key === 'Enter') void saveFolderName();
+                  if (event.key === 'Escape') setFolderEdit(null);
+                }}
+                onBlur={() => void saveFolderName()}
+              />
+            ) : (
+              <button
+                type="button"
+                className="nx-node-main"
+                onClick={() => selectView('folder', group.id)}
+              >
+                <span className="nx-nav-left">
+                  {(depth === 0 || kids.length === 0) && <IcoFolder size={depth === 0 ? 15 : 13} />}
+                  <span className="nx-nav-name">{group.name}</span>
+                </span>
+                <span className="nx-nav-count">{total}</span>
+              </button>
+            )}
+            {canEdit && !editing && (
+              <span className="nx-node-actions">
+                <button
+                  type="button"
+                  title={`在「${group.name}」下新建子文件夹`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    setExpanded((current) => {
-                      const next = new Set(current);
-                      if (next.has(group.id)) next.delete(group.id);
-                      else next.add(group.id);
-                      return next;
-                    });
+                    setNodeOpen(group.id, true);
+                    setNewFolder({ open: true, name: '', parentId: group.id, fromHeader: false });
                   }}
                 >
-                  <IcoChevron size={13} />
-                </span>
-              )}
-              {kids.length === 0 && depth > 0 && <IcoFolder size={13} />}
-              {depth === 0 && <IcoFolder size={15} />}
-              <span className="nx-nav-name">{group.name}</span>
-            </span>
-            <span className="nx-nav-count">{total}</span>
-          </button>
+                  <IcoPlus size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="更多操作"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                    setNodeMenu({
+                      id: group.id,
+                      x: Math.max(8, Math.min(rect.right - 176, window.innerWidth - 240)),
+                      y: Math.min(rect.bottom + 4, window.innerHeight - 140),
+                    });
+                    setNodeOpen(group.id, true);
+                  }}
+                >
+                  <IcoMore size={12} />
+                </button>
+              </span>
+            )}
+          </div>
+          {creating && (
+            <div className="nx-inline-form nx-inline-form-nested">
+              <input
+                autoFocus
+                value={newFolder.name}
+                placeholder="子文件夹名称"
+                aria-label="子文件夹名称"
+                onChange={(event) =>
+                  setNewFolder({ open: true, name: event.target.value, parentId: group.id, fromHeader: false })
+                }
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.key === 'Enter') void createFolder();
+                  if (event.key === 'Escape') setNewFolder({ open: false, name: '', parentId: null, fromHeader: false });
+                }}
+              />
+              <button type="button" className="nx-section-action" title="创建" onClick={() => void createFolder()}>
+                <IcoCheck size={13} />
+              </button>
+            </div>
+          )}
           {kids.length > 0 && open && (
             <div className="nx-tree-children">
               {kids.map((child) => renderNode(child, depth + 1))}
@@ -1582,7 +1884,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
     const rows: React.ReactNode[] = [];
     const walk = (parent: string | null, depth: number) => {
       for (const group of childrenByParent.get(parent) ?? []) {
-        const itemCount = allFlat.filter((flat) => flat.group.id === group.id).length;
+        const itemCount = subtreeFlat(group.id).length;
         const editing = folderEdit?.id === group.id;
         rows.push(
           <div className="nx-structure-row" key={group.id} style={{ paddingLeft: 10 + depth * 16 }}>
@@ -1888,7 +2190,9 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
               <button
                 className="nx-nav-item"
                 data-active={view === 'inbox' || undefined}
+                data-drop={dropTargetId === '__inbox__' || undefined}
                 onClick={() => selectView('inbox')}
+                {...dropProps('__inbox__')}
               >
                 <span className="nx-nav-left">
                   <IcoInbox size={15} />
@@ -1921,22 +2225,31 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                 <button
                   className="nx-section-action"
                   title={folderId ? '在当前文件夹下新建子文件夹' : '新建根文件夹'}
-                  onClick={() => setNewFolder({ open: !newFolder.open, name: '' })}
+                  onClick={() =>
+                    setNewFolder({ open: !newFolder.open, name: '', parentId: folderId ?? null, fromHeader: true })
+                  }
                 >
                   <IcoPlus size={13} />
                 </button>
               )}
             </div>
-            {newFolder.open && (
+            {newFolder.open && newFolder.fromHeader && (
               <div className="nx-inline-form">
                 <input
                   autoFocus
                   value={newFolder.name}
                   placeholder={folderId ? '子文件夹名称' : '文件夹名称'}
-                  onChange={(event) => setNewFolder({ open: true, name: event.target.value })}
+                  onChange={(event) =>
+                    setNewFolder({
+                      open: true,
+                      name: event.target.value,
+                      parentId: newFolder.parentId,
+                      fromHeader: newFolder.fromHeader,
+                    })
+                  }
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') void createFolder();
-                    if (event.key === 'Escape') setNewFolder({ open: false, name: '' });
+                    if (event.key === 'Escape') setNewFolder({ open: false, name: '', parentId: null, fromHeader: false });
                   }}
                 />
                 <button className="nx-section-action" title="创建" onClick={() => void createFolder()}>
@@ -2349,7 +2662,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
               {drawer === 'structure' && (
                 <>
                   <p className="nx-drawer-note">
-                    重命名、删除文件夹直接作用于站点数据；拖拽排序与移动到文件夹请在编辑态下于页面中完成。
+                    树里的 ＋ 与 ⋯ 也能新建、改名、删除；拖拽节点可调整顺序或换上级，改动立即写入站点数据。
                   </p>
                   <div className="nx-structure-list">
                     {renderStructureRows()}
@@ -2358,7 +2671,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                     className="nx-btn-secondary"
                     onClick={() => {
                       setDrawer(null);
-                      setNewFolder({ open: true, name: '' });
+                      setNewFolder({ open: true, name: '', parentId: null, fromHeader: true });
                     }}
                   >
                     <IcoPlus size={13} />
@@ -2490,6 +2803,65 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
           onImport={applyBookmarksImport}
         />
       )}
+
+      {nodeMenu &&
+        (() => {
+          const node = groupById.get(nodeMenu.id);
+          if (!node) return null;
+          return (
+            <div
+              className="nx-ctx"
+              style={{ top: nodeMenu.y, left: nodeMenu.x }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="nx-ctx-item"
+                onClick={() => {
+                  setNodeOpen(node.id, true);
+                  setNewFolder({ open: true, name: '', parentId: node.id, fromHeader: false });
+                  setNodeMenu(null);
+                }}
+              >
+                <span className="nx-ctx-left">
+                  <IcoPlus size={13} />
+                  <span>新建子文件夹</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="nx-ctx-item"
+                onClick={() => {
+                  setNodeOpen(node.id, true);
+                  setFolderEdit({ id: node.id, name: node.name });
+                  setNodeMenu(null);
+                }}
+              >
+                <span className="nx-ctx-left">
+                  <IcoPencil size={13} />
+                  <span>重命名</span>
+                </span>
+              </button>
+              <div className="nx-ctx-sep" />
+              <button
+                type="button"
+                className="nx-ctx-item"
+                data-danger="true"
+                onClick={() => {
+                  setNodeMenu(null);
+                  if (window.confirm(`删除文件夹「${node.name}」及其全部内容？此操作不可撤销。`)) {
+                    void removeFolder(node.id, node.name);
+                  }
+                }}
+              >
+                <span className="nx-ctx-left">
+                  <IcoTrash size={13} />
+                  <span>删除文件夹</span>
+                </span>
+              </button>
+            </div>
+          );
+        })()}
 
       {ctxMenu && ctxFlat && (
         <div
