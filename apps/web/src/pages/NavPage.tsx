@@ -1424,9 +1424,9 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
     }
   }, [newFolder.name, newFolder.parentId, pushToast, loadConfig, setNodeOpen, groupById]);
 
-  /* ---------------- drawers (appearance / structure / data) ---------------- */
+  /* ---------------- drawers (appearance / data) ---------------- */
 
-  const [drawer, setDrawer] = useState<null | 'appearance' | 'structure' | 'data'>(null);
+  const [drawer, setDrawer] = useState<null | 'appearance' | 'data'>(null);
   const [siteSettings, setSiteSettings] = useState<AdminSettings | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [folderEdit, setFolderEdit] = useState<{ id: string; name: string } | null>(null);
@@ -1869,7 +1869,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
             )}
             {editing ? (
               <input
-                className="nx-structure-input nx-tree-input"
+                className="nx-tree-input"
                 autoFocus
                 value={folderEdit.name}
                 aria-label={`重命名「${group.name}」`}
@@ -2129,70 +2129,6 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
         </div>
       </div>
     );
-  };
-
-  const renderStructureRows = () => {
-    const rows: React.ReactNode[] = [];
-    const walk = (parent: string | null, depth: number) => {
-      for (const group of childrenByParent.get(parent) ?? []) {
-        const itemCount = subtreeFlat(group.id).length;
-        const editing = folderEdit?.id === group.id;
-        rows.push(
-          <div className="nx-structure-row" key={group.id} style={{ paddingLeft: 10 + depth * 16 }}>
-            {editing ? (
-              <input
-                className="nx-structure-input"
-                autoFocus
-                value={folderEdit.name}
-                onChange={(event) => setFolderEdit({ id: group.id, name: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void saveFolderName();
-                  if (event.key === 'Escape') setFolderEdit(null);
-                }}
-                onBlur={() => void saveFolderName()}
-              />
-            ) : (
-              <button
-                className="nx-structure-name"
-                onClick={() => {
-                  setDrawer(null);
-                  selectView('folder', group.id);
-                }}
-                title="在页面中打开该文件夹"
-              >
-                <IcoFolder size={13} />
-                <span>{group.name}</span>
-                <span className="nx-structure-count">{itemCount}</span>
-              </button>
-            )}
-            <span className="nx-structure-actions">
-              <button
-                className="nx-icon-btn"
-                title="重命名"
-                onClick={() => setFolderEdit({ id: group.id, name: group.name })}
-              >
-                <IcoPencil size={12} />
-              </button>
-              <button
-                className="nx-icon-btn"
-                title="删除（含子文件夹与书签）"
-                onClick={() => {
-                  if (window.confirm(`删除文件夹「${group.name}」及其全部内容？此操作不可撤销。`)) {
-                    void removeFolder(group.id, group.name);
-                  }
-                }}
-              >
-                <IcoTrash size={12} />
-              </button>
-            </span>
-          </div>,
-        );
-        walk(group.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    if (rows.length === 0) return <span className="nx-empty-hint">还没有文件夹，先在左侧新建一个。</span>;
-    return rows;
   };
 
   const renderContent = () => {
@@ -2551,14 +2487,6 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                 </button>
                 <button
                   className="nx-icon-btn"
-                  data-active={drawer === 'structure' || undefined}
-                  onClick={() => setDrawer((current) => (current === 'structure' ? null : 'structure'))}
-                  title="分组结构"
-                >
-                  <IcoFolder size={13} />
-                </button>
-                <button
-                  className="nx-icon-btn"
                   data-active={drawer === 'data' || undefined}
                   onClick={() => setDrawer((current) => (current === 'data' ? null : 'data'))}
                   title="数据与备份"
@@ -2733,7 +2661,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
           <aside className="nx-drawer" role="dialog" aria-label="工作台抽屉">
             <div className="nx-drawer-head">
               <span className="nx-drawer-title">
-                {drawer === 'appearance' ? '外观' : drawer === 'structure' ? '分组结构' : '数据与备份'}
+                {drawer === 'appearance' ? '外观' : '数据与备份'}
               </span>
               <button className="nx-icon-btn" onClick={() => setDrawer(null)} title="关闭 (Esc)">
                 <IcoClose size={14} />
@@ -2929,27 +2857,6 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                       <span className="nx-switch-knob" />
                     </button>
                   </div>
-                </>
-              )}
-
-              {drawer === 'structure' && (
-                <>
-                  <p className="nx-drawer-note">
-                    树里的 ＋ 与 ⋯ 也能新建、改名、删除；拖拽节点可调整顺序或换上级，改动立即写入站点数据。
-                  </p>
-                  <div className="nx-structure-list">
-                    {renderStructureRows()}
-                  </div>
-                  <button
-                    className="nx-btn-secondary"
-                    onClick={() => {
-                      setDrawer(null);
-                      setNewFolder({ open: true, name: '', parentId: null, fromHeader: true });
-                    }}
-                  >
-                    <IcoPlus size={13} />
-                    <span>新建根文件夹</span>
-                  </button>
                 </>
               )}
 
@@ -3167,6 +3074,20 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
                         <IcoFolder size={18} />
                       </span>
                       <span className="nx-sheet-label">移动到文件夹</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="nx-sheet-row"
+                      onClick={() => {
+                        setNodeOpen(node.id, true);
+                        setNewFolder({ open: true, name: '', parentId: node.id, fromHeader: false });
+                        setSheet(null);
+                      }}
+                    >
+                      <span className="nx-sheet-icon">
+                        <IcoPlus size={18} />
+                      </span>
+                      <span className="nx-sheet-label">新建子文件夹</span>
                     </button>
                     <button
                       type="button"
