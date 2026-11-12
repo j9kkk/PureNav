@@ -24,6 +24,8 @@ export interface PublicItem {
   finalUrl?: string | null;
   lastCheckedAt?: string | null;
   createdAt?: string;
+  /** 手动排序序号（同分组内升序），由 /public/config 下发 */
+  sortOrder?: number;
 }
 
 export interface PublicGroup {

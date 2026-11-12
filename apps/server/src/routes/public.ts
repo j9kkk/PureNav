@@ -50,6 +50,8 @@ export interface PublicItem {
   finalUrl: string | null;
   lastCheckedAt: string | null;
   createdAt: string;
+  /** 同组内手动排序序号，前端「按手动排序」直接用它 */
+  sortOrder: number;
 }
 
 export interface PublicGroup {
@@ -122,6 +124,7 @@ export function buildPublicConfig(): {
       finalUrl: row.final_url ?? null,
       lastCheckedAt: row.last_checked_at ?? null,
       createdAt: row.created_at,
+      sortOrder: row.sort_order,
     });
     itemsByGroup.set(row.group_id, list);
   }

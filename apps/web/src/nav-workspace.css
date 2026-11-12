@@ -128,7 +128,8 @@ body.pn-app-locked {
 .nx-app textarea:focus-visible {
   outline: none;
   border-color: var(--nx-accent);
-  box-shadow: 0 0 0 1px var(--nx-accent);
+  /* 单一描边：边框已带强调色，再叠一层 box-shadow 会出现双层环 */
+  box-shadow: none;
 }
 
 /* 自定义复选框：不用浏览器原生灰黑底，直接走 --nx-card / --nx-line-strong / --nx-accent 令牌 */
@@ -593,7 +594,8 @@ body.pn-app-locked {
 
 .nx-search:focus-within {
   border-color: var(--nx-accent);
-  box-shadow: 0 0 0 1px var(--nx-accent);
+  /* 与输入框共用同一条规则：只有 1px 强调色描边，不再叠加外圈阴影 */
+  box-shadow: none;
 }
 
 .nx-search input {
@@ -682,25 +684,6 @@ body.pn-app-locked {
 
 .nx-toggle button[data-active='true'] {
   background: var(--nx-subtle);
-  color: var(--nx-text);
-}
-
-.nx-link-btn {
-  height: 32px;
-  padding: 0 10px;
-  border-radius: var(--nx-radius-sm);
-  background: var(--nx-card);
-  border: 1px solid var(--nx-line);
-  color: var(--nx-text-2);
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all var(--nx-ease);
-}
-
-.nx-link-btn:hover {
-  border-color: var(--nx-line-strong);
   color: var(--nx-text);
 }
 
@@ -857,9 +840,19 @@ body.pn-app-locked {
 }
 
 .nx-drawer-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.nx-drawer-row > *:only-child {
+  grid-column: 1 / -1;
+}
+
+.nx-drawer-row .nx-btn-secondary {
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .nx-seg {
@@ -1288,47 +1281,6 @@ body.pn-app-locked {
   cursor: not-allowed;
 }
 
-.nx-btn-danger {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--nx-radius-sm);
-  background: var(--nx-bad-bg);
-  border: 1px solid var(--nx-bad-line);
-  color: var(--nx-bad);
-  font-size: 12px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all var(--nx-ease);
-  white-space: nowrap;
-}
-
-.nx-btn-danger:hover {
-  background: var(--nx-bad);
-  color: #ffffff;
-}
-
-.nx-btn-ghost {
-  height: 30px;
-  padding: 0 10px;
-  border-radius: var(--nx-radius-sm);
-  background: transparent;
-  color: var(--nx-text-2);
-  font-size: 12px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all var(--nx-ease);
-  white-space: nowrap;
-}
-
-.nx-btn-ghost:hover {
-  background: var(--nx-subtle);
-  color: var(--nx-text);
-}
-
 .nx-btn-sm {
   height: 26px;
   padding: 0 8px;
@@ -1339,16 +1291,6 @@ body.pn-app-locked {
   height: 26px;
   padding: 0 8px;
   font-size: 11px;
-}
-
-.nx-icon-btn-danger:hover {
-  background: var(--nx-bad-bg) !important;
-  color: var(--nx-bad) !important;
-}
-
-.nx-icon-btn-ok:hover {
-  background: var(--nx-ok-bg) !important;
-  color: var(--nx-ok) !important;
 }
 
 
@@ -1387,6 +1329,44 @@ body.pn-app-locked {
 .nx-card[data-highlight='true'] {
   border-color: var(--nx-accent);
   box-shadow: 0 0 0 1px var(--nx-accent);
+}
+
+/* 拖拽插入提示：落在目标卡片前半区/后半区，用内描边标记插入位置，不改变布局 */
+.nx-card[data-drop='before'] {
+  box-shadow: inset 2px 0 0 var(--nx-accent);
+}
+
+.nx-card[data-drop='after'] {
+  box-shadow: inset -2px 0 0 var(--nx-accent);
+}
+
+.nx-grid[data-single='true'] .nx-card[data-drop='before'] {
+  box-shadow: inset 0 2px 0 var(--nx-accent);
+}
+
+.nx-grid[data-single='true'] .nx-card[data-drop='after'] {
+  box-shadow: inset 0 -2px 0 var(--nx-accent);
+}
+
+/* 抽屉里的文本输入：与全站统一的单层焦点描边 */
+.nx-drawer-input {
+  height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+  color: var(--nx-text);
+  background: var(--nx-card);
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-sm);
+  outline: none;
+  transition: border-color var(--nx-ease);
+}
+
+.nx-drawer-input:focus {
+  border-color: var(--nx-accent);
+}
+
+.nx-drawer-input::placeholder {
+  color: var(--nx-text-3);
 }
 
 /* 站点级布局设置（外观抽屉）落到工作台：密度 / 卡片尺寸 / 描述 */
@@ -2319,13 +2299,6 @@ body.pn-app-locked {
   overflow-y: auto;
 }
 
-.nx-auth-topbar {
-  position: absolute;
-  top: 24px;
-  right: 28px;
-  z-index: 10;
-}
-
 .nx-auth-topbar .nx-icon-btn {
   width: 34px;
   height: 34px;
@@ -2418,151 +2391,6 @@ body.pn-app-locked {
   margin-top: 6px;
 }
 
-/* ---------------- 管理表格 / 批量栏 / 分页 ---------------- */
-
-.nx-bulk-bar {
-  background: var(--nx-card);
-  border: 1px solid var(--nx-line-strong);
-  border-radius: var(--nx-radius-sm);
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-  animation: nx-toast-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.nx-bulk-count {
-  font-weight: 600;
-  color: var(--nx-text);
-}
-
-.nx-bulk-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--nx-line);
-}
-
-.nx-table-card {
-  background: var(--nx-card);
-  border: 1px solid var(--nx-line);
-  border-radius: var(--nx-radius);
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.nx-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  text-align: left;
-}
-
-.nx-table thead {
-  background: var(--nx-subtle);
-  border-bottom: 1px solid var(--nx-line);
-}
-
-.nx-table th {
-  padding: 10px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--nx-text-2);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.nx-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--nx-line-soft);
-  vertical-align: middle;
-}
-
-.nx-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.nx-table tbody tr:hover {
-  background: var(--nx-card-hover);
-}
-
-.nx-table tbody tr.row-muted {
-  opacity: 0.55;
-}
-
-.nx-table-title {
-  font-weight: 500;
-  color: var(--nx-text);
-  display: inline-block;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color var(--nx-ease);
-}
-
-.nx-table-title:hover {
-  color: var(--nx-accent-ink);
-}
-
-.nx-table-url {
-  font-size: 12px;
-  color: var(--nx-text-2);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 340px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nx-table-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--nx-radius-sm);
-  background: var(--nx-subtle);
-  border: 1px solid var(--nx-line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 12px;
-  overflow: hidden;
-  flex: none;
-}
-
-.nx-table-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.nx-status-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.nx-status-pill.is-ok {
-  background: var(--nx-ok-bg);
-  color: var(--nx-ok);
-  border: 1px solid var(--nx-ok-line);
-}
-
-.nx-status-pill.is-off {
-  background: var(--nx-subtle);
-  color: var(--nx-text-3);
-  border: 1px solid var(--nx-line);
-}
-
 .nx-badge-lan,
 .nx-badge[data-kind='lan'] {
   background: var(--nx-ok-bg);
@@ -2577,112 +2405,6 @@ body.pn-app-locked {
   border-color: var(--nx-accent-line);
   color: var(--nx-accent-ink);
   font-weight: 500;
-}
-
-.nx-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  background: var(--nx-card);
-  border-top: 1px solid var(--nx-line-soft);
-  font-size: 12px;
-  color: var(--nx-text-2);
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.nx-pagination-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.nx-pagination-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.nx-page-num {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: var(--nx-radius-sm);
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--nx-text-2);
-  font-size: 12px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.nx-page-num:hover {
-  background: var(--nx-subtle);
-  color: var(--nx-text);
-}
-
-.nx-page-num.is-current {
-  background: var(--nx-accent-bg);
-  border-color: var(--nx-accent-line);
-  color: var(--nx-accent-ink);
-  font-weight: 600;
-}
-
-/* ---------------- 站点设置 / 账户卡片 ---------------- */
-
-.nx-settings-card {
-  background: var(--nx-card);
-  border: 1px solid var(--nx-line);
-  border-radius: var(--nx-radius);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-bottom: 16px;
-}
-
-.nx-settings-head {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-bottom: 1px solid var(--nx-line-soft);
-  padding-bottom: 14px;
-}
-
-.nx-settings-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--nx-text);
-}
-
-.nx-settings-desc {
-  font-size: 12px;
-  color: var(--nx-text-2);
-  line-height: 1.45;
-}
-
-.nx-settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.nx-settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.nx-settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 240px;
 }
 
 /* ---------------- 浏览器书签导入弹窗 ---------------- */
@@ -2928,12 +2650,6 @@ body.pn-app-locked {
   user-select: none;
 }
 
-/* ---------------- 子组件适配（树、胶囊标签、开关） ---------------- */
-
-.nx-admin-tree {
-  margin-top: 4px;
-}
-
 .nx-app .tree-nav {
   width: 100%;
   display: flex;
@@ -3035,69 +2751,6 @@ body.pn-app-locked {
 .nx-app .tree-row-menu-btn:hover {
   background: var(--nx-subtle);
   color: var(--nx-text);
-}
-
-/* Tree Dropdown Menu (Portal) */
-.tree-nav-dropdown {
-  position: fixed;
-  z-index: 1200;
-  min-width: 140px;
-  background: #161922;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  padding: 4px;
-}
-
-[data-theme='light'] .tree-nav-dropdown {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
-}
-
-.tree-nav-dropdown .dropdown-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 4px;
-  color: #f1f5f9;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-}
-
-[data-theme='light'] .tree-nav-dropdown .dropdown-item {
-  color: #0f172a;
-}
-
-.tree-nav-dropdown .dropdown-item:hover {
-  background: #1a1e29;
-}
-
-[data-theme='light'] .tree-nav-dropdown .dropdown-item:hover {
-  background: #f1f5f9;
-}
-
-.tree-nav-dropdown .dropdown-item-danger {
-  color: #f87171;
-}
-
-.tree-nav-dropdown .dropdown-item-danger:hover {
-  background: rgba(239, 68, 68, 0.14);
-}
-
-.tree-nav-dropdown .dropdown-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0;
-}
-
-[data-theme='light'] .tree-nav-dropdown .dropdown-divider {
-  background: #edf2f7;
 }
 
 /* Capsule Tag Input inside .nx-app */
@@ -3257,19 +2910,6 @@ body.pn-app-locked {
   pointer-events: none;
 }
 
-/* Sidebar user column */
-.nx-user-col {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.nx-user-ver {
-  font-size: 10px;
-  color: var(--nx-text-3);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Iconify search results in nx-app */
 .nx-app .icon-results {
   display: grid;
@@ -3344,10 +2984,6 @@ body.pn-app-locked {
   .nx-topbar {
     padding: 0 12px;
     gap: 8px;
-  }
-
-  .nx-link-btn span {
-    display: none;
   }
 
   .nx-status-right {

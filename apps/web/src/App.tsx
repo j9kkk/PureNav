@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react';
 import { api, type AuthState } from './api';
 import { NavPage } from './pages/NavPage';
 import { LoginPage } from './pages/LoginPage';
-import { AdminPage } from './pages/AdminPage';
 import { applyTheme } from './lib/theme';
 import { refreshLiquidGlass } from './lib/liquidGlass';
 
-type Route = { name: 'home' } | { name: 'login' } | { name: 'admin' };
+type Route = { name: 'home' } | { name: 'login' };
 
 function parseRoute(pathname: string): Route {
   if (pathname.startsWith('/login')) return { name: 'login' };
-  if (pathname.startsWith('/admin')) return { name: 'admin' };
   return { name: 'home' };
 }
 
@@ -29,7 +27,7 @@ export function App() {
   }, []);
 
   // Apply the stored theme immediately, before any config request returns, so the
-  // admin pages do not flash the wrong palette.
+  // page does not flash the wrong palette.
   useEffect(() => {
     applyTheme(undefined);
   }, []);
@@ -46,6 +44,14 @@ export function App() {
     setRoute(next);
   };
 
+  // 旧后台/设置/账户地址已合并进单页，命中时直接落回工作台，不留死路由
+  useEffect(() => {
+    if (/^\/(admin|settings|account)/.test(window.location.pathname)) {
+      window.history.replaceState({}, '', '/');
+      setRoute({ name: 'home' });
+    }
+  }, []);
+
   if (route.name === 'login') {
     return (
       <LoginPage
@@ -59,52 +65,29 @@ export function App() {
     );
   }
 
-  if (route.name === 'admin') {
-    if (!auth) {
-      return (
-        <div
-          className="nx-app"
-          style={{
-            display: 'grid',
-            placeItems: 'center',
-            height: '100vh',
-            background: 'var(--nx-canvas)',
-            color: 'var(--nx-text-3)',
-            fontSize: 13,
-          }}
-        >
-          加载中…
-        </div>
-      );
-    }
-    if (!auth.authenticated) {
-      return (
-        <LoginPage
-          needsSetup={auth.needsSetup}
-          onDone={(user) => {
-            setAuth({ needsSetup: false, authenticated: true, user });
-          }}
-          onCancel={() => navigate({ name: 'home' })}
-        />
-      );
-    }
+  if (!auth) {
     return (
-      <AdminPage
-        user={auth.user!}
-        onHome={() => navigate({ name: 'home' })}
-        onLoggedOut={() => {
-          setAuth({ needsSetup: false, authenticated: false, user: null });
-          navigate({ name: 'home' });
+      <div
+        className="nx-app"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          height: '100vh',
+          background: 'var(--nx-canvas)',
+          color: 'var(--nx-text-3)',
+          fontSize: 13,
         }}
-      />
+      >
+        加载中…
+      </div>
     );
   }
 
   return (
     <NavPage
-      authenticated={auth?.authenticated ?? false}
-      onAdmin={() => navigate({ name: 'admin' })}
+      authenticated={auth.authenticated}
       onLogin={() => navigate({ name: 'login' })}
+      onLoggedOut={() => setAuth({ needsSetup: false, authenticated: false, user: null })}
     />
   );
 }
