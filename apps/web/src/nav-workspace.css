@@ -593,8 +593,8 @@ button.nx-tree-arrow:hover {
   }
 
   .nx-node-actions button {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
   }
 
   /* 触屏宽度紧张：只常驻「⋯」，＋ 收进菜单（菜单里已有「新建子文件夹」） */
@@ -942,9 +942,15 @@ button.nx-tree-arrow:hover {
 }
 
 /* 非编辑态：即使误挂了编辑控件也不显形，作为第二道保险 */
-.nx-app[data-edit='false'] .nx-more,
+/* 编辑态才有拖拽把手；「⋯」在触屏浏览态也要能点（卡片没有右键） */
 .nx-app[data-edit='false'] .nx-drag-handle {
   display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nx-app[data-edit='false'] .nx-more {
+    display: none;
+  }
 }
 
 /* ---------------- 右侧抽屉（外观 / 结构 / 数据） ---------------- */
@@ -2166,33 +2172,6 @@ button.nx-tree-arrow:hover {
   margin: 4px 0;
 }
 
-.nx-ctx-sub {
-  position: absolute;
-  right: calc(100% + 4px);
-  top: -6px;
-  width: 200px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 6px;
-  border-radius: var(--nx-radius);
-  background: var(--nx-card);
-  border: 1px solid var(--nx-line-strong);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
-  display: none;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 1010;
-}
-
-.nx-ctx-item[data-open='true'] > .nx-ctx-sub,
-.nx-ctx-item:hover > .nx-ctx-sub {
-  display: flex;
-}
-
-.nx-ctx-sub .nx-ctx-item {
-  flex: none;
-}
-
 /* ---------------- 弹层 ---------------- */
 
 .nx-backdrop {
@@ -3135,7 +3114,361 @@ button.nx-tree-arrow:hover {
   object-fit: contain;
 }
 
+
+/* ---------------- 底部操作面板（触屏整理入口） ---------------- */
+
+.nx-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.nx-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.nx-sheet {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  border: 1px solid var(--nx-line);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: var(--nx-card);
+  box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.5);
+  animation: nx-sheet-in 180ms var(--nx-ease);
+}
+
+@keyframes nx-sheet-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.nx-sheet-grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 2px;
+  background: var(--nx-text-2);
+  opacity: 0.4;
+}
+
+.nx-sheet-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 16px 10px;
+}
+
+.nx-sheet-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--nx-text);
+}
+
+.nx-sheet-sub {
+  font-size: 12px;
+  color: var(--nx-text-2);
+}
+
+.nx-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--nx-text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-sheet-row:active {
+  background: var(--nx-subtle);
+}
+
+.nx-sheet-row[disabled] {
+  color: var(--nx-text-3);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nx-sheet-row[data-separated='true'] {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nx-sheet-row[data-danger='true'],
+.nx-sheet-row[data-danger='true'] .nx-sheet-icon {
+  color: var(--nx-bad);
+}
+
+.nx-sheet-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--nx-text-2);
+}
+
+.nx-sheet-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-sheet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 16px 12px;
+}
+
+.nx-sheet-field-label {
+  font-size: 12px;
+  color: var(--nx-text-2);
+}
+
+.nx-sheet-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nx-sheet-seg button {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--nx-line);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-subtle);
+  color: var(--nx-text-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nx-sheet-seg button[data-active] {
+  border-color: var(--nx-accent-line);
+  background: var(--nx-accent-bg);
+  color: var(--nx-text);
+}
+
+.nx-sheet-done {
+  justify-content: center;
+  border-top: 1px solid var(--nx-line);
+  color: var(--nx-accent-ink);
+  font-weight: 500;
+}
+
+/* ---------------- 全屏文件夹选择器 ---------------- */
+
+.nx-picker-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.nx-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: min(80vh, 720px);
+  overflow: hidden;
+  border: 1px solid var(--nx-line);
+  border-radius: 12px;
+  background: var(--nx-canvas);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.nx-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--nx-line);
+}
+
+.nx-picker-cancel {
+  min-width: 52px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--nx-accent-ink);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-picker-title {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.nx-picker-spacer {
+  width: 52px;
+  flex: none;
+}
+
+.nx-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin: 12px 16px;
+  padding: 0 12px;
+  border-radius: var(--nx-radius);
+  background: var(--nx-subtle);
+  color: var(--nx-text-2);
+}
+
+.nx-picker-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--nx-text);
+  font-size: 13px;
+  outline: none;
+}
+
+.nx-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.nx-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  padding: 0 8px 0 16px;
+  border: 0;
+  border-radius: var(--nx-radius-sm);
+  background: none;
+  color: var(--nx-text-2);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-picker-row[data-selected] {
+  background: var(--nx-accent-bg);
+  color: var(--nx-text);
+}
+
+.nx-picker-row[data-current] {
+  color: var(--nx-text-3);
+}
+
+.nx-picker-row[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.nx-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-picker-tail {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  flex: none;
+}
+
+.nx-picker-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--nx-line-strong);
+}
+
+.nx-picker-ring[data-on] {
+  border-color: var(--nx-accent);
+  background: var(--nx-accent);
+  box-shadow: inset 0 0 0 2px var(--nx-canvas);
+}
+
+.nx-picker-current {
+  font-size: 12px;
+  color: var(--nx-text-2);
+  white-space: nowrap;
+}
+
+.nx-picker-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--nx-line);
+}
+
+.nx-picker-foot {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--nx-line);
+  background: var(--nx-side);
+  flex: none;
+}
+
+.nx-picker-confirm {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: var(--nx-radius);
+  background: var(--nx-accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.nx-picker-confirm[disabled] {
+  background: var(--nx-subtle);
+  color: var(--nx-text-3);
+  cursor: default;
+}
+
 /* ---------------- 响应式 ---------------- */
+
 
 @media (max-width: 1100px) {
   .nx-dock-grid {
@@ -3182,5 +3515,70 @@ button.nx-tree-arrow:hover {
 
   .nx-dual {
     grid-template-columns: 1fr;
+  }
+
+  /* 手机：抽屉放宽到 88vw，行高按触控习惯抬到 48，可点区域 44 */
+  .nx-sidebar {
+    width: 88vw;
+    max-width: 380px;
+  }
+
+  .nx-nav-item,
+  .nx-tree-child {
+    height: 48px;
+  }
+
+  .nx-node-actions button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nx-menu-btn,
+  .nx-more,
+  .nx-icon-btn,
+  .nx-section-action {
+    width: 44px;
+    height: 44px;
+  }
+
+  .nx-login-btn {
+    height: 44px;
+    padding: 0 16px;
+  }
+
+  .nx-capture-btn {
+    height: 44px;
+  }
+
+  .nx-tag-pill {
+    min-height: 36px;
+  }
+
+  .nx-topbar {
+    min-height: 56px;
+    padding: 6px 12px;
+  }
+
+  /* 触屏没有键盘快捷键，去掉搜索框尾部的 / 徽标 */
+  .nx-kbd {
+    display: none;
+  }
+
+  .nx-picker-layer {
+    align-items: stretch;
+  }
+
+  .nx-picker {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .nx-sheet {
+    width: 100%;
+    max-height: 88vh;
   }
 }
