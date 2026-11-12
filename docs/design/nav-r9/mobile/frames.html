@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PureNav 移动端方案 4 帧示意稿</title>
+  <style>
+    :root {
+      --canvas: #0c0d10;
+      --side: #12141a;
+      --card: #161922;
+      --card-hover: #1d2230;
+      --subtle: #1a1e29;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 255, 255, 0.16);
+      --text: #f1f5f9;
+      --text-2: #94a3b8;
+      --accent: #6366f1;
+      --accent-ink: #818cf8;
+      --accent-bg: rgba(99, 102, 241, 0.14);
+      --accent-line: rgba(99, 102, 241, 0.35);
+      --bad: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background-color: #07080a;
+      color: var(--text);
+      font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+      padding: 40px 120px 80px 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 1920px;
+    }
+
+    /* 页面标题区 */
+    .showcase-header {
+      width: 1680px;
+      margin-bottom: 36px;
+    }
+
+    .showcase-header h1 {
+      font-size: 20px;
+      line-height: 28px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 400;
+      color: var(--text-2);
+    }
+
+    /* 4 帧画板网格 */
+    .frames-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 390px);
+      gap: 40px;
+      width: 1680px;
+    }
+
+    .frame-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 390px;
+    }
+
+    .frame-meta {
+      width: 390px;
+      height: 24px;
+      line-height: 24px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .frame-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 24px;
+    }
+
+    .frame-desc {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      line-height: 24px;
+    }
+
+    /* 手机框本体（精确 390x844，Playwright 截图目标） */
+    .phone-screen {
+      width: 390px;
+      height: 844px;
+      min-width: 390px;
+      max-width: 390px;
+      min-height: 844px;
+      max-height: 844px;
+      background-color: var(--canvas);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    /* 通用组件与重置 */
+    button {
+      font-family: inherit;
+      border: none;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 状态栏 47px */
+    .status-bar {
+      height: 47px;
+      width: 390px;
+      padding: 14px 22px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .status-time {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: -0.2px;
+      line-height: 18px;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 底部 Home Indicator 34px */
+    .home-indicator-bar {
+      height: 34px;
+      width: 390px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .home-indicator-capsule {
+      width: 134px;
+      height: 5px;
+      border-radius: 999px;
+      background-color: rgba(241, 245, 249, 0.35);
+    }
+
+    /* 顶部栏 44px (y: 47 ~ 91) */
+    .topbar {
+      height: 44px;
+      width: 390px;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      position: absolute;
+      top: 47px;
+      left: 0;
+      z-index: 10;
+    }
+
+    .btn-44 {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .search-box-top {
+      flex: 1;
+      height: 36px;
+      border-radius: 8px;
+      background-color: var(--subtle);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+    }
+
+    .search-placeholder {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 18px;
+    }
+
+    /* M1 内容区 (y: 103 ~ 810) */
+    .m1-content {
+      position: absolute;
+      top: 103px; /* 47 + 44 + 12 */
+      left: 0;
+      width: 390px;
+      height: 707px; /* 844 - 103 - 34 */
+      overflow: hidden;
+    }
+
+    .folder-header-title {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-2);
+      margin: 0 16px 10px 16px;
+      line-height: 18px;
+    }
+
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0 16px;
+    }
+
+    .bookmark-card {
+      width: 358px;
+      height: 66px;
+      border-radius: 8px;
+      background-color: var(--card);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 6px 0 12px;
+    }
+
+    .card-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background-color: var(--subtle);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
+    .card-text {
+      flex: 1;
+      min-width: 0;
+      margin-left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 18px;
+    }
+
+    .card-domain {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 16px;
+    }
+
+    /* M2 抽屉 (宽 343 占 88%) */
+    .drawer-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 390px;
+      height: 844px;
+      background-color: rgba(0, 0, 0, 0.55);
+      z-index: 20;
+    }
+
+    .drawer-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 343px; /* 390 * 0.88 = 343.2 取 343 */
+      height: 844px;
+      background-color: var(--side);
+      border-right: 1px solid var(--line-strong);
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer-header {
+      margin-top: 47px;
+      height: 56px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 16px;
+    }
+
+    .drawer-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 24px;
+    }
+
+    .drawer-tree {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tree-row {
+      height: 48px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .tree-row.active {
+      background-color: var(--accent-bg);
+    }
+
+    .tree-row.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--accent);
+    }
+
+    .tree-toggle-btn {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tree-row-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-right: 4px;
+    }
+
+    .tree-row-title {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 20px;
+    }
+
+    .tree-row.active .tree-row-title {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .tree-row-count {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      margin-left: 8px;
+      flex-shrink: 0;
+      line-height: 16px;
+    }
+
+    /* 树缩进样式 (16px 每级) */
+    .indent-0 {
+      padding-left: 0;
+    }
+
+    .indent-1 {
+      padding-left: 16px;
+    }
+
+    .tree-indent-spacer {
+      width: 16px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+
+    .drawer-footer {
+      border-top: 1px solid var(--line);
+      height: 48px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 16px;
+      margin-bottom: 34px; /* 留出底部 34px home indicator */
+    }
+
+    .drawer-footer-btn {
+      height: 44px;
+      min-width: 44px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-2);
+      line-height: 18px;
+    }
+
+    /* M3 底部操作面板 (Bottom Sheet) */
+    .m3-dimmer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 390px;
+      height: 844px;
+      background-color: rgba(0, 0, 0, 0.55);
+      z-index: 50;
+    }
+
+    .bottom-sheet {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 390px;
+      border-radius: 12px 12px 0 0;
+      background-color: var(--card);
+      border-top: 1px solid var(--line);
+      z-index: 60;
+      padding-top: 12px;
+      box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .sheet-handle-box {
+      width: 100%;
+      height: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background-color: rgba(148, 163, 184, 0.4);
+    }
+
+    .sheet-header {
+      padding: 0 16px 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sheet-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 20px;
+    }
+
+    .sheet-sub {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      line-height: 16px;
+    }
+
+    .sheet-actions {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sheet-action-row {
+      height: 56px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 16px;
+      gap: 12px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 20px;
+    }
+
+    .sheet-action-row.danger {
+      color: var(--bad);
+      position: relative;
+    }
+
+    .sheet-action-row.danger::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 16px;
+      right: 16px;
+      height: 1px;
+      background-color: var(--line);
+    }
+
+    .sheet-action-row.danger svg {
+      stroke: var(--bad);
+    }
+
+    /* M4 全屏选择器 (390x844 全覆盖) */
+    .m4-container {
+      width: 390px;
+      height: 844px;
+      background-color: var(--canvas);
+      position: absolute;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+    }
+
+    .m4-header {
+      margin-top: 47px;
+      height: 56px;
+      width: 390px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 16px;
+    }
+
+    .m4-header .btn-cancel {
+      height: 44px;
+      min-width: 44px;
+      padding: 0 8px;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--accent-ink);
+      line-height: 20px;
+    }
+
+    .m4-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+      flex: 1;
+      line-height: 24px;
+    }
+
+    .m4-header .header-spacer {
+      width: 44px;
+      height: 44px;
+    }
+
+    .m4-search-row {
+      padding: 0 16px;
+      margin-bottom: 12px;
+    }
+
+    .m4-search-box {
+      width: 358px;
+      height: 36px;
+      border-radius: 8px;
+      background-color: var(--subtle);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+    }
+
+    .m4-tree {
+      display: flex;
+      flex-direction: column;
+      max-height: 611px;
+      overflow-y: auto;
+    }
+
+    .m4-tree-row {
+      height: 48px;
+      width: 390px;
+      display: flex;
+      align-items: center;
+      padding-right: 16px;
+      flex-shrink: 0;
+    }
+
+    .current-badge {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      flex-shrink: 0;
+      line-height: 16px;
+    }
+
+    .radio-circle {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* M4 底部固定确认条 (高 48+安全区 34 = 82) */
+    .m4-confirm-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 390px;
+      height: 82px;
+      background-color: var(--side);
+      border-top: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .m4-confirm-action {
+      height: 47px;
+      width: 390px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+    }
+
+    .m4-confirm-btn {
+      width: 358px;
+      height: 44px;
+      border-radius: 8px;
+      background-color: var(--accent);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .m4-confirm-safe {
+      height: 34px;
+      width: 390px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="showcase-header">
+    <h1>PureNav 移动端方案设计（390×844 @3x）</h1>
+    <p>专为移动端单手交互与竖屏触控构建：统一 44px 触控靶心、原生安全区适配、88% 文件夹抽屉、全屏目标文件夹选择器。</p>
+  </header>
+
+  <main class="frames-grid">
+
+    <!-- ========================================== -->
+    <!-- M1 主界面（浏览态） -->
+    <!-- ========================================== -->
+    <div class="frame-wrapper">
+      <div class="frame-meta">
+        <span class="frame-title">M1 主界面（浏览态）</span>
+        <span class="frame-desc">390 × 844 pt</span>
+      </div>
+
+      <div class="phone-screen" id="frame-m1">
+        <!-- 状态栏 47px -->
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+              <path d="M2.5 9.5v.01M6.5 7.5v2.01M10.5 4.5v5.01M14.5 1.5v8.01"/>
+            </svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 3.5C5 0 11 0 15 3.5"/>
+              <path d="M4 6.8C6.5 4.6 9.5 4.6 12 6.8"/>
+              <path d="M7 10a1 1 0 0 1 2 0"/>
+            </svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1.5" y="1.5" width="19" height="9" rx="3"/>
+              <line x1="4.5" y1="6" x2="14" y2="6" stroke-width="2"/>
+              <path d="M22.5 4.5v3"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 顶部栏 44px -->
+        <div class="topbar">
+          <!-- 汉堡按钮 44x44 -->
+          <button class="btn-44" aria-label="打开文件夹抽屉">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+              <line x1="3" y1="5" x2="17" y2="5"/>
+              <line x1="3" y1="10" x2="17" y2="10"/>
+              <line x1="3" y1="15" x2="17" y2="15"/>
+            </svg>
+          </button>
+
+          <!-- 搜索框 高36 圆角8 -->
+          <div class="search-box-top">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="7" cy="7" r="4.5"/>
+              <line x1="10.5" y1="10.5" x2="14" y2="14"/>
+            </svg>
+            <span class="search-placeholder">搜索书签…</span>
+          </div>
+
+          <!-- 溢出按钮 44x44 -->
+          <button class="btn-44" aria-label="更多操作">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="5" cy="10" r="0.75"/>
+              <circle cx="10" cy="10" r="0.75"/>
+              <circle cx="15" cy="10" r="0.75"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="m1-content">
+          <div class="folder-header-title">开发与基础设施 · 12</div>
+
+          <div class="card-list">
+            <!-- 1. GitHub -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">G</div>
+              <div class="card-text">
+                <div class="card-title">GitHub</div>
+                <div class="card-domain">github.com</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 2. MDN Web Docs -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">M</div>
+              <div class="card-text">
+                <div class="card-title">MDN Web Docs</div>
+                <div class="card-domain">developer.mozilla.org</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 3. Apple Developer -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">A</div>
+              <div class="card-text">
+                <div class="card-title">Apple Developer</div>
+                <div class="card-domain">developer.apple.com</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 4. Synology NAS -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">S</div>
+              <div class="card-text">
+                <div class="card-title">Synology NAS</div>
+                <div class="card-domain">192.168.31.10</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 5. Figma -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">F</div>
+              <div class="card-text">
+                <div class="card-title">Figma</div>
+                <div class="card-domain">figma.com</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 6. OKLCH Picker -->
+            <div class="bookmark-card">
+              <div class="card-icon-box">O</div>
+              <div class="card-text">
+                <div class="card-title">OKLCH Picker</div>
+                <div class="card-domain">oklch.com</div>
+              </div>
+              <button class="btn-44" aria-label="书签选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部 Home Indicator 34px -->
+        <div class="home-indicator-bar">
+          <div class="home-indicator-capsule"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- M2 文件夹抽屉（左侧滑入 88%） -->
+    <!-- ========================================== -->
+    <div class="frame-wrapper">
+      <div class="frame-meta">
+        <span class="frame-title">M2 文件夹抽屉（88% 宽）</span>
+        <span class="frame-desc">390 × 844 pt</span>
+      </div>
+
+      <div class="phone-screen" id="frame-m2">
+        <!-- 底层背景（主界面被暗化遮罩盖住） -->
+        <div style="position: absolute; top: 0; left: 0; width: 390px; height: 844px; background-color: var(--canvas); opacity: 0.6;">
+          <div class="topbar" style="pointer-events: none;">
+            <div class="btn-44"></div>
+            <div class="search-box-top"></div>
+            <div class="btn-44"></div>
+          </div>
+          <div class="m1-content" style="pointer-events: none;">
+            <div class="folder-header-title">开发与基础设施 · 12</div>
+            <div class="card-list">
+              <div class="bookmark-card"></div>
+              <div class="bookmark-card"></div>
+              <div class="bookmark-card"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 遮罩层（右侧露出 47px） -->
+        <div class="drawer-overlay"></div>
+
+        <!-- 抽屉本体（宽 343） -->
+        <div class="drawer-panel">
+          <!-- 标题行 56px -->
+          <div class="drawer-header">
+            <h2>文件夹</h2>
+            <button class="btn-44" aria-label="新建文件夹">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 树列表行高 48 -->
+          <div class="drawer-tree">
+            <!-- 1. 开发与基础设施 (12) 当前视图高亮 -->
+            <div class="tree-row active indent-0">
+              <button class="tree-toggle-btn" aria-label="收起分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 5.25L7 8.75L10.5 5.25"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">开发与基础设施</span>
+                <span class="tree-row-count">12</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 1.1 文档与规范 (5) -->
+            <div class="tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">文档与规范</span>
+                <span class="tree-row-count">5</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 1.2 Apple 研发 (3) -->
+            <div class="tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">Apple 研发</span>
+                <span class="tree-row-count">3</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 1.3 自建与内网服务 (2) -->
+            <div class="tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">自建与内网服务</span>
+                <span class="tree-row-count">2</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 2. 设计与产品协作 (7) -->
+            <div class="tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="收起分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 5.25L7 8.75L10.5 5.25"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">设计与产品协作</span>
+                <span class="tree-row-count">7</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 2.1 色彩与字体 (2) -->
+            <div class="tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">色彩与字体</span>
+                <span class="tree-row-count">2</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 3. 技术阅读与社区 (9) -->
+            <div class="tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">技术阅读与社区</span>
+                <span class="tree-row-count">9</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 4. 待整理收件箱 (4) -->
+            <div class="tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="收件箱分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2.5" width="10" height="9" rx="1.5"/>
+                  <path d="M2 7.5h3a2 2 0 0 0 4 0h3"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">待整理收件箱</span>
+                <span class="tree-row-count">4</span>
+              </div>
+              <button class="btn-44" aria-label="文件夹选项">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="5" cy="10" r="0.75"/>
+                  <circle cx="10" cy="10" r="0.75"/>
+                  <circle cx="15" cy="10" r="0.75"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 抽屉底部 48px 分隔线 + 两侧操作 -->
+          <div class="drawer-footer">
+            <button class="drawer-footer-btn" aria-label="查看全部书签">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3.5 2.5h9a1 1 0 0 1 1 1v11l-5.5-3.2-5.5 3.2v-11a1 1 0 0 1 1-1z"/>
+              </svg>
+              <span>全部书签(26)</span>
+            </button>
+            <button class="drawer-footer-btn" aria-label="退出登录">
+              <span>退出登录</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1H6"/>
+                <path d="M10.5 11l3-3-3-3M6.5 8h7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 状态栏保持可见 -->
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+              <path d="M2.5 9.5v.01M6.5 7.5v2.01M10.5 4.5v5.01M14.5 1.5v8.01"/>
+            </svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 3.5C5 0 11 0 15 3.5"/>
+              <path d="M4 6.8C6.5 4.6 9.5 4.6 12 6.8"/>
+              <path d="M7 10a1 1 0 0 1 2 0"/>
+            </svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1.5" y="1.5" width="19" height="9" rx="3"/>
+              <line x1="4.5" y1="6" x2="14" y2="6" stroke-width="2"/>
+              <path d="M22.5 4.5v3"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 底部 Home Indicator 34px -->
+        <div class="home-indicator-bar">
+          <div class="home-indicator-capsule"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- M3 长按节点弹出的底部操作面板（bottom sheet） -->
+    <!-- ========================================== -->
+    <div class="frame-wrapper">
+      <div class="frame-meta">
+        <span class="frame-title">M3 底部操作面板（Bottom Sheet）</span>
+        <span class="frame-desc">390 × 844 pt</span>
+      </div>
+
+      <div class="phone-screen" id="frame-m3">
+        <!-- 底层背景：完整 M2 抽屉态 -->
+        <div style="position: absolute; top: 0; left: 0; width: 390px; height: 844px; pointer-events: none;">
+          <!-- 模拟 M2 底部右侧露出 -->
+          <div style="position: absolute; top: 0; left: 0; width: 390px; height: 844px; background-color: var(--canvas); opacity: 0.6;"></div>
+          <div class="drawer-panel" style="width: 343px;">
+            <div class="drawer-header">
+              <h2>文件夹</h2>
+            </div>
+            <div class="drawer-tree">
+              <div class="tree-row active indent-0">
+                <div class="tree-toggle-btn">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M3.5 5.25L7 8.75L10.5 5.25"/></svg>
+                </div>
+                <div class="tree-row-content"><span class="tree-row-title">开发与基础设施</span><span class="tree-row-count">12</span></div>
+              </div>
+              <div class="tree-row indent-1">
+                <div class="tree-indent-spacer"></div>
+                <div class="tree-toggle-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M5.25 3.5L8.75 7L5.25 10.5"/></svg></div>
+                <div class="tree-row-content"><span class="tree-row-title">文档与规范</span><span class="tree-row-count">5</span></div>
+              </div>
+              <div class="tree-row indent-1">
+                <div class="tree-indent-spacer"></div>
+                <div class="tree-toggle-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M5.25 3.5L8.75 7L5.25 10.5"/></svg></div>
+                <div class="tree-row-content"><span class="tree-row-title">Apple 研发</span><span class="tree-row-count">3</span></div>
+              </div>
+              <div class="tree-row indent-0">
+                <div class="tree-toggle-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M3.5 5.25L7 8.75L10.5 5.25"/></svg></div>
+                <div class="tree-row-content"><span class="tree-row-title">设计与产品协作</span><span class="tree-row-count">7</span></div>
+              </div>
+              <!-- 被长按选中的目标节点 -->
+              <div class="tree-row indent-0" style="background-color: var(--card-hover);">
+                <div class="tree-toggle-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M5.25 3.5L8.75 7L5.25 10.5"/></svg></div>
+                <div class="tree-row-content"><span class="tree-row-title" style="color: var(--accent-ink);">技术阅读与社区</span><span class="tree-row-count">9</span></div>
+              </div>
+              <div class="tree-row indent-0">
+                <div class="tree-toggle-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="2" y="2.5" width="10" height="9" rx="1.5"/></svg></div>
+                <div class="tree-row-content"><span class="tree-row-title">待整理收件箱</span><span class="tree-row-count">4</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-overlay" style="left: 343px; width: 47px;"></div>
+        </div>
+
+        <!-- M2 再加一层遮罩 rgba(0,0,0,.55) -->
+        <div class="m3-dimmer"></div>
+
+        <!-- 状态栏保持可见 -->
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+              <path d="M2.5 9.5v.01M6.5 7.5v2.01M10.5 4.5v5.01M14.5 1.5v8.01"/>
+            </svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 3.5C5 0 11 0 15 3.5"/>
+              <path d="M4 6.8C6.5 4.6 9.5 4.6 12 6.8"/>
+              <path d="M7 10a1 1 0 0 1 2 0"/>
+            </svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1.5" y="1.5" width="19" height="9" rx="3"/>
+              <line x1="4.5" y1="6" x2="14" y2="6" stroke-width="2"/>
+              <path d="M22.5 4.5v3"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 底部面板 Bottom Sheet -->
+        <div class="bottom-sheet">
+          <!-- 把手 36x4 圆角2 -->
+          <div class="sheet-handle-box">
+            <div class="sheet-handle"></div>
+          </div>
+
+          <!-- 标题行 -->
+          <div class="sheet-header">
+            <div class="sheet-title">技术阅读与社区</div>
+            <div class="sheet-sub">文件夹 · 9 个书签</div>
+          </div>
+
+          <!-- 5 个操作行，每行 56px，图标 20x20 1.5px SVG -->
+          <div class="sheet-actions">
+            <!-- 1. 移动到文件夹 -->
+            <button class="sheet-action-row" aria-label="移动到文件夹">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h3.5l2 2H16a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z"/>
+                <path d="M8.5 11h4M10.5 9l2 2-2 2"/>
+              </svg>
+              <span>移动到文件夹</span>
+            </button>
+
+            <!-- 2. 上移 -->
+            <button class="sheet-action-row" aria-label="上移">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 16V4M5 9l5-5 5 5"/>
+              </svg>
+              <span>上移</span>
+            </button>
+
+            <!-- 3. 下移 -->
+            <button class="sheet-action-row" aria-label="下移">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 4v12M5 11l5 5 5-5"/>
+              </svg>
+              <span>下移</span>
+            </button>
+
+            <!-- 4. 重命名 -->
+            <button class="sheet-action-row" aria-label="重命名">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"/>
+              </svg>
+              <span>重命名</span>
+            </button>
+
+            <!-- 5. 删除文件夹 -->
+            <button class="sheet-action-row danger" aria-label="删除文件夹">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3.5 5.5h13M7.5 5.5V3.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2M5 5.5l1 11a1.5 1.5 0 0 0 1.5 1.5h5a1.5 1.5 0 0 0 1.5-1.5l1-11M8.5 9.5v5M11.5 9.5v5"/>
+              </svg>
+              <span>删除文件夹</span>
+            </button>
+          </div>
+
+          <!-- 面板内底部 34px home indicator -->
+          <div style="height: 34px; width: 100%; display: flex; align-items: center; justify-content: center;">
+            <div class="home-indicator-capsule"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- M4 全屏「选择文件夹」面板 -->
+    <!-- ========================================== -->
+    <div class="frame-wrapper">
+      <div class="frame-meta">
+        <span class="frame-title">M4 全屏选择文件夹</span>
+        <span class="frame-desc">390 × 844 pt</span>
+      </div>
+
+      <div class="phone-screen" id="frame-m4">
+        <div class="m4-container">
+          <!-- 状态栏 47px -->
+          <div class="status-bar">
+            <span class="status-time">9:41</span>
+            <div class="status-icons">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2.5 9.5v.01M6.5 7.5v2.01M10.5 4.5v5.01M14.5 1.5v8.01"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 3.5C5 0 11 0 15 3.5"/>
+                <path d="M4 6.8C6.5 4.6 9.5 4.6 12 6.8"/>
+                <path d="M7 10a1 1 0 0 1 2 0"/>
+              </svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1.5" y="1.5" width="19" height="9" rx="3"/>
+                <line x1="4.5" y1="6" x2="14" y2="6" stroke-width="2"/>
+                <path d="M22.5 4.5v3"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 56px 标题行 (y: 47 ~ 103) -->
+          <div class="m4-header">
+            <button class="btn-cancel" aria-label="取消选择">取消</button>
+            <h2>移动到…</h2>
+            <div class="header-spacer"></div>
+          </div>
+
+          <!-- 搜索框（高 36，左右边距 16）(y: 103 ~ 139) -->
+          <div class="m4-search-row">
+            <div class="m4-search-box">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+                <circle cx="7" cy="7" r="4.5"/>
+                <line x1="10.5" y1="10.5" x2="14" y2="14"/>
+              </svg>
+              <span class="search-placeholder">搜索文件夹…</span>
+            </div>
+          </div>
+
+          <!-- 树列表 行高 48 (y: 151 开始) -->
+          <div class="m4-tree">
+            <!-- 1. 开发与基础设施 (12) -->
+            <div class="m4-tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 5.25L7 8.75L10.5 5.25"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">开发与基础设施</span>
+                <span class="tree-row-count">12</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 1.1 文档与规范 (5) 选中态 -->
+            <div class="m4-tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title" style="color: var(--accent-ink);">文档与规范</span>
+                <span class="tree-row-count">5</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="8" fill="#6366f1" stroke="#6366f1" stroke-width="1.5"/>
+                  <path d="M6.5 10.5l2.5 2.5 5-5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 1.2 Apple 研发 (3) -->
+            <div class="m4-tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">Apple 研发</span>
+                <span class="tree-row-count">3</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 1.3 自建与内网服务 (2) -->
+            <div class="m4-tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">自建与内网服务</span>
+                <span class="tree-row-count">2</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 2. 设计与产品协作 (7) -->
+            <div class="m4-tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 5.25L7 8.75L10.5 5.25"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">设计与产品协作</span>
+                <span class="tree-row-count">7</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 2.1 色彩与字体 (2) -->
+            <div class="m4-tree-row indent-1">
+              <div class="tree-indent-spacer"></div>
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">色彩与字体</span>
+                <span class="tree-row-count">2</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 3. 技术阅读与社区 (9) 当前位置 -->
+            <div class="m4-tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="展开分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5.25 3.5L8.75 7L5.25 10.5"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">技术阅读与社区</span>
+                <span class="tree-row-count">9</span>
+              </div>
+              <span class="current-badge">当前位置</span>
+            </div>
+
+            <!-- 4. 待整理收件箱 (4) -->
+            <div class="m4-tree-row indent-0">
+              <button class="tree-toggle-btn" aria-label="收件箱分组">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2.5" width="10" height="9" rx="1.5"/>
+                  <path d="M2 7.5h3a2 2 0 0 0 4 0h3"/>
+                </svg>
+              </button>
+              <div class="tree-row-content">
+                <span class="tree-row-title">待整理收件箱</span>
+                <span class="tree-row-count">4</span>
+              </div>
+              <div class="radio-circle">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+                  <circle cx="10" cy="10" r="8"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部固定确认条 (高 48 + 安全区 34 = 82) -->
+          <div class="m4-confirm-bar">
+            <div class="m4-confirm-action">
+              <button class="m4-confirm-btn" aria-label="移动到「文档与规范」">移动到「文档与规范」</button>
+            </div>
+            <div class="m4-confirm-safe">
+              <div class="home-indicator-capsule"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</body>
+</html>
