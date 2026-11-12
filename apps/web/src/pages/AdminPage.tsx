@@ -42,7 +42,7 @@ import {
   IconUser,
 } from '../components/icons';
 import { BrandMark } from '../components/BrandMark';
-import { resolveTheme, writeThemeOverride, applyTheme, type ThemeMode } from '../lib/theme';
+import { resolveTheme, type ThemeMode } from '../lib/theme';
 
 interface Props {
   user: SessionUser;
@@ -264,7 +264,7 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
   const [serverTotal, setServerTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
+  const [themeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
 
   const setPanel = (next: 'items' | 'settings' | 'account') => {
     setPanelState(next);
@@ -281,14 +281,6 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-
-  const toggleTheme = () => {
-    const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
-    writeThemeOverride(next);
-    setThemeMode(next);
-    document.documentElement.dataset.theme = next;
-    applyTheme(undefined);
-  };
 
   const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => item.tags))).sort(), [items]);
 
@@ -768,14 +760,6 @@ export function AdminPage({ user, onHome, onLoggedOut }: Props) {
             </div>
           </div>
           <div className="nx-footer-actions">
-            <button
-              type="button"
-              className="nx-icon-btn"
-              onClick={toggleTheme}
-              title={themeMode === 'dark' ? '切换为浅色主题' : '切换为暗色主题'}
-            >
-              {themeMode === 'dark' ? <IconSun size={13} /> : <IconMoon size={13} />}
-            </button>
             <button type="button" className="nx-icon-btn" onClick={onHome} title="返回前台">
               <IconHome size={13} />
             </button>

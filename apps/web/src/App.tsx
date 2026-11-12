@@ -52,7 +52,7 @@ export function App() {
         needsSetup={auth?.needsSetup ?? false}
         onDone={(user) => {
           setAuth({ needsSetup: false, authenticated: true, user });
-          navigate({ name: 'admin' });
+          navigate({ name: 'home' });
         }}
         onCancel={() => navigate({ name: 'home' })}
       />

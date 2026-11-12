@@ -7,7 +7,7 @@ import {
   bookmarkFoldersToImportPayload,
   type ParsedBookmarkFolder,
 } from '../lib/bookmarkParser';
-import { clearThemeOverride, resolveTheme, writeThemeOverride } from '../lib/theme';
+import { resolveTheme } from '../lib/theme';
 import { IconDownload, IconUpload } from '../components/icons';
 
 function downloadBlob(blob: Blob, filename: string): void {
@@ -69,13 +69,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
   const handleModeChange = (mode: AdminSettings['theme']['mode']) => {
     setSettings((prev) => (prev ? { ...prev, theme: { ...prev.theme, mode } } : prev));
-    if (mode === 'auto') {
-      clearThemeOverride();
-      document.documentElement.dataset.theme = resolveTheme(undefined);
-    } else {
-      writeThemeOverride(mode);
-      document.documentElement.dataset.theme = mode;
-    }
+    document.documentElement.dataset.theme = resolveTheme(mode);
     void save({ theme: { mode } });
   };
 

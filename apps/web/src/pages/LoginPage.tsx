@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
 import type { SessionUser } from '../types';
 import { BrandMark } from '../components/BrandMark';
-import { resolveTheme, writeThemeOverride, applyTheme, type ThemeMode } from '../lib/theme';
-import { IconMoon, IconSun } from '../components/icons';
+import { applyTheme, resolveTheme, type ThemeMode } from '../lib/theme';
 
 interface Props {
   needsSetup: boolean;
@@ -17,15 +16,20 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // 明暗由站点统一决定：登录页只是把站点主题画上去，不提供访客本地切换。
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
 
-  const toggleTheme = () => {
-    const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
-    writeThemeOverride(next);
-    setThemeMode(next);
-    document.documentElement.dataset.theme = next;
-    applyTheme(undefined);
-  };
+  useEffect(() => {
+    void api
+      .publicConfig()
+      .then((config) => {
+        applyTheme(config.site);
+        setThemeMode(resolveTheme(config.site.theme.mode));
+      })
+      .catch(() => {
+        /* 站点配置拿不到时沿用系统偏好，不影响登录 */
+      });
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -49,18 +53,6 @@ export function LoginPage({ needsSetup, onDone, onCancel }: Props) {
 
   return (
     <div className="nx-app" data-theme={themeMode}>
-      <div className="nx-auth-topbar">
-        <button
-          type="button"
-          className="nx-icon-btn"
-          onClick={toggleTheme}
-          title={themeMode === 'dark' ? '切换为浅色主题' : '切换为暗色主题'}
-          aria-label="切换主题"
-        >
-          {themeMode === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
-        </button>
-      </div>
-
       <div className="nx-auth-wrap">
         <form className="nx-auth-card" onSubmit={submit}>
           <div className="nx-auth-brand">

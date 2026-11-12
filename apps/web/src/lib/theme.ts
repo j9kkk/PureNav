@@ -1,46 +1,17 @@
 import type { SiteSettings } from '../types';
 
-const OVERRIDE_KEY = 'pn.theme.override';
-
 export type ThemeMode = 'light' | 'dark';
-
-/**
- * A manual toggle always wins over the site's own mode, and is remembered, so a
- * visitor who prefers dark does not get flipped back on every reload.
- */
-export function readThemeOverride(): ThemeMode | null {
-  try {
-    const value = localStorage.getItem(OVERRIDE_KEY);
-    return value === 'light' || value === 'dark' ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeThemeOverride(mode: ThemeMode): void {
-  try {
-    localStorage.setItem(OVERRIDE_KEY, mode);
-  } catch {
-    // Private mode: the choice simply won't persist.
-  }
-}
-
-export function clearThemeOverride(): void {
-  try {
-    localStorage.removeItem(OVERRIDE_KEY);
-  } catch {
-    // ignore
-  }
-}
 
 export function systemTheme(): ThemeMode {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-/** Effective theme: manual override, else the site setting, else the OS preference. */
+/**
+ * Effective theme. The site owns the theme, so there is no per-visitor override:
+ * `light` / `dark` from the site settings win, and the legacy `auto` value (still
+ * reachable through the API and old databases) falls back to the OS preference.
+ */
 export function resolveTheme(mode: SiteSettings['theme']['mode'] | undefined): ThemeMode {
-  const override = readThemeOverride();
-  if (override) return override;
   if (mode === 'light' || mode === 'dark') return mode;
   return systemTheme();
 }

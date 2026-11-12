@@ -1,0 +1,3449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PureNav · 单页统一工作台视觉规范 (nav-r8)</title>
+  <!--
+  ================================================================================
+  PureNav · 单页统一工作台静态视觉稿 (nav-r8)
+  ================================================================================
+  三个画板根元素 ID 清单：
+    1. #artboard-visitor : ① 访客态 (Visitor State - 只读、无编辑入口、显眼登录按钮)
+    2. #artboard-editor  : ② 登录 + 编辑态 (Logged-in Editor - 原地编辑、拖拽把手、插入线、编辑开关)
+    3. #artboard-drawer  : ③ 外观抽屉打开态 (Appearance Drawer Open - 360px 外观设置抽屉滑出)
+
+  核心交互控件类名清单：
+    - 「编辑」开关: .nx-edit-switch (外层包裹 .nx-edit-switch-wrap，开启态 .active 或 [aria-checked="true"])
+    - 「外观」抽屉: .nx-drawer (360px 宽度侧滑抽屉，包含主题、强调色、圆角、密度、列数、排序)
+    - 「拖拽插入线」: .nx-drag-insert-line (附带两端 4px 圆点 .nx-drag-dot.left / .nx-drag-dot.right)
+    - 拖拽把手: .nx-drag-handle (6 点矩阵 SVG 指示)
+    - 树节点拖拽接收态: [data-drop="true"]
+    - 卡片操作菜单: .nx-more (编辑态悬停高亮 .active)
+    - 常用置顶快捷槽: .nx-dock, .nx-dock-card
+    - 子目录药丸: .nx-subfolders, .nx-subfolder-card
+    - 登录主按钮: .nx-login-btn
+    - 快速收录按钮: .nx-capture-btn-top
+    - 分段选择控件: .nx-seg-control, .nx-seg-btn ([data-active="true"])
+    - 强调色调色板: .nx-color-swatches, .nx-color-dot ([data-selected="true"])
+    - 状态栏撤销按钮: .nx-btn-undo
+    - 内网标识胶囊: .nx-lan-chip
+    - 站点文字微章: .nx-monogram
+  ================================================================================
+  -->
+  <style>
+
+    /* ==========================================================================
+       PureNav Design Tokens & Precision Scales
+       Strict Radii: 6px, 8px only
+       Strict Font Sizes: 11px, 12px, 13px, 14px, 16px, 20px only
+       Strict Font Weights: 400, 500, 600 only
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #08090b;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      align-items: flex-start;
+      font-family: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      color: #f1f5f9;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .artboard-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .artboard-tag-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .artboard-tag {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+      background: #1e2330;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.2px;
+    }
+
+    .artboard-dim {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+
+    /* 画板容器：1440x900 严格固定视口，三区定轴 */
+    .frame {
+      --nx-canvas: #0c0d10;
+      --nx-side: #12141a;
+      --nx-header: #12141a;
+      --nx-card: #161922;
+      --nx-card-hover: #1d2230;
+      --nx-subtle: #1a1e29;
+      --nx-dock: #141720;
+      --nx-line: rgba(255, 255, 255, 0.08);
+      --nx-line-soft: rgba(255, 255, 255, 0.05);
+      --nx-line-strong: rgba(255, 255, 255, 0.16);
+      --nx-text: #f1f5f9;
+      --nx-text-2: #94a3b8;
+      --nx-text-3: #94a3b8;
+      --nx-accent: #6366f1;
+      --nx-accent-hover: #4f46e5;
+      --nx-accent-ink: #818cf8;
+      --nx-accent-bg: rgba(99, 102, 241, 0.14);
+      --nx-accent-line: rgba(99, 102, 241, 0.35);
+      --nx-ok: #34d399;
+      --nx-ok-bg: rgba(16, 185, 129, 0.14);
+      --nx-warn: #fbbf24;
+      --nx-warn-bg: rgba(245, 158, 11, 0.14);
+      --nx-bad: #f87171;
+      --nx-radius-sm: 6px;
+      --nx-radius: 8px;
+      --nx-ease: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+
+      width: 1440px;
+      height: 900px;
+      overflow: hidden;
+      position: relative;
+      background: var(--nx-canvas);
+      color: var(--nx-text);
+      display: flex;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--nx-line);
+      border-radius: var(--nx-radius);
+    }
+
+    .frame * {
+      box-sizing: border-box;
+    }
+
+    .frame :where(button, input, select, textarea) {
+      font: inherit;
+      color: inherit;
+    }
+
+    .frame :where(button) {
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+    }
+
+    /* 线性 SVG 通用规则：严格 1.5px 描边 */
+    .nx-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 1.5;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none;
+    }
+
+    .nx-icon-sm {
+      width: 13px;
+      height: 13px;
+      stroke-width: 1.5;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none;
+    }
+
+    .nx-icon-xs {
+      width: 11px;
+      height: 11px;
+      stroke-width: 1.5;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none;
+    }
+
+    /* ---------------- 左侧栏 248px ---------------- */
+    .nx-sidebar {
+      width: 248px;
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      background: var(--nx-side);
+      border-right: 1px solid var(--nx-line);
+      height: 100%;
+      user-select: none;
+    }
+
+    .nx-brand-box {
+      height: 52px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--nx-line-soft);
+      display: flex;
+      align-items: center;
+      flex: none;
+    }
+
+    .nx-brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nx-brand-logo {
+      width: 24px;
+      height: 24px;
+      color: var(--nx-accent-ink);
+      flex: none;
+    }
+
+    .nx-brand-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--nx-text);
+    }
+
+    .nx-side-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .nx-side-section {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nx-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--nx-text-3);
+      padding: 4px 8px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nx-section-action {
+      width: 18px;
+      height: 18px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      cursor: pointer;
+    }
+
+    .nx-section-action:hover {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+    }
+
+    .nx-nav-item {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--nx-text-2);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color var(--nx-ease), color var(--nx-ease);
+    }
+
+    .nx-nav-item:hover {
+      background: var(--nx-card-hover);
+      color: var(--nx-text);
+    }
+
+    .nx-nav-item[data-active="true"] {
+      background: var(--nx-accent-bg);
+      color: var(--nx-accent-ink);
+      font-weight: 500;
+    }
+
+    .nx-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nx-nav-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-nav-count {
+      font-size: 11px;
+      color: var(--nx-text-3);
+      font-variant-numeric: tabular-nums;
+      flex: none;
+    }
+
+    .nx-nav-item[data-active="true"] .nx-nav-count {
+      color: var(--nx-accent-ink);
+      font-weight: 600;
+    }
+
+    /* 树形结构 */
+    .nx-tree-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .nx-tree-parent {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--nx-text-2);
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color var(--nx-ease), color var(--nx-ease);
+    }
+
+    .nx-tree-parent:hover {
+      background: var(--nx-card-hover);
+      color: var(--nx-text);
+    }
+
+    /* 树节点拖拽悬停接收态：整行 1px --nx-accent 描边 + --nx-accent-bg 底色 */
+    .nx-tree-parent[data-drop="true"] {
+      border: 1px solid var(--nx-accent) !important;
+      background: var(--nx-accent-bg) !important;
+      color: var(--nx-accent-ink) !important;
+      box-shadow: inset 0 0 0 1px var(--nx-accent-line);
+    }
+
+    .nx-tree-arrow {
+      width: 14px;
+      height: 14px;
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      flex: none;
+    }
+
+    .nx-tree-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: none;
+    }
+
+    .nx-tree-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0.6;
+    }
+
+    .nx-tree-parent:hover .nx-tree-actions,
+    .nx-tree-child:hover .nx-tree-actions {
+      opacity: 1;
+    }
+
+    .nx-tree-act {
+      width: 16px;
+      height: 16px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+    }
+
+    .nx-tree-act:hover {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+    }
+
+    .nx-tree-children {
+      margin-left: 14px;
+      padding-left: 6px;
+      border-left: 1px solid var(--nx-line-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .nx-tree-child {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--nx-text-2);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color var(--nx-ease), color var(--nx-ease);
+    }
+
+    .nx-tree-child:hover {
+      background: var(--nx-card-hover);
+      color: var(--nx-text);
+    }
+
+    .nx-tag-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 2px 4px;
+    }
+
+    .nx-tag-pill {
+      height: 22px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      transition: all var(--nx-ease);
+    }
+
+    .nx-tag-pill:hover {
+      border-color: var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-side-footer {
+      height: 48px;
+      padding: 0 14px;
+      border-top: 1px solid var(--nx-line-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex: none;
+    }
+
+    .nx-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nx-guest-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--nx-text-2);
+    }
+
+    .nx-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--nx-accent);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      display: grid;
+      place-items: center;
+      flex: none;
+    }
+
+    .nx-user-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--nx-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-admin-badge {
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--nx-accent-bg);
+      color: var(--nx-accent-ink);
+      border: 1px solid var(--nx-accent-line);
+      padding: 1px 5px;
+      border-radius: var(--nx-radius-sm);
+    }
+
+    .nx-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nx-icon-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-2);
+      transition: background-color var(--nx-ease), color var(--nx-ease);
+    }
+
+    .nx-icon-btn:hover {
+      background: var(--nx-card-hover);
+      color: var(--nx-text);
+    }
+
+    /* ---------------- 主工作区 ---------------- */
+    .nx-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--nx-canvas);
+      height: 100%;
+    }
+
+    /* 顶栏 52px */
+    .nx-topbar {
+      height: 52px;
+      flex: none;
+      background: var(--nx-header);
+      border-bottom: 1px solid var(--nx-line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    .nx-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+      max-width: 580px;
+    }
+
+    .nx-search {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      border-radius: var(--nx-radius-sm);
+      color: var(--nx-text-3);
+    }
+
+    .nx-search input {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      border: none;
+      background: none;
+      outline: none;
+      color: var(--nx-text);
+      font-size: 13px;
+    }
+
+    .nx-search input::placeholder {
+      color: var(--nx-text-3);
+    }
+
+    .nx-kbd {
+      font-size: 11px;
+      line-height: 16px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-3);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      pointer-events: none;
+    }
+
+    .nx-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: none;
+    }
+
+    .nx-select {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .nx-select:hover {
+      border-color: var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-toggle {
+      display: flex;
+      height: 30px;
+      padding: 2px;
+      gap: 2px;
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      border-radius: var(--nx-radius-sm);
+    }
+
+    .nx-toggle button {
+      width: 26px;
+      height: 24px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      transition: all var(--nx-ease);
+    }
+
+    .nx-toggle button:hover {
+      color: var(--nx-text);
+    }
+
+    .nx-toggle button.active {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+    }
+
+    .nx-login-btn {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-accent);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background-color var(--nx-ease);
+      border: none;
+    }
+
+    .nx-login-btn:hover {
+      background: var(--nx-accent-hover);
+    }
+
+    .nx-capture-btn-top {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-accent);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: background-color var(--nx-ease);
+    }
+
+    .nx-capture-btn-top:hover {
+      background: var(--nx-accent-hover);
+    }
+
+    .nx-link-btn {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all var(--nx-ease);
+      cursor: pointer;
+    }
+
+    .nx-link-btn:hover {
+      border-color: var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-link-btn.active {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+      border-color: var(--nx-line-strong);
+    }
+
+    .nx-user-dropdown-btn {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .nx-avatar-xs {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--nx-accent);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      display: grid;
+      place-items: center;
+    }
+
+    .nx-user-name-top {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--nx-text);
+    }
+
+    /* 「编辑」开关控件 */
+    .nx-edit-switch-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      padding-left: 4px;
+    }
+
+    .nx-edit-switch-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--nx-text);
+    }
+
+    .nx-edit-switch {
+      width: 44px;
+      height: 24px;
+      border-radius: var(--nx-radius);
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line);
+      position: relative;
+      cursor: pointer;
+      transition: background-color var(--nx-ease), border-color var(--nx-ease);
+    }
+
+    .nx-edit-switch.active {
+      background: var(--nx-accent);
+      border-color: var(--nx-accent);
+    }
+
+    .nx-switch-knob {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      transition: transform var(--nx-ease);
+    }
+
+    .nx-edit-switch.active .nx-switch-knob {
+      transform: translateX(20px);
+    }
+
+    /* ---------------- 内容滚动区 ---------------- */
+    .nx-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 24px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: margin-right var(--nx-ease);
+    }
+
+    /* 常用置顶快捷槽 */
+    .nx-dock {
+      background: var(--nx-dock);
+      border: 1px solid var(--nx-line);
+      border-radius: var(--nx-radius);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nx-dock-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nx-dock-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: var(--nx-text-3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nx-dock-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .nx-dock-card {
+      height: 38px;
+      padding: 0 10px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all var(--nx-ease);
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .nx-dock-card:hover {
+      background: var(--nx-card-hover);
+      border-color: var(--nx-line-strong);
+      transform: translateY(-1px);
+    }
+
+    .nx-dock-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--nx-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-mono-sm {
+      width: 20px;
+      height: 20px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line-strong);
+      display: grid;
+      place-items: center;
+      flex: none;
+      overflow: hidden;
+    }
+
+    .nx-monogram-sm {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--nx-text);
+      letter-spacing: -0.2px;
+    }
+
+    /* 子目录药丸 */
+    .nx-subfolders {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .nx-subfolder-card {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all var(--nx-ease);
+    }
+
+    .nx-subfolder-card:hover {
+      background: var(--nx-card-hover);
+      border-color: var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-subfolder-count {
+      font-size: 11px;
+      color: var(--nx-text-3);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 分组模块与卡片网格 */
+    .nx-folder-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nx-folder-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+
+    .nx-folder-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nx-folder-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--nx-text);
+    }
+
+    .nx-folder-count {
+      font-size: 11px;
+      color: var(--nx-text-3);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      padding: 1px 6px;
+      border-radius: var(--nx-radius-sm);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .nx-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      position: relative;
+    }
+
+    /* 拖拽插入指示线：单列垂直线，明确画在 GitHub 与 MDN 两卡列间距中心（宽 2px、高 100%），两端各 4px 圆点 */
+    .nx-drag-insert-line {
+      position: absolute;
+      right: -6px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--nx-accent);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .nx-drag-dot {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--nx-accent);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .nx-drag-dot.top {
+      top: -1px;
+    }
+
+    .nx-drag-dot.bottom {
+      bottom: -1px;
+    }
+
+    /* 换行插入轻量提示徽标：11px、--nx-subtle 底色、1px --nx-line-strong 描边、圆角 6px */
+    .nx-insert-badge {
+      position: absolute;
+      top: -9px;
+      right: 12px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 3px 8px;
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line-strong);
+      border-radius: 6px;
+      color: var(--nx-accent-ink);
+      font-weight: 500;
+      z-index: 10;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+
+    /* 书签卡片结构：预留 12px 把手槽在 padding 内消化，卡片宽度不撑宽，所有卡片严格同列对齐 */
+    .nx-card {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px 12px 24px;
+      border-radius: var(--nx-radius);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      transition: background-color var(--nx-ease), border-color var(--nx-ease), transform var(--nx-ease);
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .nx-card:hover {
+      background: var(--nx-card-hover);
+      border-color: var(--nx-line-strong);
+      transform: translateY(-1px);
+    }
+
+    /* 编辑态卡片高亮 */
+    .nx-card[data-editing="true"] {
+      background: var(--nx-card-hover);
+      border-color: var(--nx-accent-line);
+    }
+
+    /* 拖拽把手（6点矩阵）：绝对定位在左侧预留槽，卡片在 padding 内消化，不撑宽不挤歪 */
+    .nx-drag-handle {
+      position: absolute;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      cursor: grab;
+      z-index: 2;
+    }
+
+    .nx-mono-lg {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line-strong);
+      display: grid;
+      place-items: center;
+      flex: none;
+      overflow: hidden;
+      margin-top: 1px;
+    }
+
+    .nx-monogram {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--nx-text);
+      letter-spacing: -0.2px;
+    }
+
+    .nx-card-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .nx-row1 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nx-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nx-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--nx-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-domain {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--nx-text-3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .nx-lan-chip {
+      height: 18px;
+      padding: 0 5px;
+      border-radius: var(--nx-radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      background: var(--nx-ok-bg);
+      border: 1px solid var(--nx-ok);
+      color: var(--nx-ok);
+      flex: none;
+    }
+
+    .nx-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: none;
+    }
+
+    .nx-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: var(--nx-radius-sm);
+      border: 1px solid var(--nx-line);
+      background: var(--nx-subtle);
+      color: var(--nx-text-2);
+      white-space: nowrap;
+    }
+
+    .nx-tag-accent {
+      background: var(--nx-accent-bg);
+      border-color: var(--nx-accent-line);
+      color: var(--nx-accent-ink);
+    }
+
+    .nx-tag-ok {
+      background: var(--nx-ok-bg);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--nx-ok);
+    }
+
+    .nx-tag-warn {
+      background: var(--nx-warn-bg);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: var(--nx-warn);
+    }
+
+    .nx-visits {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--nx-text-3);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .nx-more {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      transition: all var(--nx-ease);
+      flex: none;
+    }
+
+    .nx-more:hover,
+    .nx-more.active {
+      background: var(--nx-card-hover);
+      border: 1px solid var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-row2 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .nx-desc {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--nx-text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-path {
+      flex: none;
+      max-width: 44%;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--nx-text-3);
+      background: var(--nx-subtle);
+      border: 1px solid var(--nx-line-soft);
+      padding: 1px 6px;
+      border-radius: var(--nx-radius-sm);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---------------- 底栏 32px ---------------- */
+    .nx-statusbar {
+      height: 32px;
+      flex: none;
+      background: var(--nx-header);
+      border-top: 1px solid var(--nx-line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 20px;
+      font-size: 11px;
+      color: var(--nx-text-3);
+      z-index: 10;
+    }
+
+    .nx-status-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .nx-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--nx-ok);
+      flex: none;
+    }
+
+    .nx-status-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-status-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: none;
+    }
+
+    .nx-status-hint {
+      color: var(--nx-text-3);
+    }
+
+    .nx-saved-time {
+      color: var(--nx-text-2);
+    }
+
+    .nx-btn-undo {
+      color: var(--nx-accent-ink);
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      font-size: 11px;
+    }
+
+    .nx-btn-undo:hover {
+      color: var(--nx-text);
+    }
+
+    /* 抽屉半透明遮罩：浮层遮罩从抽屉左侧覆盖至画板左缘 (rgba(6,7,10,.45)) */
+    .nx-drawer-backdrop {
+      position: absolute;
+      top: 52px;
+      bottom: 32px;
+      left: 0;
+      right: 360px;
+      background: rgba(6, 7, 10, 0.45);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* ---------------- 外观抽屉 360px ---------------- */
+    .nx-drawer {
+      position: absolute;
+      top: 52px;
+      bottom: 32px;
+      right: 0;
+      width: 360px;
+      background: var(--nx-side);
+      border-left: 1px solid var(--nx-line);
+      box-shadow: -24px 0 48px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      user-select: none;
+    }
+
+    .nx-drawer-head {
+      height: 52px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--nx-line-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: none;
+    }
+
+    .nx-drawer-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--nx-text);
+    }
+
+    .nx-drawer-close {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--nx-radius-sm);
+      display: grid;
+      place-items: center;
+      color: var(--nx-text-3);
+      cursor: pointer;
+      transition: all var(--nx-ease);
+    }
+
+    .nx-drawer-close:hover {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+    }
+
+    .nx-drawer-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .nx-drawer-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--nx-line-soft);
+    }
+
+    .nx-drawer-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .nx-drawer-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--nx-text);
+    }
+
+    .nx-drawer-helper {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--nx-text-3);
+      line-height: 1.4;
+    }
+
+    /* 分段选择控件 */
+    .nx-seg-control {
+      display: flex;
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      border-radius: var(--nx-radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .nx-seg-btn {
+      flex: 1;
+      height: 28px;
+      border-radius: var(--nx-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--nx-text-2);
+      cursor: pointer;
+      transition: all var(--nx-ease);
+    }
+
+    .nx-seg-btn:hover {
+      color: var(--nx-text);
+    }
+
+    .nx-seg-btn[data-active="true"] {
+      background: var(--nx-subtle);
+      color: var(--nx-text);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+
+    /* 强调色色板 */
+    .nx-color-swatches {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nx-color-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: transform var(--nx-ease);
+    }
+
+    .nx-color-dot:hover {
+      transform: scale(1.1);
+    }
+
+    .nx-color-dot[data-selected="true"] {
+      box-shadow: inset 0 0 0 2px #ffffff;
+    }
+
+    .nx-drawer-footer {
+      height: 60px;
+      padding: 0 20px;
+      border-top: 1px solid var(--nx-line-soft);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      background: var(--nx-side);
+      flex: none;
+    }
+
+    .nx-btn-secondary {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-card);
+      border: 1px solid var(--nx-line);
+      color: var(--nx-text-2);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--nx-ease);
+    }
+
+    .nx-btn-secondary:hover {
+      border-color: var(--nx-line-strong);
+      color: var(--nx-text);
+    }
+
+    .nx-btn-primary {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: var(--nx-radius-sm);
+      background: var(--nx-accent);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color var(--nx-ease);
+    }
+
+    .nx-btn-primary:hover {
+      background: var(--nx-accent-hover);
+    }
+    
+  </style>
+</head>
+<body>
+
+  <!-- 画板：① 访客态 -->
+  <section class="artboard-section">
+    <div class="artboard-tag-wrap">
+      <span class="artboard-tag">① 访客态</span>
+      <span class="artboard-dim">1440 × 900</span>
+    </div>
+    <div class="frame" id="artboard-visitor">
+    <!-- 左侧栏 248px -->
+    <aside class="nx-sidebar">
+      <!-- 品牌区 -->
+      <div class="nx-brand-box">
+        <div class="nx-brand-row">
+          <svg class="nx-brand-logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2"/>
+          </svg>
+          <span class="nx-brand-title">PureNav</span>
+        </div>
+      </div>
+
+      <!-- 滚动导航区 -->
+      <div class="nx-side-scroll">
+        <!-- 1. 智能视图 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>智能视图</span>
+          </div>
+          <div class="nx-nav-item" data-active="true">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6"/></svg>
+              <span class="nx-nav-name">全部书签</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+              <span class="nx-nav-name">常用置顶</span>
+            </div>
+            <span class="nx-nav-count">6</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+              <span class="nx-nav-name">最近访问</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+        </div>
+
+        <!-- 2. 目录树 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>目录树</span>
+            
+          </div>
+
+          <!-- 开发与基础设施 (11) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+                <span class="nx-nav-name">开发与基础设施</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">11</span>
+                
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3.5 2.5h7l2.5 2.5v8.5h-9.5zM10.5 2.5v2.5h2.5"/></svg>
+                  <span class="nx-nav-name">文档与规范</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">3</span>
+                  
+                </div>
+              </div>
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M5 8h6"/></svg>
+                  <span class="nx-nav-name">Apple 研发</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">1</span>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自建与内网服务 (4) - 编辑态下画出拖拽悬停接收态 -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 6.5L8 2.5l5.5 4V13.5h-11z"/></svg>
+                <span class="nx-nav-name">自建与内网服务</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                
+              </div>
+            </div>
+          </div>
+
+          <!-- 设计与产品协作 (7) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="3.5"/><circle cx="10" cy="10" r="3.5"/></svg>
+                <span class="nx-nav-name">设计与产品协作</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">7</span>
+                
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3 8a5 5 0 0 1 10 0v4H3z"/></svg>
+                  <span class="nx-nav-name">色彩与字体</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">2</span>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 技术阅读与社区 (4) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h4.5a2 2 0 0 1 2 2v7a2 2 0 0 0-2-2H2.5zM13.5 3.5H9a2 2 0 0 0-2 2v7a2 2 0 0 1 2-2h4.5z"/></svg>
+                <span class="nx-nav-name">技术阅读与社区</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 标签筛选 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>标签筛选</span>
+            
+          </div>
+          <div class="nx-tag-wrap">
+            <span class="nx-tag-pill">内部 7</span>
+            <span class="nx-tag-pill">外部 6</span>
+            <span class="nx-tag-pill">常用 8</span>
+            <span class="nx-tag-pill">待归档 2</span>
+            <span class="nx-tag-pill">新上线 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部用户区 -->
+      <div class="nx-side-footer">
+        <div class="nx-user">
+          <span class="nx-status-dot"></span>
+          <span class="nx-guest-label">访客只读</span>
+        </div>
+      </div>
+    </aside>
+      <div class="nx-main">
+      <!-- 顶栏 52px -->
+      <header class="nx-topbar">
+        <div class="nx-topbar-left">
+          <div class="nx-search">
+            <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            <input type="text" placeholder="搜索标题 / 域名 / 路径 / 标签 (/ 或 ⌘K)" readonly>
+            <span class="nx-kbd">/</span>
+          </div>
+        </div>
+        <div class="nx-topbar-right">
+        <select class="nx-select" aria-label="书签排序">
+          <option>按访问频次降序</option>
+          <option>按标题字母顺序</option>
+          <option>按添加时间倒序</option>
+        </select>
+        <div class="nx-toggle">
+          <button class="active" title="双列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3" width="4.5" height="10" rx="1"/><rect x="9" y="3" width="4.5" height="10" rx="1"/></svg></button>
+          <button title="单列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6.5h11M2.5 9.5h11"/></svg></button>
+        </div>
+        <button class="nx-login-btn">
+          <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="6" cy="8" r="3.5"/><path d="M9.5 8h4.5M12 8v2M14 8v1.5"/></svg>
+          <span>登录</span>
+        </button>
+        </div>
+      </header>
+      <!-- 内容滚动区 -->
+      <main class="nx-content">
+      <!-- 常用置顶快捷槽 -->
+      <div class="nx-dock">
+        <div class="nx-dock-head">
+          <span class="nx-dock-label">
+            <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+            常用置顶快捷槽 · 6 个高频站点
+          </span>
+        </div>
+        <div class="nx-dock-grid">
+          <div class="nx-dock-card" title="Synology NAS · nas.tdcode.tech">
+            <div class="nx-mono-sm"><span class="nx-monogram-sm">SY</span></div>
+            <span class="nx-dock-name">Synology NAS</span>
+          </div>
+          <div class="nx-dock-card" title="GitHub · github.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="14" height="14" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">GitHub</span>
+          </div>
+          <div class="nx-dock-card" title="Hacker News · news.ycombinator.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/news.ycombinator.com.ico" width="14" height="14" alt="Hacker News" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Hacker News</span>
+          </div>
+          <div class="nx-dock-card" title="Figma · www.figma.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/www.figma.com.ico" width="14" height="14" alt="Figma" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Figma</span>
+          </div>
+          <div class="nx-dock-card" title="MDN Web Docs · developer.mozilla.org">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="14" height="14" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">MDN Web Docs</span>
+          </div>
+          <div class="nx-dock-card" title="Vercel · vercel.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="14" height="14" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Vercel</span>
+          </div>
+        </div>
+      </div>
+      <!-- 子目录药丸 -->
+      <div class="nx-subfolders">
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>文档与规范</span>
+          <span class="nx-subfolder-count">3</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>Apple 研发</span>
+          <span class="nx-subfolder-count">1</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+      </div>
+
+        <!-- 分组一：开发与基础设施 (11) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">开发与基础设施</span>
+              <span class="nx-folder-count">11</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="GitHub"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="18" height="18" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">GitHub</span>
+                <span class="nx-domain">github.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">142次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">代码托管、Issue 追踪与 PR 评审</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="MDN Web Docs"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="18" height="18" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">MDN Web Docs</span>
+                <span class="nx-domain">developer.mozilla.org</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">116次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Web 标准、CSS 与 DOM API 权威参考</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vercel"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="18" height="18" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vercel</span>
+                <span class="nx-domain">vercel.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">89次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">前端边缘部署与分支预览环境</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="React Docs"><img src="https://icons.duckduckgo.com/ip3/react.dev.ico" width="18" height="18" alt="React Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">React Docs</span>
+                <span class="nx-domain">react.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">74次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Hooks、并发渲染机制与组件模式指南</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Cloudflare"><img src="https://icons.duckduckgo.com/ip3/dash.cloudflare.com.ico" width="18" height="18" alt="Cloudflare" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Cloudflare</span>
+                <span class="nx-domain">dash.cloudflare.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">67次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">全球 DNS 解析、Zero Trust 隧道与缓存</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">63次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">现代前端开发构建配置与插件生态</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="npm Registry"><img src="https://icons.duckduckgo.com/ip3/www.npmjs.com.ico" width="18" height="18" alt="npm Registry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">npm Registry</span>
+                <span class="nx-domain">npmjs.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">52次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">JavaScript 包检索与版本变更对比</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Sentry"><img src="https://icons.duckduckgo.com/ip3/sentry.io.ico" width="18" height="18" alt="Sentry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Sentry</span>
+                <span class="nx-domain">sentry.io</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">45次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">线上异常堆栈捕获与性能追踪</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Docker Hub"><img src="https://icons.duckduckgo.com/ip3/hub.docker.com.ico" width="18" height="18" alt="Docker Hub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Docker Hub</span>
+                <span class="nx-domain">hub.docker.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">38次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">容器基础镜像仓库与多架构分发</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Apple Developer"><img src="https://icons.duckduckgo.com/ip3/developer.apple.com.ico" width="18" height="18" alt="Apple Developer" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Apple Developer</span>
+                <span class="nx-domain">developer.apple.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">29次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">证书签名、公证流水线与 HIG 人机界面规范</span>
+              <span class="nx-path">开发与基础设施 / Apple 研发</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite Guide"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite Guide" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite Guide</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-warn">待归档</span>
+                <span class="nx-visits">12次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">构建指南与插件钩子速查</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+
+        <!-- 分组二：自建与内网服务 (4) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">自建与内网服务</span>
+              <span class="nx-folder-count">4</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Synology NAS"><span class="nx-monogram">SY</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Synology NAS</span>
+                <span class="nx-domain">nas.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">156次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">存储池阵列、快照备份与容器编排</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="OpenWrt 路由网关"><span class="nx-monogram">OP</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">OpenWrt 路由网关</span>
+                <span class="nx-domain">gw.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">94次</span>
+                
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">主旁路由策略、DNS 分流与 DHCP 租约</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+      </main>
+      <!-- 底栏 32px -->
+      <footer class="nx-statusbar">
+        <div class="nx-status-left">
+          <span class="nx-status-dot"></span>
+          <span class="nx-status-text">共 26 条书签 · 置顶 6 · 待整理 2</span>
+        </div>
+        <div class="nx-status-right">
+          <span class="nx-status-hint">按 / 搜索 · 浏览器内查看</span>
+        </div>
+      </footer>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 画板：② 登录 + 编辑态 -->
+  <section class="artboard-section">
+    <div class="artboard-tag-wrap">
+      <span class="artboard-tag">② 登录 + 编辑态</span>
+      <span class="artboard-dim">1440 × 900</span>
+    </div>
+    <div class="frame" id="artboard-editor">
+    <!-- 左侧栏 248px -->
+    <aside class="nx-sidebar">
+      <!-- 品牌区 -->
+      <div class="nx-brand-box">
+        <div class="nx-brand-row">
+          <svg class="nx-brand-logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2"/>
+          </svg>
+          <span class="nx-brand-title">PureNav</span>
+        </div>
+      </div>
+
+      <!-- 滚动导航区 -->
+      <div class="nx-side-scroll">
+        <!-- 1. 智能视图 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>智能视图</span>
+          </div>
+          <div class="nx-nav-item" data-active="true">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6"/></svg>
+              <span class="nx-nav-name">全部书签</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+              <span class="nx-nav-name">常用置顶</span>
+            </div>
+            <span class="nx-nav-count">6</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+              <span class="nx-nav-name">最近访问</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+        </div>
+
+        <!-- 2. 目录树 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>目录树</span>
+            <span class="nx-section-action" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          </div>
+
+          <!-- 开发与基础设施 (11) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+                <span class="nx-nav-name">开发与基础设施</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">11</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3.5 2.5h7l2.5 2.5v8.5h-9.5zM10.5 2.5v2.5h2.5"/></svg>
+                  <span class="nx-nav-name">文档与规范</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">3</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M5 8h6"/></svg>
+                  <span class="nx-nav-name">Apple 研发</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">1</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自建与内网服务 (4) - 编辑态下画出拖拽悬停接收态 -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent" data-drop="true">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 6.5L8 2.5l5.5 4V13.5h-11z"/></svg>
+                <span class="nx-nav-name">自建与内网服务</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 设计与产品协作 (7) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="3.5"/><circle cx="10" cy="10" r="3.5"/></svg>
+                <span class="nx-nav-name">设计与产品协作</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">7</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3 8a5 5 0 0 1 10 0v4H3z"/></svg>
+                  <span class="nx-nav-name">色彩与字体</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">2</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 技术阅读与社区 (4) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h4.5a2 2 0 0 1 2 2v7a2 2 0 0 0-2-2H2.5zM13.5 3.5H9a2 2 0 0 0-2 2v7a2 2 0 0 1 2-2h4.5z"/></svg>
+                <span class="nx-nav-name">技术阅读与社区</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 标签筛选 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>标签筛选</span>
+            <span class="nx-section-action" title="新建标签"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          </div>
+          <div class="nx-tag-wrap">
+            <span class="nx-tag-pill">内部 7</span>
+            <span class="nx-tag-pill">外部 6</span>
+            <span class="nx-tag-pill">常用 8</span>
+            <span class="nx-tag-pill">待归档 2</span>
+            <span class="nx-tag-pill">新上线 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部用户区 -->
+      <div class="nx-side-footer">
+        <div class="nx-user">
+          <div class="nx-avatar">A</div>
+          <span class="nx-user-name">admin</span>
+          <span class="nx-admin-badge">管理员</span>
+        </div>
+        <div class="nx-footer-actions">
+          <button class="nx-icon-btn" title="退出登录">
+            <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H6M10.5 11.5L14 8l-3.5-3.5M14 8H6"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+      <div class="nx-main">
+      <!-- 顶栏 52px -->
+      <header class="nx-topbar">
+        <div class="nx-topbar-left">
+          <div class="nx-search">
+            <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            <input type="text" placeholder="搜索标题 / 域名 / 路径 / 标签 (/ 或 ⌘K)" readonly>
+            <span class="nx-kbd">/</span>
+          </div>
+        </div>
+        <div class="nx-topbar-right">
+        <select class="nx-select" aria-label="书签排序">
+          <option>按访问频次降序</option>
+          <option>按标题字母顺序</option>
+          <option>按添加时间倒序</option>
+        </select>
+        <div class="nx-toggle">
+          <button class="active" title="双列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3" width="4.5" height="10" rx="1"/><rect x="9" y="3" width="4.5" height="10" rx="1"/></svg></button>
+          <button title="单列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6.5h11M2.5 9.5h11"/></svg></button>
+        </div>
+        <button class="nx-capture-btn-top">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+          <span>收录</span>
+        </button>
+        <button class="nx-link-btn">
+          <span>数据</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <button class="nx-link-btn">
+          <span>外观</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div class="nx-user-dropdown-btn">
+          <div class="nx-avatar-xs">A</div>
+          <span class="nx-user-name-top">admin</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <div class="nx-edit-switch-wrap">
+          <span class="nx-edit-switch-label">编辑</span>
+          <div class="nx-edit-switch active" role="switch" aria-checked="true" title="编辑模式开启">
+            <div class="nx-switch-knob"></div>
+          </div>
+        </div>
+        </div>
+      </header>
+      <!-- 内容滚动区 -->
+      <main class="nx-content">
+      <!-- 常用置顶快捷槽 -->
+      <div class="nx-dock">
+        <div class="nx-dock-head">
+          <span class="nx-dock-label">
+            <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+            常用置顶快捷槽 · 6 个高频站点
+          </span>
+        </div>
+        <div class="nx-dock-grid">
+          <div class="nx-dock-card" title="Synology NAS · nas.tdcode.tech">
+            <div class="nx-mono-sm"><span class="nx-monogram-sm">SY</span></div>
+            <span class="nx-dock-name">Synology NAS</span>
+          </div>
+          <div class="nx-dock-card" title="GitHub · github.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="14" height="14" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">GitHub</span>
+          </div>
+          <div class="nx-dock-card" title="Hacker News · news.ycombinator.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/news.ycombinator.com.ico" width="14" height="14" alt="Hacker News" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Hacker News</span>
+          </div>
+          <div class="nx-dock-card" title="Figma · www.figma.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/www.figma.com.ico" width="14" height="14" alt="Figma" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Figma</span>
+          </div>
+          <div class="nx-dock-card" title="MDN Web Docs · developer.mozilla.org">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="14" height="14" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">MDN Web Docs</span>
+          </div>
+          <div class="nx-dock-card" title="Vercel · vercel.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="14" height="14" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Vercel</span>
+          </div>
+        </div>
+      </div>
+      <!-- 子目录药丸 -->
+      <div class="nx-subfolders">
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>文档与规范</span>
+          <span class="nx-subfolder-count">3</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>Apple 研发</span>
+          <span class="nx-subfolder-count">1</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+      </div>
+
+        <!-- 分组一：开发与基础设施 (11) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">开发与基础设施</span>
+              <span class="nx-folder-count">11</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card" data-editing="true">
+          <div class="nx-drag-handle" title="按住拖拽排序"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="5" cy="4" r="1.2" fill="currentColor"/><circle cx="11" cy="4" r="1.2" fill="currentColor"/><circle cx="5" cy="8" r="1.2" fill="currentColor"/><circle cx="11" cy="8" r="1.2" fill="currentColor"/><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="11" cy="12" r="1.2" fill="currentColor"/></svg></div>
+          <div class="nx-drag-insert-line">
+            <div class="nx-drag-dot top"></div>
+            <div class="nx-drag-dot bottom"></div>
+          </div>
+          <div class="nx-mono-lg" title="GitHub"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="18" height="18" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">GitHub</span>
+                <span class="nx-domain">github.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">142次</span>
+                <button class="nx-more active" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">代码托管、Issue 追踪与 PR 评审</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="MDN Web Docs"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="18" height="18" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">MDN Web Docs</span>
+                <span class="nx-domain">developer.mozilla.org</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">116次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Web 标准、CSS 与 DOM API 权威参考</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          <span class="nx-insert-badge">插入到 Vercel 之前</span>
+          <div class="nx-mono-lg" title="Vercel"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="18" height="18" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vercel</span>
+                <span class="nx-domain">vercel.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">89次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">前端边缘部署与分支预览环境</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="React Docs"><img src="https://icons.duckduckgo.com/ip3/react.dev.ico" width="18" height="18" alt="React Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">React Docs</span>
+                <span class="nx-domain">react.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">74次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Hooks、并发渲染机制与组件模式指南</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Cloudflare"><img src="https://icons.duckduckgo.com/ip3/dash.cloudflare.com.ico" width="18" height="18" alt="Cloudflare" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Cloudflare</span>
+                <span class="nx-domain">dash.cloudflare.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">67次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">全球 DNS 解析、Zero Trust 隧道与缓存</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">63次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">现代前端开发构建配置与插件生态</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="npm Registry"><img src="https://icons.duckduckgo.com/ip3/www.npmjs.com.ico" width="18" height="18" alt="npm Registry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">npm Registry</span>
+                <span class="nx-domain">npmjs.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">52次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">JavaScript 包检索与版本变更对比</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Sentry"><img src="https://icons.duckduckgo.com/ip3/sentry.io.ico" width="18" height="18" alt="Sentry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Sentry</span>
+                <span class="nx-domain">sentry.io</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">45次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">线上异常堆栈捕获与性能追踪</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Docker Hub"><img src="https://icons.duckduckgo.com/ip3/hub.docker.com.ico" width="18" height="18" alt="Docker Hub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Docker Hub</span>
+                <span class="nx-domain">hub.docker.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">38次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">容器基础镜像仓库与多架构分发</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Apple Developer"><img src="https://icons.duckduckgo.com/ip3/developer.apple.com.ico" width="18" height="18" alt="Apple Developer" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Apple Developer</span>
+                <span class="nx-domain">developer.apple.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">29次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">证书签名、公证流水线与 HIG 人机界面规范</span>
+              <span class="nx-path">开发与基础设施 / Apple 研发</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite Guide"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite Guide" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite Guide</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-warn">待归档</span>
+                <span class="nx-visits">12次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">构建指南与插件钩子速查</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+
+        <!-- 分组二：自建与内网服务 (4) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">自建与内网服务</span>
+              <span class="nx-folder-count">4</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Synology NAS"><span class="nx-monogram">SY</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Synology NAS</span>
+                <span class="nx-domain">nas.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">156次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">存储池阵列、快照备份与容器编排</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="OpenWrt 路由网关"><span class="nx-monogram">OP</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">OpenWrt 路由网关</span>
+                <span class="nx-domain">gw.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">94次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">主旁路由策略、DNS 分流与 DHCP 租约</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+      </main>
+      <!-- 底栏 32px -->
+      <footer class="nx-statusbar">
+        <div class="nx-status-left">
+          <span class="nx-status-dot"></span>
+          <span class="nx-status-text">共 26 条书签 · 置顶 6 · 待整理 2</span>
+        </div>
+        <div class="nx-status-right">
+          <span class="nx-saved-time">已保存 · 刚刚</span><button class="nx-btn-undo">撤销</button>
+        </div>
+      </footer>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 画板：③ 外观抽屉 -->
+  <section class="artboard-section">
+    <div class="artboard-tag-wrap">
+      <span class="artboard-tag">③ 外观抽屉</span>
+      <span class="artboard-dim">1440 × 900</span>
+    </div>
+    <div class="frame" id="artboard-drawer">
+    <!-- 左侧栏 248px -->
+    <aside class="nx-sidebar">
+      <!-- 品牌区 -->
+      <div class="nx-brand-box">
+        <div class="nx-brand-row">
+          <svg class="nx-brand-logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.35 12.05L12.95 7.45M12.95 7.45V24.65M12.95 7.45h4.6c4 0 6.2 2.4 6.2 6.2s-2.2 6.2-6.2 6.2"/>
+          </svg>
+          <span class="nx-brand-title">PureNav</span>
+        </div>
+      </div>
+
+      <!-- 滚动导航区 -->
+      <div class="nx-side-scroll">
+        <!-- 1. 智能视图 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>智能视图</span>
+          </div>
+          <div class="nx-nav-item" data-active="true">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6"/></svg>
+              <span class="nx-nav-name">全部书签</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+              <span class="nx-nav-name">常用置顶</span>
+            </div>
+            <span class="nx-nav-count">6</span>
+          </div>
+          <div class="nx-nav-item">
+            <div class="nx-nav-left">
+              <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+              <span class="nx-nav-name">最近访问</span>
+            </div>
+            <span class="nx-nav-count">26</span>
+          </div>
+        </div>
+
+        <!-- 2. 目录树 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>目录树</span>
+            <span class="nx-section-action" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          </div>
+
+          <!-- 开发与基础设施 (11) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+                <span class="nx-nav-name">开发与基础设施</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">11</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3.5 2.5h7l2.5 2.5v8.5h-9.5zM10.5 2.5v2.5h2.5"/></svg>
+                  <span class="nx-nav-name">文档与规范</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">3</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M5 8h6"/></svg>
+                  <span class="nx-nav-name">Apple 研发</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">1</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自建与内网服务 (4) - 编辑态下画出拖拽悬停接收态 -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent" data-drop="true">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 6.5L8 2.5l5.5 4V13.5h-11z"/></svg>
+                <span class="nx-nav-name">自建与内网服务</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 设计与产品协作 (7) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow" data-open="true">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="6" cy="6" r="3.5"/><circle cx="10" cy="10" r="3.5"/></svg>
+                <span class="nx-nav-name">设计与产品协作</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">7</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+            <div class="nx-tree-children">
+              <div class="nx-tree-child">
+                <div class="nx-nav-left">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M3 8a5 5 0 0 1 10 0v4H3z"/></svg>
+                  <span class="nx-nav-name">色彩与字体</span>
+                </div>
+                <div class="nx-tree-right">
+                  <span class="nx-nav-count">2</span>
+                  <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 技术阅读与社区 (4) -->
+          <div class="nx-tree-group">
+            <div class="nx-tree-parent">
+              <div class="nx-nav-left">
+                <span class="nx-tree-arrow">
+                  <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+                </span>
+                <svg class="nx-icon" viewBox="0 0 16 16"><path d="M2.5 3.5h4.5a2 2 0 0 1 2 2v7a2 2 0 0 0-2-2H2.5zM13.5 3.5H9a2 2 0 0 0-2 2v7a2 2 0 0 1 2-2h4.5z"/></svg>
+                <span class="nx-nav-name">技术阅读与社区</span>
+              </div>
+              <div class="nx-tree-right">
+                <span class="nx-nav-count">4</span>
+                <div class="nx-tree-actions">
+              <span class="nx-tree-act" title="新建子目录"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+              <span class="nx-tree-act" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></span>
+            </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 标签筛选 -->
+        <div class="nx-side-section">
+          <div class="nx-section-title">
+            <span>标签筛选</span>
+            <span class="nx-section-action" title="新建标签"><svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          </div>
+          <div class="nx-tag-wrap">
+            <span class="nx-tag-pill">内部 7</span>
+            <span class="nx-tag-pill">外部 6</span>
+            <span class="nx-tag-pill">常用 8</span>
+            <span class="nx-tag-pill">待归档 2</span>
+            <span class="nx-tag-pill">新上线 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部用户区 -->
+      <div class="nx-side-footer">
+        <div class="nx-user">
+          <div class="nx-avatar">A</div>
+          <span class="nx-user-name">admin</span>
+          <span class="nx-admin-badge">管理员</span>
+        </div>
+        <div class="nx-footer-actions">
+          <button class="nx-icon-btn" title="退出登录">
+            <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M6 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H6M10.5 11.5L14 8l-3.5-3.5M14 8H6"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+      <div class="nx-main">
+      <!-- 顶栏 52px -->
+      <header class="nx-topbar">
+        <div class="nx-topbar-left">
+          <div class="nx-search">
+            <svg class="nx-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            <input type="text" placeholder="搜索标题 / 域名 / 路径 / 标签 (/ 或 ⌘K)" readonly>
+            <span class="nx-kbd">/</span>
+          </div>
+        </div>
+        <div class="nx-topbar-right">
+        <select class="nx-select" aria-label="书签排序">
+          <option>按访问频次降序</option>
+          <option>按标题字母顺序</option>
+          <option>按添加时间倒序</option>
+        </select>
+        <div class="nx-toggle">
+          <button class="active" title="双列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3" width="4.5" height="10" rx="1"/><rect x="9" y="3" width="4.5" height="10" rx="1"/></svg></button>
+          <button title="单列视图"><svg class="nx-icon-sm" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6.5h11M2.5 9.5h11"/></svg></button>
+        </div>
+        <button class="nx-capture-btn-top">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+          <span>收录</span>
+        </button>
+        <button class="nx-link-btn">
+          <span>数据</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <button class="nx-link-btn active">
+          <span>外观</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div class="nx-user-dropdown-btn">
+          <div class="nx-avatar-xs">A</div>
+          <span class="nx-user-name-top">admin</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <div class="nx-edit-switch-wrap">
+          <span class="nx-edit-switch-label">编辑</span>
+          <div class="nx-edit-switch active" role="switch" aria-checked="true" title="编辑模式开启">
+            <div class="nx-switch-knob"></div>
+          </div>
+        </div>
+        </div>
+      </header>
+      <!-- 内容滚动区 -->
+      <main class="nx-content">
+      <!-- 常用置顶快捷槽 -->
+      <div class="nx-dock">
+        <div class="nx-dock-head">
+          <span class="nx-dock-label">
+            <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M9.5 2.5l4 4-2 3-5-5 3-2zM6.5 4.5l-4 4 2 2 3-1 3 3-5 1.5-2-2 1.5-5 3 3-1 3 2 2 4-4"/></svg>
+            常用置顶快捷槽 · 6 个高频站点
+          </span>
+        </div>
+        <div class="nx-dock-grid">
+          <div class="nx-dock-card" title="Synology NAS · nas.tdcode.tech">
+            <div class="nx-mono-sm"><span class="nx-monogram-sm">SY</span></div>
+            <span class="nx-dock-name">Synology NAS</span>
+          </div>
+          <div class="nx-dock-card" title="GitHub · github.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="14" height="14" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">GitHub</span>
+          </div>
+          <div class="nx-dock-card" title="Hacker News · news.ycombinator.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/news.ycombinator.com.ico" width="14" height="14" alt="Hacker News" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Hacker News</span>
+          </div>
+          <div class="nx-dock-card" title="Figma · www.figma.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/www.figma.com.ico" width="14" height="14" alt="Figma" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Figma</span>
+          </div>
+          <div class="nx-dock-card" title="MDN Web Docs · developer.mozilla.org">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="14" height="14" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">MDN Web Docs</span>
+          </div>
+          <div class="nx-dock-card" title="Vercel · vercel.com">
+            <div class="nx-mono-sm"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="14" height="14" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+            <span class="nx-dock-name">Vercel</span>
+          </div>
+        </div>
+      </div>
+      <!-- 子目录药丸 -->
+      <div class="nx-subfolders">
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>文档与规范</span>
+          <span class="nx-subfolder-count">3</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+        <div class="nx-subfolder-card">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          <span>Apple 研发</span>
+          <span class="nx-subfolder-count">1</span>
+          <svg class="nx-icon-xs" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>
+        </div>
+      </div>
+
+        <!-- 分组一：开发与基础设施 (11) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">开发与基础设施</span>
+              <span class="nx-folder-count">11</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card" data-editing="true">
+          <div class="nx-drag-handle" title="按住拖拽排序"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="5" cy="4" r="1.2" fill="currentColor"/><circle cx="11" cy="4" r="1.2" fill="currentColor"/><circle cx="5" cy="8" r="1.2" fill="currentColor"/><circle cx="11" cy="8" r="1.2" fill="currentColor"/><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="11" cy="12" r="1.2" fill="currentColor"/></svg></div>
+          <div class="nx-mono-lg" title="GitHub"><img src="https://icons.duckduckgo.com/ip3/github.com.ico" width="18" height="18" alt="GitHub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">GitHub</span>
+                <span class="nx-domain">github.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">142次</span>
+                <button class="nx-more active" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">代码托管、Issue 追踪与 PR 评审</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="MDN Web Docs"><img src="https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico" width="18" height="18" alt="MDN Web Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">MDN Web Docs</span>
+                <span class="nx-domain">developer.mozilla.org</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">116次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Web 标准、CSS 与 DOM API 权威参考</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vercel"><img src="https://icons.duckduckgo.com/ip3/vercel.com.ico" width="18" height="18" alt="Vercel" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vercel</span>
+                <span class="nx-domain">vercel.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">89次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">前端边缘部署与分支预览环境</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="React Docs"><img src="https://icons.duckduckgo.com/ip3/react.dev.ico" width="18" height="18" alt="React Docs" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">React Docs</span>
+                <span class="nx-domain">react.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">74次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">Hooks、并发渲染机制与组件模式指南</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Cloudflare"><img src="https://icons.duckduckgo.com/ip3/dash.cloudflare.com.ico" width="18" height="18" alt="Cloudflare" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Cloudflare</span>
+                <span class="nx-domain">dash.cloudflare.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">67次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">全球 DNS 解析、Zero Trust 隧道与缓存</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">63次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">现代前端开发构建配置与插件生态</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="npm Registry"><img src="https://icons.duckduckgo.com/ip3/www.npmjs.com.ico" width="18" height="18" alt="npm Registry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">npm Registry</span>
+                <span class="nx-domain">npmjs.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">52次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">JavaScript 包检索与版本变更对比</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Sentry"><img src="https://icons.duckduckgo.com/ip3/sentry.io.ico" width="18" height="18" alt="Sentry" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Sentry</span>
+                <span class="nx-domain">sentry.io</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">45次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">线上异常堆栈捕获与性能追踪</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Docker Hub"><img src="https://icons.duckduckgo.com/ip3/hub.docker.com.ico" width="18" height="18" alt="Docker Hub" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Docker Hub</span>
+                <span class="nx-domain">hub.docker.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-neutral">外部</span>
+                <span class="nx-visits">38次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">容器基础镜像仓库与多架构分发</span>
+              <span class="nx-path">开发与基础设施</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Apple Developer"><img src="https://icons.duckduckgo.com/ip3/developer.apple.com.ico" width="18" height="18" alt="Apple Developer" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Apple Developer</span>
+                <span class="nx-domain">developer.apple.com</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-accent">常用</span>
+                <span class="nx-visits">29次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">证书签名、公证流水线与 HIG 人机界面规范</span>
+              <span class="nx-path">开发与基础设施 / Apple 研发</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Vite Guide"><img src="https://icons.duckduckgo.com/ip3/vite.dev.ico" width="18" height="18" alt="Vite Guide" loading="eager" onerror="this.style.display='none'"></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Vite Guide</span>
+                <span class="nx-domain">vite.dev</span>
+                
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-warn">待归档</span>
+                <span class="nx-visits">12次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">构建指南与插件钩子速查</span>
+              <span class="nx-path">开发与基础设施 / 文档与规范</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+
+        <!-- 分组二：自建与内网服务 (4) -->
+        <section class="nx-folder-block">
+          <div class="nx-folder-head">
+            <div class="nx-folder-title-wrap">
+              <span class="nx-folder-title">自建与内网服务</span>
+              <span class="nx-folder-count">4</span>
+            </div>
+          </div>
+          <div class="nx-grid">
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="Synology NAS"><span class="nx-monogram">SY</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">Synology NAS</span>
+                <span class="nx-domain">nas.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">156次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">存储池阵列、快照备份与容器编排</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-card">
+          
+          <div class="nx-mono-lg" title="OpenWrt 路由网关"><span class="nx-monogram">OP</span></div>
+          <div class="nx-card-body">
+            <div class="nx-row1">
+              <div class="nx-title-wrap">
+                <span class="nx-card-title">OpenWrt 路由网关</span>
+                <span class="nx-domain">gw.tdcode.tech</span>
+                <span class="nx-lan-chip">内网</span>
+              </div>
+              <div class="nx-meta">
+                <span class="nx-tag nx-tag-ok">内部</span>
+                <span class="nx-visits">94次</span>
+                <button class="nx-more" title="更多操作"><svg class="nx-icon-sm" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg></button>
+              </div>
+            </div>
+            <div class="nx-row2">
+              <span class="nx-desc">主旁路由策略、DNS 分流与 DHCP 租约</span>
+              <span class="nx-path">自建与内网服务</span>
+            </div>
+          </div>
+        </div>
+          </div>
+        </section>
+      </main>
+      <!-- 底栏 32px -->
+      <footer class="nx-statusbar">
+        <div class="nx-status-left">
+          <span class="nx-status-dot"></span>
+          <span class="nx-status-text">共 26 条书签 · 置顶 6 · 待整理 2</span>
+        </div>
+        <div class="nx-status-right">
+          <span class="nx-saved-time">已保存 · 刚刚</span><button class="nx-btn-undo">撤销</button>
+        </div>
+      </footer>
+      </div>
+    <!-- 外观抽屉浮层半透明遮罩 (覆盖至画板左缘) -->
+    <div class="nx-drawer-backdrop"></div>
+    <!-- 外观抽屉 360px (右侧浮层) -->
+    <aside class="nx-drawer">
+      <!-- 抽屉顶栏 -->
+      <div class="nx-drawer-head">
+        <span class="nx-drawer-title">外观</span>
+        <button class="nx-drawer-close" title="关闭抽屉">
+          <svg class="nx-icon-sm" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+
+      <!-- 抽屉滚动配置区 -->
+      <div class="nx-drawer-body">
+        <!-- 1. 站点主题 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">站点主题</label>
+          <div class="nx-seg-control">
+            <button class="nx-seg-btn">浅色</button>
+            <button class="nx-seg-btn" data-active="true">深色</button>
+          </div>
+          <span class="nx-drawer-helper">站点统一生效，访客不再单独设置</span>
+        </div>
+
+        <!-- 2. 强调色 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">强调色</label>
+          <div class="nx-color-swatches">
+            <button class="nx-color-dot" style="background-color: #6366f1;" data-selected="true" title="#6366f1"></button>
+            <button class="nx-color-dot" style="background-color: #0ea5e9;" title="#0ea5e9"></button>
+            <button class="nx-color-dot" style="background-color: #10b981;" title="#10b981"></button>
+            <button class="nx-color-dot" style="background-color: #f59e0b;" title="#f59e0b"></button>
+            <button class="nx-color-dot" style="background-color: #ef4444;" title="#ef4444"></button>
+            <button class="nx-color-dot" style="background-color: #a855f7;" title="#a855f7"></button>
+            <button class="nx-color-dot" style="background-color: #ec4899;" title="#ec4899"></button>
+            <button class="nx-color-dot" style="background-color: #64748b;" title="#64748b"></button>
+          </div>
+        </div>
+
+        <!-- 3. 圆角 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">圆角</label>
+          <div class="nx-seg-control">
+            <button class="nx-seg-btn">6px</button>
+            <button class="nx-seg-btn" data-active="true">8px</button>
+            <button class="nx-seg-btn">12px</button>
+          </div>
+        </div>
+
+        <!-- 4. 卡片密度 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">卡片密度</label>
+          <div class="nx-seg-control">
+            <button class="nx-seg-btn">紧凑</button>
+            <button class="nx-seg-btn" data-active="true">舒适</button>
+            <button class="nx-seg-btn">宽松</button>
+          </div>
+        </div>
+
+        <!-- 5. 卡片列数 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">卡片列数</label>
+          <div class="nx-seg-control">
+            <button class="nx-seg-btn" data-active="true">双列</button>
+            <button class="nx-seg-btn">单列</button>
+          </div>
+        </div>
+
+        <!-- 6. 默认排序 -->
+        <div class="nx-drawer-item">
+          <label class="nx-drawer-label">默认排序</label>
+          <select class="nx-select" style="width: 100%;">
+            <option>按访问频次降序</option>
+            <option>按标题字母顺序</option>
+            <option>按添加时间倒序</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 抽屉底部固定操作条 -->
+      <div class="nx-drawer-footer">
+        <button class="nx-btn-secondary">恢复默认</button>
+        <button class="nx-btn-primary">完成</button>
+      </div>
+    </aside>
+    </div>
+  </section>
+
+</body>
+</html>

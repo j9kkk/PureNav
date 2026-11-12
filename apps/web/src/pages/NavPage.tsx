@@ -1,12 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, type DoctorReportResponse } from '../api';
+import { api, type AdminSettings, type DoctorReportResponse, type SettingsPatch } from '../api';
 import type { PublicConfig, PublicGroup, PublicItem } from '../types';
 import { probeLanReachable, readLanChoice, resolveTarget, writeLanChoice } from '../lib/lan';
 import { getItemPalette } from '../lib/color';
 import { fallbackIconSrc, primaryIconSrc } from '../lib/iconUrl';
 import { useIconImage } from '../lib/iconImage';
 import { BrandMark } from '../components/BrandMark';
-import { applyTheme, readThemeOverride, resolveTheme, writeThemeOverride, type ThemeMode } from '../lib/theme';
+import { applyTheme, resolveTheme, type ThemeMode } from '../lib/theme';
 import '../nav-workspace.css';
 
 const SNAPSHOT_KEY = 'pn.config.snapshot';
@@ -183,6 +183,24 @@ const IcoArrowUpRight = (p: IcoProps) => (
     <path d="M5 11l6-6M6 5h5v5" />
   </Ico>
 );
+const IcoDatabase = (p: IcoProps) => (
+  <Ico {...p}>
+    <ellipse cx="8" cy="4" rx="4.5" ry="1.8" />
+    <path d="M3.5 4v8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8V4M3.5 8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8" />
+  </Ico>
+);
+const IcoPalette = (p: IcoProps) => (
+  <Ico {...p}>
+    <path d="M8 2.2a5.8 5.8 0 100 11.6c1 0 1.4-.6 1.4-1.3 0-.8-.7-1.1-.7-1.9 0-.7.6-1.2 1.3-1.2h1.1c1.4 0 2.4-1 2.4-2.4C13.5 4.3 11 2.2 8 2.2z" />
+    <circle cx="5.6" cy="6" r="0.9" />
+    <circle cx="8.4" cy="4.8" r="0.9" />
+  </Ico>
+);
+const IcoLogin = (p: IcoProps) => (
+  <Ico {...p}>
+    <path d="M9.5 3.5h3v9h-3M6.5 8h6M9 5.5L6.5 8 9 10.5" />
+  </Ico>
+);
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -297,6 +315,8 @@ const ItemCard = memo(function ItemCard({
   onMore,
   onDragStartItem,
   highlight,
+  canEdit,
+  onRename,
 }: {
   flat: FlatItem;
   visits: number;
@@ -307,22 +327,29 @@ const ItemCard = memo(function ItemCard({
   onMore: (flat: FlatItem, el: HTMLElement) => void;
   onDragStartItem: (id: string) => void;
   highlight: boolean;
+  canEdit: boolean;
+  onRename: (id: string, title: string, previous: string) => void;
 }) {
   const { item } = flat;
   const usingLan = lan ? resolveTarget(item.id, item.url, lan.lanUrl, lan.reachable) === lan.lanUrl : false;
   const displayHost = hostOf(usingLan && lan ? lan.lanUrl : item.url);
+  const [draft, setDraft] = useState<string | null>(null);
 
   return (
     <article
       className="nx-card"
       data-highlight={highlight || undefined}
       data-item-id={item.id}
-      draggable
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', item.id);
-        event.dataTransfer.effectAllowed = 'move';
-        onDragStartItem(item.id);
-      }}
+      draggable={canEdit || undefined}
+      onDragStart={
+        canEdit
+          ? (event) => {
+              event.dataTransfer.setData('text/plain', item.id);
+              event.dataTransfer.effectAllowed = 'move';
+              onDragStartItem(item.id);
+            }
+          : undefined
+      }
       onClick={() => onOpen(flat)}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -337,9 +364,44 @@ const ItemCard = memo(function ItemCard({
       <div className="nx-card-body">
         <div className="nx-row1">
           <div className="nx-title-wrap">
-            <span className="nx-card-title" title={item.title}>
-              {item.title}
-            </span>
+            {draft === null ? (
+              <span
+                className="nx-card-title"
+                title={canEdit ? `${item.title} · 双击重命名` : item.title}
+                onDoubleClick={
+                  canEdit
+                    ? (event) => {
+                        event.stopPropagation();
+                        setDraft(item.title);
+                      }
+                    : undefined
+                }
+              >
+                {item.title}
+              </span>
+            ) : (
+              <input
+                className="nx-title-input"
+                autoFocus
+                value={draft}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === 'Enter') {
+                    const next = draft.trim();
+                    setDraft(null);
+                    if (next && next !== item.title) onRename(item.id, next, item.title);
+                  }
+                  if (event.key === 'Escape') setDraft(null);
+                }}
+                onBlur={() => {
+                  const next = draft.trim();
+                  setDraft(null);
+                  if (next && next !== item.title) onRename(item.id, next, item.title);
+                }}
+              />
+            )}
             <span className="nx-domain" data-lan={usingLan || undefined} title={item.url}>
               {displayHost}
             </span>
@@ -366,16 +428,18 @@ const ItemCard = memo(function ItemCard({
               </span>
             )}
             <span className="nx-visits">{visits}次</span>
-            <button
-              className="nx-more"
-              title="更多操作（也可右键）"
-              onClick={(event) => {
-                event.stopPropagation();
-                onMore(flat, event.currentTarget);
-              }}
-            >
-              <IcoMore size={13} />
-            </button>
+            {canEdit && (
+              <button
+                className="nx-more"
+                title="更多操作（也可右键）"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onMore(flat, event.currentTarget);
+                }}
+              >
+                <IcoMore size={13} />
+              </button>
+            )}
           </div>
         </div>
         <div className="nx-row2">
@@ -402,6 +466,13 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>('visits');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveTheme(undefined));
+  /**
+   * The unified page has three states: visitor, signed-in browsing, signed-in editing.
+   * `editMode` is deliberately session-only (never persisted) so a signed-in visit never
+   * starts with drag handles and destructive controls already armed.
+   */
+  const [editMode, setEditMode] = useState(false);
+  const canEdit = authenticated && editMode;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [mobileNav, setMobileNav] = useState(false);
   const [lanMap, setLanMap] = useState<Map<string, LanInfo>>(new Map());
@@ -665,10 +736,10 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   }, [pushToast]);
 
   const openContext = useCallback((flat: FlatItem, x: number, y: number) => {
-    if (!authenticated) return;
+    if (!canEdit) return;
     setCtxMoveOpen(false);
     setCtxMenu({ flat, x: Math.min(x, window.innerWidth - 240), y: Math.min(y, window.innerHeight - 380) });
-  }, [authenticated]);
+  }, [canEdit]);
 
   const closeContext = useCallback(() => {
     setCtxMenu(null);
@@ -738,7 +809,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   const dropProps = useCallback(
     (groupId: string) =>
-      authenticated
+      canEdit
         ? {
             onDragOver: (event: React.DragEvent) => {
               event.preventDefault();
@@ -758,7 +829,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             },
           }
         : {},
-    [authenticated, groupById, moveItem],
+    [canEdit, groupById, moveItem],
   );
 
   const createFolder = useCallback(async () => {
@@ -774,12 +845,124 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     }
   }, [newFolder.name, folderId, pushToast, loadConfig]);
 
-  const toggleTheme = () => {
-    const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
-    writeThemeOverride(next);
-    setThemeMode(next);
-    applyTheme(config?.site);
-  };
+  /* ---------------- drawers (appearance / structure / data) ---------------- */
+
+  const [drawer, setDrawer] = useState<null | 'appearance' | 'structure' | 'data'>(null);
+  const [siteSettings, setSiteSettings] = useState<AdminSettings | null>(null);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [folderEdit, setFolderEdit] = useState<{ id: string; name: string } | null>(null);
+  const [dataBusy, setDataBusy] = useState(false);
+
+  useEffect(() => {
+    if (!drawer || !authenticated || siteSettings) return;
+    let alive = true;
+    void api
+      .settings()
+      .then((next) => {
+        if (alive) setSiteSettings(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [drawer, authenticated, siteSettings]);
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawer(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
+
+  const saveSettings = useCallback(
+    async (patch: SettingsPatch, message = '外观已保存') => {
+      setSettingsBusy(true);
+      try {
+        const next = await api.updateSettings(patch);
+        setSiteSettings(next);
+        applyTheme({ theme: next.theme });
+        setThemeMode(resolveTheme(next.theme.mode));
+        setConfig((current) => (current ? { ...current, site: { ...current.site, theme: next.theme, layout: next.layout } } : current));
+        pushToast(message);
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : '保存失败');
+      } finally {
+        setSettingsBusy(false);
+      }
+    },
+    [pushToast],
+  );
+
+  const saveFolderName = useCallback(async () => {
+    if (!folderEdit) return;
+    const name = folderEdit.name.trim();
+    if (!name) {
+      setFolderEdit(null);
+      return;
+    }
+    try {
+      await api.updateGroup(folderEdit.id, { name });
+      pushToast(`已重命名为「${name}」`);
+      setFolderEdit(null);
+      await loadConfig();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : '重命名失败');
+    }
+  }, [folderEdit, pushToast, loadConfig]);
+
+  const removeFolder = useCallback(
+    async (id: string, name: string) => {
+      try {
+        await api.deleteGroup(id, true);
+        pushToast(`已删除文件夹「${name}」及其内容`);
+        if (folderId === id) selectView('all');
+        await refreshAll();
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : '删除失败');
+      }
+    },
+    [pushToast, folderId, selectView, refreshAll],
+  );
+
+  const exportData = useCallback(
+    async (format: 'json' | 'bookmarks.html') => {
+      setDataBusy(true);
+      try {
+        const blob = format === 'json' ? await api.exportJson() : await api.exportBookmarks();
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `purenav-${new Date().toISOString().slice(0, 10)}.${format === 'json' ? 'json' : 'html'}`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        pushToast('导出已开始下载');
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : '导出失败');
+      } finally {
+        setDataBusy(false);
+      }
+    },
+    [pushToast],
+  );
+
+  const importData = useCallback(
+    async (file: File, mode: 'merge' | 'replace') => {
+      setDataBusy(true);
+      try {
+        const payload = JSON.parse(await file.text()) as unknown;
+        const result = await api.importConfig(payload, mode);
+        pushToast(`已导入 ${result.created} 条数据（${mode === 'replace' ? '覆盖' : '合并'}）`);
+        await refreshAll();
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : '导入失败');
+      } finally {
+        setDataBusy(false);
+      }
+    },
+    [pushToast, refreshAll],
+  );
 
   const rescanDoctor = async () => {
     setDoctorBusy(true);
@@ -827,7 +1010,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
         searchRef.current?.focus();
         return;
       }
-      if ((event.key === 'n' || event.key === 'N') && !typing && authenticated) {
+      if ((event.key === 'n' || event.key === 'N') && !typing && canEdit) {
         event.preventDefault();
         setDialog({ mode: 'capture' });
         return;
@@ -907,6 +1090,13 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
 
   /* ---------------- render helpers ---------------- */
 
+  const renameItem = useCallback(
+    (id: string, title: string) => {
+      void patchItem(id, { title }, `已重命名为「${title}」`);
+    },
+    [patchItem],
+  );
+
   const renderCards = (list: FlatItem[]) => (
     <div className="nx-grid" data-single={viewMode === 'single' || undefined}>
       {list.map((flat) => (
@@ -924,6 +1114,8 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
           }}
           onDragStartItem={onDragStartItem}
           highlight={ctxMenu?.flat.item.id === flat.item.id}
+          canEdit={canEdit}
+          onRename={renameItem}
         />
       ))}
     </div>
@@ -1168,6 +1360,70 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
     );
   };
 
+  const renderStructureRows = () => {
+    const rows: React.ReactNode[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      for (const group of childrenByParent.get(parent) ?? []) {
+        const itemCount = allFlat.filter((flat) => flat.group.id === group.id).length;
+        const editing = folderEdit?.id === group.id;
+        rows.push(
+          <div className="nx-structure-row" key={group.id} style={{ paddingLeft: 10 + depth * 16 }}>
+            {editing ? (
+              <input
+                className="nx-structure-input"
+                autoFocus
+                value={folderEdit.name}
+                onChange={(event) => setFolderEdit({ id: group.id, name: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void saveFolderName();
+                  if (event.key === 'Escape') setFolderEdit(null);
+                }}
+                onBlur={() => void saveFolderName()}
+              />
+            ) : (
+              <button
+                className="nx-structure-name"
+                onClick={() => {
+                  setDrawer(null);
+                  selectView('folder', group.id);
+                }}
+                title="在页面中打开该文件夹"
+              >
+                <IcoFolder size={13} />
+                <span>{group.name}</span>
+                <span className="nx-structure-count">{itemCount}</span>
+              </button>
+            )}
+            <span className="nx-structure-actions">
+              <button
+                className="nx-icon-btn"
+                title="重命名"
+                onClick={() => setFolderEdit({ id: group.id, name: group.name })}
+              >
+                <IcoPencil size={12} />
+              </button>
+              <button
+                className="nx-icon-btn"
+                title="删除（含子文件夹与书签）"
+                onClick={() => {
+                  if (window.confirm(`删除文件夹「${group.name}」及其全部内容？此操作不可撤销。`)) {
+                    void removeFolder(group.id, group.name);
+                  }
+                }}
+              >
+                <IcoTrash size={12} />
+              </button>
+            </span>
+          </div>,
+        );
+        walk(group.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    if (rows.length === 0) return <span className="nx-empty-hint">还没有文件夹，先在左侧新建一个。</span>;
+    return rows;
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -1188,7 +1444,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             可以导入 Chrome / Edge / Safari / Firefox 导出的标准 HTML 书签文件，多级目录会自动还原成文件夹树；也可以直接收录第一个网页。
           </p>
           <div className="nx-empty-actions">
-            {authenticated ? (
+            {canEdit ? (
               <>
                 <button className="nx-btn-primary" onClick={() => setDialog({ mode: 'capture' })}>
                   <IcoPlus size={13} />
@@ -1329,7 +1585,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
               )}
               <span className="nx-total">({viewItems.length})</span>
             </div>
-            {authenticated && (
+            {canEdit && (
               <button className="nx-btn-secondary" onClick={() => setDialog({ mode: 'capture' })}>
                 <IcoPlus size={13} />
                 <span>添加书签</span>
@@ -1348,7 +1604,16 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
   const ctxFlat = ctxMenu?.flat ?? null;
 
   return (
-    <div className="nx-app" data-theme={themeMode} data-dragging={dragging || undefined}>
+    <div
+      className="nx-app"
+      data-theme={themeMode}
+      data-auth={authenticated ? 'admin' : 'anon'}
+      data-edit={canEdit ? 'true' : 'false'}
+      data-density={config?.site.layout.density ?? 'comfortable'}
+      data-size={config?.site.layout.cardSize ?? 'md'}
+      data-desc={config?.site.layout.showDescription === false ? 'off' : 'on'}
+      data-dragging={dragging || undefined}
+    >
       <aside className="nx-sidebar" data-open={mobileNav || undefined}>
         <div className="nx-brand-box">
           <div className="nx-brand-row">
@@ -1357,7 +1622,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             </span>
             <span className="nx-brand-title">{config?.site.identity.title ?? 'PureNav'}</span>
           </div>
-          {authenticated && (
+          {canEdit && (
             <button className="nx-capture-btn" onClick={() => setDialog({ mode: 'capture' })} title="快速收录新网页 (N)">
               <IcoPlus size={13} />
               <span>快速收录</span>
@@ -1433,7 +1698,7 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
           <div className="nx-side-section">
             <div className="nx-section-title">
               <span>文件夹树</span>
-              {authenticated && (
+              {canEdit && (
                 <button
                   className="nx-section-action"
                   title={folderId ? '在当前文件夹下新建子文件夹' : '新建根文件夹'}
@@ -1490,16 +1755,41 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
             <span className="nx-user-name">{authenticated ? 'admin' : '访客只读'}</span>
           </div>
           <div className="nx-footer-actions">
-            <button className="nx-icon-btn" onClick={toggleTheme} title="切换明暗主题">
-              {themeMode === 'dark' ? <IcoSun size={13} /> : <IcoMoon size={13} />}
-            </button>
-            <button
-              className="nx-icon-btn"
-              onClick={authenticated ? onAdmin : onLogin}
-              title={authenticated ? '管理后台' : '管理员登录'}
-            >
-              <IcoGear size={13} />
-            </button>
+            {authenticated ? (
+              <>
+                <button
+                  className="nx-icon-btn"
+                  data-active={drawer === 'appearance' || undefined}
+                  onClick={() => setDrawer((current) => (current === 'appearance' ? null : 'appearance'))}
+                  title="外观设置"
+                >
+                  <IcoPalette size={13} />
+                </button>
+                <button
+                  className="nx-icon-btn"
+                  data-active={drawer === 'structure' || undefined}
+                  onClick={() => setDrawer((current) => (current === 'structure' ? null : 'structure'))}
+                  title="分组结构"
+                >
+                  <IcoFolder size={13} />
+                </button>
+                <button
+                  className="nx-icon-btn"
+                  data-active={drawer === 'data' || undefined}
+                  onClick={() => setDrawer((current) => (current === 'data' ? null : 'data'))}
+                  title="数据与备份"
+                >
+                  <IcoDatabase size={13} />
+                </button>
+                <button className="nx-icon-btn" onClick={onAdmin} title="旧的完整后台（保留只读运维页）">
+                  <IcoGear size={13} />
+                </button>
+              </>
+            ) : (
+              <button className="nx-icon-btn" onClick={onLogin} title="管理员登录">
+                <IcoGear size={13} />
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -1555,10 +1845,32 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
                 <IcoRows size={13} />
               </button>
             </div>
-            <button className="nx-link-btn" onClick={authenticated ? onAdmin : onLogin}>
-              <span>{authenticated ? '管理后台' : '登录'}</span>
-              <IcoArrowUpRight size={13} />
-            </button>
+            {authenticated ? (
+              <div className="nx-edit-switch-wrap">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editMode}
+                  className="nx-edit-switch"
+                  data-active={editMode || undefined}
+                  onClick={() => {
+                    setEditMode((current) => {
+                      if (current) closeContext();
+                      return !current;
+                    });
+                  }}
+                  title={editMode ? '退出编辑模式' : '进入编辑模式：拖拽排序、移动、右键管理'}
+                >
+                  <span className="nx-switch-knob" />
+                </button>
+                <span className="nx-edit-switch-label">编辑</span>
+              </div>
+            ) : (
+              <button className="nx-login-btn" onClick={onLogin}>
+                <IcoLogin size={13} />
+                <span>登录</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -1606,6 +1918,289 @@ export function NavPage({ authenticated, onAdmin, onLogin }: Props) {
           </div>
         </footer>
       </main>
+
+      {drawer && (
+        <>
+          <div className="nx-drawer-backdrop" onClick={() => setDrawer(null)} />
+          <aside className="nx-drawer" role="dialog" aria-label="工作台抽屉">
+            <div className="nx-drawer-head">
+              <span className="nx-drawer-title">
+                {drawer === 'appearance' ? '外观' : drawer === 'structure' ? '分组结构' : '数据与备份'}
+              </span>
+              <button className="nx-icon-btn" onClick={() => setDrawer(null)} title="关闭 (Esc)">
+                <IcoClose size={14} />
+              </button>
+            </div>
+
+            <div className="nx-drawer-body">
+              {drawer === 'appearance' && (
+                <>
+                  <div className="nx-field">
+                    <span className="nx-field-label">主题</span>
+                    <div className="nx-seg">
+                      <button
+                        data-active={(siteSettings?.theme.mode ?? themeMode) === 'light' || undefined}
+                        disabled={settingsBusy}
+                        onClick={() => void saveSettings({ theme: { mode: 'light' } }, '已切换为浅色主题')}
+                      >
+                        浅色
+                      </button>
+                      <button
+                        data-active={siteSettings?.theme.mode === 'dark' || undefined}
+                        disabled={settingsBusy}
+                        onClick={() => void saveSettings({ theme: { mode: 'dark' } }, '已切换为深色主题')}
+                      >
+                        深色
+                      </button>
+                    </div>
+                    <span className="nx-field-hint">站点级设置，对所有访客生效。</span>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">强调色</span>
+                    <div className="nx-swatches">
+                      {['#2f6df6', '#0f9d76', '#e0512f', '#a855f7', '#0ea5e9', '#f59e0b'].map((color) => (
+                        <button
+                          key={color}
+                          className="nx-swatch"
+                          style={{ background: color }}
+                          data-active={
+                            (siteSettings?.theme.accent ?? '').toLowerCase() === color.toLowerCase() || undefined
+                          }
+                          aria-label={`强调色 ${color}`}
+                          disabled={settingsBusy}
+                          onClick={() => void saveSettings({ theme: { accent: color } }, '强调色已更新')}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">圆角 {siteSettings?.theme.radius ?? 12}px</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={24}
+                      step={2}
+                      value={siteSettings?.theme.radius ?? 12}
+                      disabled={settingsBusy || !siteSettings}
+                      onChange={(event) =>
+                        setSiteSettings((prev) =>
+                          prev ? { ...prev, theme: { ...prev.theme, radius: Number(event.target.value) } } : prev,
+                        )
+                      }
+                      onMouseUp={(event) =>
+                        void saveSettings({ theme: { radius: Number((event.target as HTMLInputElement).value) } })
+                      }
+                    />
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">阴影</span>
+                    <div className="nx-seg">
+                      {(
+                        [
+                          ['none', '无'],
+                          ['soft', '柔和'],
+                          ['strong', '明显'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          data-active={siteSettings?.theme.shadow === value || undefined}
+                          disabled={settingsBusy}
+                          onClick={() => void saveSettings({ theme: { shadow: value } }, '阴影已更新')}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">密度</span>
+                    <div className="nx-seg">
+                      {(
+                        [
+                          ['comfortable', '舒展'],
+                          ['compact', '紧凑'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          data-active={siteSettings?.layout.density === value || undefined}
+                          disabled={settingsBusy}
+                          onClick={() => void saveSettings({ layout: { density: value } }, '密度已更新')}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">卡片尺寸</span>
+                    <div className="nx-seg">
+                      {(
+                        [
+                          ['sm', '小'],
+                          ['md', '中'],
+                          ['lg', '大'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          data-active={siteSettings?.layout.cardSize === value || undefined}
+                          disabled={settingsBusy}
+                          onClick={() => void saveSettings({ layout: { cardSize: value } }, '卡片尺寸已更新')}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="nx-field" data-row="true">
+                    <span className="nx-field-label">显示描述</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={siteSettings?.layout.showDescription !== false}
+                      className="nx-edit-switch"
+                      data-active={siteSettings?.layout.showDescription !== false || undefined}
+                      disabled={settingsBusy}
+                      onClick={() =>
+                        void saveSettings(
+                          { layout: { showDescription: siteSettings?.layout.showDescription === false } },
+                          '已更新描述显示',
+                        )
+                      }
+                    >
+                      <span className="nx-switch-knob" />
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {drawer === 'structure' && (
+                <>
+                  <p className="nx-drawer-note">
+                    重命名、删除文件夹直接作用于站点数据；拖拽排序与移动到文件夹请在编辑态下于页面中完成。
+                  </p>
+                  <div className="nx-structure-list">
+                    {renderStructureRows()}
+                  </div>
+                  <button
+                    className="nx-btn-secondary"
+                    onClick={() => {
+                      setDrawer(null);
+                      setNewFolder({ open: true, name: '' });
+                    }}
+                  >
+                    <IcoPlus size={13} />
+                    <span>新建根文件夹</span>
+                  </button>
+                </>
+              )}
+
+              {drawer === 'data' && (
+                <>
+                  <div className="nx-field">
+                    <span className="nx-field-label">导出</span>
+                    <div className="nx-drawer-row">
+                      <button className="nx-btn-secondary" disabled={dataBusy} onClick={() => void exportData('json')}>
+                        <IcoDatabase size={13} />
+                        <span>完整 JSON</span>
+                      </button>
+                      <button
+                        className="nx-btn-secondary"
+                        disabled={dataBusy}
+                        onClick={() => void exportData('bookmarks.html')}
+                      >
+                        <IcoOpen size={13} />
+                        <span>浏览器书签 HTML</span>
+                      </button>
+                    </div>
+                    <span className="nx-field-hint">导出前请先下载留存，导入覆盖模式不可撤销。</span>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">导入</span>
+                    <div className="nx-drawer-row">
+                      <label className="nx-btn-secondary" data-busy={dataBusy || undefined}>
+                        <IcoPlus size={13} />
+                        <span>合并导入</span>
+                        <input
+                          type="file"
+                          accept="application/json"
+                          hidden
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = '';
+                            if (file) void importData(file, 'merge');
+                          }}
+                        />
+                      </label>
+                      <label className="nx-btn-secondary" data-busy={dataBusy || undefined}>
+                        <IcoWarn size={13} />
+                        <span>覆盖导入</span>
+                        <input
+                          type="file"
+                          accept="application/json"
+                          hidden
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = '';
+                            if (file && window.confirm('覆盖导入会清空现有书签与分组，确定继续？')) {
+                              void importData(file, 'replace');
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">体检</span>
+                    <div className="nx-drawer-row">
+                      <button className="nx-btn-secondary" disabled={doctorBusy} onClick={() => void rescanDoctor()}>
+                        <IcoPulse size={13} />
+                        <span>{doctorBusy ? '扫描中…' : '重新扫描全部书签'}</span>
+                      </button>
+                      <button
+                        className="nx-btn-secondary"
+                        onClick={() => {
+                          setDrawer(null);
+                          selectView('doctor');
+                        }}
+                      >
+                        <IcoWarn size={13} />
+                        <span>查看 {issueCount} 项问题</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="nx-field">
+                    <span className="nx-field-label">待整理</span>
+                    <div className="nx-drawer-row">
+                      <button
+                        className="nx-btn-secondary"
+                        onClick={() => {
+                          setDrawer(null);
+                          selectView('inbox');
+                        }}
+                      >
+                        <IcoInbox size={13} />
+                        <span>打开收件箱（{counts.inbox}）</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
 
       {ctxMenu && ctxFlat && (
         <div
