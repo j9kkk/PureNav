@@ -349,6 +349,7 @@ const ItemCard = memo(function ItemCard({
   single,
   highlight,
   canEdit,
+  canDrag,
   onRename,
 }: {
   flat: FlatItem;
@@ -366,6 +367,8 @@ const ItemCard = memo(function ItemCard({
   single: boolean;
   highlight: boolean;
   canEdit: boolean;
+  /** 触摸屏上不启用原生 HTML5 拖拽（会被系统长按拖拽抢走） */
+  canDrag: boolean;
   onRename: (id: string, title: string, previous: string) => void;
 }) {
   const { item } = flat;
@@ -389,9 +392,9 @@ const ItemCard = memo(function ItemCard({
       data-highlight={highlight || undefined}
       data-drop={dropSide}
       data-item-id={item.id}
-      draggable={canEdit || undefined}
+      draggable={canDrag || undefined}
       onDragStart={
-        canEdit
+        canDrag
           ? (event) => {
               event.dataTransfer.setData('text/plain', item.id);
               event.dataTransfer.effectAllowed = 'move';
@@ -582,6 +585,19 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
   const suppressClickRef = useRef(false);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  // 原生 HTML5 拖拽只在鼠标/触控板上可用：触摸屏上 draggable=true 会被系统长按拖拽抢占，
+  // 直接触发原生 dragstart / pointercancel，把我们的长按拖拽打断。
+  const [finePointer, setFinePointer] = useState(() => window.matchMedia('(pointer: fine)').matches);
+  useEffect(() => {
+    const update = () => setFinePointer(window.matchMedia('(pointer: fine)').matches);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
   // 窄屏下占位文案会被搜索框尾部快捷键徽标切掉，换成短文案
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 720px)').matches);
   useEffect(() => {
@@ -1192,7 +1208,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
 
   const onNodePointerDown = useCallback(
     (event: React.PointerEvent, groupId: string) => {
-      if (!canEdit || event.pointerType !== 'touch') return;
+      if (!canEdit || event.pointerType === 'mouse') return;
       // 按在箭头/＋/⋯ 上时交给这些控件自己处理
       if ((event.target as HTMLElement).closest('.nx-node-actions, button.nx-tree-arrow')) return;
       touchDragRef.current = { id: groupId, startX: event.clientX, startY: event.clientY, active: false };
@@ -1663,6 +1679,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
           single={viewMode === 'single'}
           highlight={ctxMenu?.flat.item.id === flat.item.id}
           canEdit={canEdit}
+          canDrag={canEdit && finePointer}
           onRename={renameItem}
         />
       ))}
@@ -1711,7 +1728,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
             data-contains-active={containsActive(group.id) || undefined}
             data-group-id={group.id}
             data-touch-drag={touchDrag?.id === group.id || undefined}
-            draggable={canEdit && !editing ? true : undefined}
+            draggable={canEdit && !editing && finePointer ? true : undefined}
             onPointerDown={(event) => onNodePointerDown(event, group.id)}
             onDragStart={(event) => {
               if (!canEdit || editing) return;
@@ -1729,6 +1746,10 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
             onDragOver={(event) => onNodeDragOver(event, group.id, kids.length > 0, open)}
             onDragLeave={() => onNodeDragLeave(group.id)}
             onDrop={(event) => onNodeDrop(event, group.id)}
+            onContextMenu={(event) => {
+              // 触屏长按会弹系统菜单（选择/查询/复制），它会打断长按拖拽
+              if (canEdit && !finePointer) event.preventDefault();
+            }}
           >
             {kids.length > 0 ? (
               <button
@@ -2262,6 +2283,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
       data-size={config?.site.layout.cardSize ?? 'md'}
       data-desc={config?.site.layout.showDescription === false ? 'off' : 'on'}
       data-dragging={dragging || undefined}
+      data-touch-dragging={touchDrag ? 'true' : undefined}
     >
       <aside className="nx-sidebar" data-open={mobileNav || undefined}>
         <div className="nx-brand-box">

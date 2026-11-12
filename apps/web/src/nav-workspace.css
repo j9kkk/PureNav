@@ -571,6 +571,15 @@ button.nx-tree-arrow:hover {
 .nx-nav-item,
 .nx-tree-child {
   touch-action: pan-y;
+  /* iOS 长按会弹「拷贝/查询」菜单并取消后续指针事件，必须关掉 callout 和文本选择 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 长按拖拽进行中：禁止滚动容器接管手势（Safari 一旦开始滚动就 pointercancel） */
+.nx-app[data-touch-dragging='true'] .nx-side-scroll {
+  touch-action: none;
 }
 
 /* 触屏没有 hover：操作常驻，并改为参与布局（不叠在计数上），同时放大点击区 */
