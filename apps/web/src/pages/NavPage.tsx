@@ -1134,13 +1134,14 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
 
   /** 把文件夹拖到目标的前 / 后 / 内部：本地重排整棵树后整份快照提交。 */
   const dropFolder = useCallback(
-    async (movedId: string, targetId: string, zone: 'before' | 'after' | 'inside') => {
+    async (movedId: string, targetId: string | null, zone: 'before' | 'after' | 'inside') => {
       if (movedId === targetId) return;
       const moved = groupById.get(movedId);
-      const target = groupById.get(targetId);
-      if (!moved || !target) return;
+      const target = targetId ? groupById.get(targetId) : null;
+      if (!moved) return;
+      if (targetId && !target) return;
       const forbidden = [movedId, ...descendantGroupIds(movedId)];
-      const parentId = zone === 'inside' ? targetId : target.parentId ?? null;
+      const parentId = targetId === null ? null : zone === 'inside' ? targetId : target?.parentId ?? null;
       if (parentId && forbidden.includes(parentId)) {
         pushToast('不能把文件夹移动到它自己的子文件夹里');
         return;
@@ -1155,7 +1156,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
         buckets.set(parent, list);
       }
       const siblings = buckets.get(parentId) ?? [];
-      if (zone === 'inside') {
+      if (zone === 'inside' || targetId === null) {
         siblings.push(movedId);
       } else {
         const index = siblings.indexOf(targetId);
@@ -1180,9 +1181,11 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
         await api.reorderGroups(snapshot);
         if (parentId) setNodeOpen(parentId, true);
         pushToast(
-          zone === 'inside'
-            ? `已把「${moved.name}」移入「${target.name}」`
-            : `「${moved.name}」顺序已更新`,
+          !target
+            ? `已把「${moved.name}」移到根目录`
+            : zone === 'inside'
+              ? `已把「${moved.name}」移入「${target.name}」`
+              : `「${moved.name}」顺序已更新`,
         );
         await refreshAll();
       } catch (error) {
@@ -1210,12 +1213,19 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
   }, [childrenByParent, pathOf, pickerQuery]);
 
   const pickTargetName =
-    pickerTarget === '__inbox__' ? '待整理收件箱' : pickerTarget ? groupById.get(pickerTarget)?.name ?? '' : '';
+    pickerTarget === '__inbox__'
+      ? '待整理收件箱'
+      : pickerTarget === '__root__'
+        ? '根目录'
+        : pickerTarget
+          ? groupById.get(pickerTarget)?.name ?? ''
+          : '';
 
   const confirmPick = useCallback(async () => {
     if (!picker || !pickerTarget) return;
     const target = pickerTarget;
-    const name = target === '__inbox__' ? '待整理收件箱' : groupById.get(target)?.name ?? '';
+    const name =
+      target === '__inbox__' ? '待整理收件箱' : target === '__root__' ? '根目录' : groupById.get(target)?.name ?? '';
     const job = picker;
     setPicker(null);
     setPickerTarget(null);
@@ -1226,7 +1236,7 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
         pushToast('收件箱不能作为文件夹的上级');
         return;
       }
-      await dropFolder(job.groupId, target, 'inside');
+      await dropFolder(job.groupId, target === '__root__' ? null : target, 'inside');
       return;
     }
     await moveItem(job.itemId, target, name);
@@ -3430,6 +3440,26 @@ export function NavPage({ authenticated, onLogin, onLoggedOut }: Props) {
               />
             </div>
             <div className="nx-picker-list">
+              {picker.mode === 'folder' && (
+                <button
+                  type="button"
+                  className="nx-picker-row"
+                  data-selected={pickerTarget === '__root__' || undefined}
+                  data-current={picker.from === null || undefined}
+                  disabled={picker.from === null || undefined}
+                  onClick={() => setPickerTarget('__root__')}
+                >
+                  <span className="nx-picker-name">根目录</span>
+                  <span className="nx-picker-tail">
+                    {picker.from === null ? (
+                      <span className="nx-picker-current">当前位置</span>
+                    ) : (
+                      <span className="nx-picker-ring" data-on={pickerTarget === '__root__' || undefined} />
+                    )}
+                  </span>
+                </button>
+              )}
+              {picker.mode === 'folder' && <div className="nx-picker-sep" />}
               <button
                 type="button"
                 className="nx-picker-row"
